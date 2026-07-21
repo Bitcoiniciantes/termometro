@@ -62,6 +62,7 @@ export default function Home(){
     <div className="deskTop">
       <div className="deskAsset"><span className="assetIcon">{ticker.slice(0,2)}</span><div><span className="eyebrow">ATIVO EM ANÁLISE</span><h1>{ticker}<small>/USDT</small></h1></div></div>
       <div className="deskQuote"><span>ÚLTIMO PREÇO</span><b>{fmt(currentPrice)}</b><small className={change<0?"down":""}>{analysis?`${change>=0?"+":""}${change.toFixed(2)}% no candle`:marketError||"Carregando..."}</small></div>
+      <div className={`quickScale ${loading?"isLoading":""}`} role="img" aria-label={`Viés rápido: ${loading?"carregando":score}`}><div className="quickScaleHead"><span>VIÉS RÁPIDO</span><b>{loading?"CARREGANDO":`${score>0?"+":""}${score}`}</b></div><div className="quickScaleTrack"><i style={{left:loading?"50%":`${(score+100)/2}%`}}/></div><div className="quickScaleLabels"><span>-100<br/>Venda</span><span>0<br/>Neutro</span><span>+100<br/>Compra</span></div></div>
       <div className="periods">{["1H","4H","1D","1S","1M"].map(p=><button key={p} onClick={()=>{setLoading(true);setMarketError("");setPeriod(p)}} className={period===p?"active":""}>{p}</button>)}</div>
     </div>
     <form className="assetSearch" onSubmit={e=>{e.preventDefault();analyzeQuery()}}><label>BUSCAR ATIVO</label><div><input aria-label="Código do ativo" value={query} onChange={e=>setQuery(e.target.value)} placeholder="BTC"/><button type="submit">Analisar →</button><button type="button" className="includeButton" onClick={includeAsset}>+ Incluir</button></div></form>
