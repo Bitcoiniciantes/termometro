@@ -56,7 +56,7 @@ export default function Home(){
  const toneClass=score>=20?"tonePositive":score<=-20?"toneNegative":"toneNeutral";
  const radarItems=useMemo(()=>[...ranking.map(item=>({...item,available:true})),...assets.filter(asset=>!ranking.some(item=>item.asset===asset)).map(asset=>({asset,score:0,confidence:0,change:0,available:false}))],[ranking,assets]);
  return <main>
-  <header><a className="brand"><b>T°</b><span>TERMÔMETRO<small>mercado em leitura</small></span></a><nav><a href="#painel">Painel</a><a href="#metodo">Metodologia</a><a href="#regras">Regras</a></nav><span className="live"><i/> {loading?"BUSCANDO MERCADO":marketError?"FONTE INDISPONÍVEL":"DADOS REAIS • BINANCE"}</span></header>
+  <header><a className="brand" href="https://bitcoiniciantes.github.io/estudebitcoin/" target="_blank" rel="noopener noreferrer" title="Abrir Estude Bitcoin"><b>T°</b><span>TERMÔMETRO<small>ESTUDE BITCOIN ↗</small></span></a><nav><a href="#painel">Painel</a><a href="#metodo">Metodologia</a><a href="#regras">Regras</a></nav><span className="live"><i/> {loading?"BUSCANDO MERCADO":marketError?"FONTE INDISPONÍVEL":"DADOS REAIS • BINANCE"}</span></header>
   <section className="analysisDesk workspace" id="painel">
   <div className="analysisColumn analysisLeft">
     <div className="workspaceMain">
