@@ -26,7 +26,7 @@ function analyze(data:MarketData|null):{signals:Signal[];score:number;confidence
 }
 
 export default function Home(){
- const [ticker,setTicker]=useState("BTC"),[query,setQuery]=useState("BTC"),[period,setPeriod]=useState("1D"),[open,setOpen]=useState<number|null>(1),[assets,setAssets]=useState<string[]>(()=>{if(typeof window==="undefined")return defaults;try{return JSON.parse(localStorage.getItem("termometro-assets")||"null")||defaults}catch{return defaults}}),[newAsset,setNewAsset]=useState("");
+ const [ticker,setTicker]=useState("BTC"),[query,setQuery]=useState("BTC"),[period,setPeriod]=useState("1S"),[open,setOpen]=useState<number|null>(1),[assets,setAssets]=useState<string[]>(()=>{if(typeof window==="undefined")return defaults;try{return JSON.parse(localStorage.getItem("termometro-assets")||"null")||defaults}catch{return defaults}}),[newAsset,setNewAsset]=useState("");
  const [market,setMarket]=useState<MarketData|null>(null),[loading,setLoading]=useState(true),[marketError,setMarketError]=useState("");
  const [ranking,setRanking]=useState<BiasItem[]>([]);
  useEffect(()=>{const controller=new AbortController();fetchMarket(ticker,period,controller.signal).then(setMarket).catch(e=>{if(e.name!=="AbortError"){setMarket(null);setMarketError(ticker==="MSTR"?"MSTR ainda sem fonte gratuita":"Ativo indisponível ou bloqueado pela fonte")}}).finally(()=>setLoading(false));return()=>controller.abort()},[ticker,period]);
