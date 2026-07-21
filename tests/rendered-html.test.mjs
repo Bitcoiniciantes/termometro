@@ -15,5 +15,6 @@ test("consulta a fonte pública diretamente no navegador", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /data-api\.binance\.vision\/api\/v3\/klines/);
   assert.match(page, /Access|Binance Public Market Data/);
+  assert.match(page, /"1M":"1M"/);
   assert.doesNotMatch(page, /api[_-]?key|authorization/i);
 });
