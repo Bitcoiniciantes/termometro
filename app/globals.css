@@ -61,3 +61,7 @@
 .analysisDesk.workspace{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:14px;padding:18px max(32px,calc((100vw - 1500px)/2)) 72px;align-items:start}.analysisColumn{display:flex;flex-direction:column;gap:14px;min-width:0}.analysisDesk .signals{grid-column:1/3}.analysisDesk .chart,.analysisDesk .levels{min-width:0}
 @media(max-width:1099px){.analysisDesk.workspace{grid-template-columns:1fr;padding:18px 5vw 72px}.analysisColumn{display:contents}.analysisDesk .workspaceMain{order:1}.analysisDesk .heroThermo{order:2}.analysisDesk .chart{order:3}.analysisDesk .levels{order:4}.analysisDesk .signals{order:5;grid-column:1}}
 .assetSearch input::placeholder{color:#7d8782;opacity:.6;font-style:italic;font-weight:700}
+
+/* Contraste e espaço da busca */
+.workspace .assetSearch>div{background:var(--paper);color:#111}.workspace .assetSearch input{background:transparent;color:#111;font-size:14px;font-weight:800;padding:12px}.workspace .assetSearch button[type="submit"]{border:0;background:var(--lime);color:var(--ink);font-weight:900}.workspace .assetSearch .includeButton{border:0;border-left:1px solid #4b5a53}
+@media(max-width:520px){.workspace .assetSearch{padding:10px}.workspace .assetSearch>div{gap:0;padding:5px}.workspace .assetSearch input{min-height:54px;padding:14px 12px;font-size:18px}.workspace .assetSearch button{min-height:46px;font-size:12px}}
