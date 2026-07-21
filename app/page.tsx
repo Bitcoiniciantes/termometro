@@ -5,13 +5,29 @@ type Signal=[string,string,number,string,string];
 type Candle={time:number;open:number;high:number;low:number;close:number;volume:number};
 type MarketData={asset:string;pair:string;source:string;updatedAt:number;candles:Candle[]};
 type BiasItem={asset:string;score:number;confidence:number;change:number};
+type MstrSnapshot={source:string;updatedAt:number;periods:Record<string,Candle[]>};
 const fallbackSignals:Signal[] = [
   ["Aguardando mercado","Sem dados suficientes",0,"Dados","Os sinais serão calculados quando os candles reais forem carregados."],
 ];
 const fallbackCandles=Array(32).fill(50);
 const defaults=["BTC","ETH","LINK","AVAX","SOL","MSTR"];
 const intervals:Record<string,string>={"1H":"1h","4H":"4h","1D":"1d","1S":"1w","1M":"1M"};
-async function fetchMarket(asset:string,period:string,signal?:AbortSignal):Promise<MarketData>{const symbol=`${asset}USDT`;const url=`https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${intervals[period]||"1d"}&limit=120`;const response=await fetch(url,{signal});const body=await response.json();if(!response.ok)throw new Error(body.msg||"Ativo não disponível na Binance");const candles:Candle[]=body.map((row:(string|number)[])=>({time:Number(row[0]),open:Number(row[1]),high:Number(row[2]),low:Number(row[3]),close:Number(row[4]),volume:Number(row[5])}));return{asset,pair:`${asset}/USDT`,source:"Binance Public Market Data",updatedAt:Date.now(),candles}}
+async function fetchMstr(period:string,signal?:AbortSignal):Promise<MarketData>{
+ const basePath=typeof window!=="undefined"&&window.location.pathname.startsWith("/termometro")?"/termometro":"";
+ const response=await fetch(`${basePath}/data/mstr.json?v=${Math.floor(Date.now()/60000)}`,{signal,cache:"no-store"});
+ if(!response.ok)throw new Error("Dados do MSTR temporariamente indisponíveis");
+ const snapshot:MstrSnapshot=await response.json(),candles=snapshot.periods[period]??[];
+ if(candles.length<55)throw new Error(`Histórico do MSTR insuficiente em ${period}`);
+ return{asset:"MSTR",pair:"MSTR/USD",source:snapshot.source,updatedAt:snapshot.updatedAt,candles};
+}
+async function fetchMarket(asset:string,period:string,signal?:AbortSignal):Promise<MarketData>{
+ if(asset==="MSTR")return fetchMstr(period,signal);
+ const symbol=`${asset}USDT`,url=`https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${intervals[period]||"1d"}&limit=120`;
+ const response=await fetch(url,{signal}),body=await response.json();
+ if(!response.ok)throw new Error(body.msg||"Ativo não disponível na Binance");
+ const candles:Candle[]=body.map((row:(string|number)[])=>({time:Number(row[0]),open:Number(row[1]),high:Number(row[2]),low:Number(row[3]),close:Number(row[4]),volume:Number(row[5])}));
+ return{asset,pair:`${asset}/USDT`,source:"Binance Public Market Data",updatedAt:Date.now(),candles};
+}
 const avg=(v:number[])=>v.reduce((a,b)=>a+b,0)/Math.max(v.length,1);
 function analyze(data:MarketData|null):{signals:Signal[];score:number;confidence:number;change:number}|null{
  if(!data||data.candles.length<55)return null; const c=data.candles, closes=c.map(x=>x.close), last=closes.at(-1)!;
@@ -30,8 +46,8 @@ export function Termometro(){
  const [market,setMarket]=useState<MarketData|null>(null),[loading,setLoading]=useState(true),[marketError,setMarketError]=useState("");
  const [ranking,setRanking]=useState<BiasItem[]>([]);
  const [periodFeedback,setPeriodFeedback]=useState(""),[showPeriodHelp,setShowPeriodHelp]=useState(false);
- useEffect(()=>{const controller=new AbortController();fetchMarket(ticker,period,controller.signal).then(data=>{setMarket(data);setPeriodFeedback(current=>current?("✓ Termômetro atualizado para "+period):"")}).catch(e=>{if(e.name!=="AbortError"){setMarket(null);setMarketError(ticker==="MSTR"?"MSTR ainda sem fonte gratuita":"Ativo indisponível ou bloqueado pela fonte")}}).finally(()=>setLoading(false));return()=>controller.abort()},[ticker,period]);
- useEffect(()=>{const controller=new AbortController();Promise.allSettled(assets.filter(asset=>asset!=="MSTR").map(asset=>fetchMarket(asset,period,controller.signal))).then(results=>{const next=results.flatMap(result=>{if(result.status!=="fulfilled")return[];const reading=analyze(result.value);return reading?[{asset:result.value.asset,score:reading.score,confidence:reading.confidence,change:reading.change}]:[]});setRanking(next.sort((a,b)=>b.score-a.score))});return()=>controller.abort()},[assets,period]);
+ useEffect(()=>{const controller=new AbortController();fetchMarket(ticker,period,controller.signal).then(data=>{setMarket(data);setPeriodFeedback(current=>current?("✓ Termômetro atualizado para "+period):"")}).catch(e=>{if(e.name!=="AbortError"){setMarket(null);setMarketError(ticker==="MSTR"?"Dados do MSTR temporariamente indisponíveis":"Ativo indisponível ou bloqueado pela fonte")}}).finally(()=>setLoading(false));return()=>controller.abort()},[ticker,period]);
+ useEffect(()=>{const controller=new AbortController();Promise.allSettled(assets.map(asset=>fetchMarket(asset,period,controller.signal))).then(results=>{const next=results.flatMap(result=>{if(result.status!=="fulfilled")return[];const reading=analyze(result.value);return reading?[{asset:result.value.asset,score:reading.score,confidence:reading.confidence,change:reading.change}]:[]});setRanking(next.sort((a,b)=>b.score-a.score))});return()=>controller.abort()},[assets,period]);
  const changePeriod=(nextPeriod:string)=>{if(nextPeriod===period){setPeriodFeedback("✓ "+nextPeriod+" já está selecionado");return}setLoading(true);setMarketError("");setPeriodFeedback("Atualizando termômetro para "+nextPeriod+"…");setPeriod(nextPeriod)};
  useEffect(()=>{if(!periodFeedback)return;const timer=window.setTimeout(()=>setPeriodFeedback(""),3200);return()=>window.clearTimeout(timer)},[periodFeedback]);
  const selectAsset=(asset:string)=>{setLoading(true);setMarketError("");setTicker(asset)};
@@ -49,7 +65,8 @@ export function Termometro(){
  const tr=market?.candles.slice(-15).map((x,i,a)=>i?Math.max(x.high-x.low,Math.abs(x.high-a[i-1].close),Math.abs(x.low-a[i-1].close)):x.high-x.low)??[];
  const atrAbs=tr.length?avg(tr.slice(-14)):0,entry=resistance?resistance*1.002:0,stop=entry&&atrAbs?entry-atrAbs*1.5:0,target=entry&&stop?entry+(entry-stop)*2.5:0;
  const volumeRatio=market&&market.candles.length>21?market.candles.at(-1)!.volume/avg(market.candles.slice(-21,-1).map(x=>x.volume)):0;
- const fmt=(value:number|undefined)=>value?`USDT ${value.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—";
+ const currency=ticker==="MSTR"?"USD":"USDT";
+ const fmt=(value:number|undefined)=>value?`${currency} ${value.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—";
  const pct=(value:number)=>currentPrice&&value?`${value>=currentPrice?"+":""}${((value/currentPrice-1)*100).toFixed(2)}%`:"—"; const entryDistance=currentPrice&&entry?(entry/currentPrice-1)*100:0,supportDistance=currentPrice&&support?(support/currentPrice-1)*100:0;
  const showPlan=!!analysis&&score>=20&&entryDistance<=15;
  const planStatus=!analysis?"SEM DADOS":score<=-20?"PRESSÃO DE VENDA":score<20?"AGUARDAR":entryDistance>15?"GATILHO DISTANTE":entryDistance>5?"EM OBSERVAÇÃO":"PRÓXIMO DO GATILHO";
@@ -60,12 +77,12 @@ export function Termometro(){
  const toneClass=score>=20?"tonePositive":score<=-20?"toneNegative":"toneNeutral";
  const radarItems=useMemo(()=>[...ranking.map(item=>({...item,available:true})),...assets.filter(asset=>!ranking.some(item=>item.asset===asset)).map(asset=>({asset,score:0,confidence:0,change:0,available:false}))],[ranking,assets]);
  return <main>
-  <header><a className="brand" href="https://bitcoiniciantes.github.io/estudebitcoin/" target="_blank" rel="noopener noreferrer" title="Abrir Estude Bitcoin"><b>T°</b><span>TERMÔMETRO<small>ESTUDE BITCOIN ↗</small></span></a><nav><a href="#painel">Painel</a><a href="#metodo">Metodologia</a><a href="#regras">Regras</a></nav><span className="live"><i/> {loading?"BUSCANDO MERCADO":marketError?"FONTE INDISPONÍVEL":"DADOS REAIS • BINANCE"}</span></header>
+  <header><a className="brand" href="https://bitcoiniciantes.github.io/estudebitcoin/" target="_blank" rel="noopener noreferrer" title="Abrir Estude Bitcoin"><b>T°</b><span>TERMÔMETRO<small>ESTUDE BITCOIN ↗</small></span></a><nav><a href="#painel">Painel</a><a href="#metodo">Metodologia</a><a href="#regras">Regras</a></nav><span className="live"><i/> {loading?"BUSCANDO MERCADO":marketError?"FONTE INDISPONÍVEL":ticker==="MSTR"?"MSTR • YAHOO FINANCE":"DADOS REAIS • BINANCE"}</span></header>
   <section className="analysisDesk workspace" id="painel">
   <div className="analysisColumn analysisLeft">
     <div className="workspaceMain">
     <div className="deskTop">
-      <div className="deskAsset"><span className="assetIcon">{ticker.slice(0,2)}</span><div><span className="eyebrow">ATIVO EM ANÁLISE</span><h1>{ticker}<small>/USDT</small></h1></div></div>
+      <div className="deskAsset"><span className="assetIcon">{ticker.slice(0,2)}</span><div><span className="eyebrow">ATIVO EM ANÁLISE</span><h1>{ticker}<small>/{currency}</small></h1></div></div>
       <div className="deskQuote"><span>ÚLTIMO PREÇO</span><b>{fmt(currentPrice)}</b><small className={change<0?"down":""}>{analysis?`${change>=0?"+":""}${change.toFixed(2)}% no candle`:marketError||"Carregando..."}</small></div>
       <div className={`quickScale ${loading?"isLoading":""}`} role="img" aria-label={`Viés rápido: ${loading?"carregando":score}`}><div className="quickScaleHead"><span>VIÉS RÁPIDO</span><b>{loading?"CARREGANDO":`${score>0?"+":""}${score}`}</b></div><div className="quickScaleTrack"><i style={{left:loading?"50%":`${(score+100)/2}%`}}/></div><div className="quickScaleLabels"><span>-100<br/>Venda</span><span>0<br/>Neutro</span><span>+100<br/>Compra</span></div></div>
       <div className="periods">{["1H","4H","1D","1S","1M"].map(p=><button key={p} onClick={()=>changePeriod(p)} className={period===p?"active":""}>{p}</button>)}</div>
