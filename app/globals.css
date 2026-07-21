@@ -85,3 +85,14 @@
 @media(max-width:520px){.workspace .assetSearch{padding:10px}.workspace .assetSearch>div{gap:0;padding:5px}.workspace .assetSearch input{min-height:54px;padding:14px 12px;font-size:18px}.workspace .assetSearch button{min-height:46px;font-size:12px}}
 /* Versão incorporável do radar */
 .widgetEmbed{min-height:100vh;background:var(--ink)}.widgetEmbed header,.widgetEmbed .analysisRight,.widgetEmbed .analysisLeft>.chart,.widgetEmbed .signals,.widgetEmbed .method,.widgetEmbed footer{display:none!important}.widgetEmbed .analysisDesk.workspace{display:block;padding:0;background:var(--ink)}.widgetEmbed .analysisLeft{display:block}.widgetEmbed .workspaceMain{border:0}.widgetEmbed .biasBoard>p{padding-bottom:8px}.widgetEmbed main{min-height:auto}
+/* Orientação do período também no desktop */
+.desktopPeriodPrompt{display:grid;gap:5px;margin-left:auto;min-width:235px;position:relative}
+.desktopPeriodGuide>div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.desktopPeriodGuide span{color:var(--paper);font-size:8px;font-weight:900;letter-spacing:.11em}
+.desktopPeriodGuide small{display:block;margin-top:3px;color:#9aa7a1;font-size:8px}
+.desktopPeriodGuide button{width:18px;height:18px;padding:0;border:1px solid #496058;border-radius:50%;background:transparent;color:var(--lime);font-size:9px;font-weight:900;cursor:pointer}
+.desktopPeriodGuide p{position:absolute;z-index:6;top:calc(100% + 7px);right:0;width:285px;margin:0;padding:10px;border:1px solid #496058;border-left:3px solid var(--lime);background:#101915;color:#b5c0bb;font-size:9px;line-height:1.5;box-shadow:0 10px 24px #0008}
+.deskTop .desktopPeriodPrompt .periods{display:grid;grid-template-columns:repeat(5,1fr);margin:0;animation:periodAttention 1.25s ease 1}
+.desktopPeriodFeedback{min-height:18px;padding:4px 7px;border:1px solid #8d753f;background:#c39a4512;color:#d7b65d;font-size:8px;font-weight:800;letter-spacing:.03em}
+.desktopPeriodFeedback.done{border-color:#376f4a;background:#54b85a12;color:#70ce78}
+@media(max-width:1099px){.desktopPeriodPrompt{display:none}}

@@ -9,6 +9,7 @@ test("expõe o painel e o motor transparente", async () => {
   assert.match(page, /RSI de 14 períodos/);
   assert.match(page, /ATR de 14 períodos/);
   assert.match(page, /termometro-assets/);
+  assert.match(page, /desktopPeriodPrompt/);
 });
 
 test("consulta a fonte pública diretamente no navegador", async () => {
