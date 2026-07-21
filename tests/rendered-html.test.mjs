@@ -11,9 +11,9 @@ test("expõe o painel e o motor transparente", async () => {
   assert.match(page, /termometro-assets/);
 });
 
-test("usa somente a fonte pública para os criptoativos suportados", async () => {
-  const route = await readFile(new URL("../app/api/market/route.ts", import.meta.url), "utf8");
-  assert.match(route, /data-api\.binance\.vision\/api\/v3\/klines/);
-  assert.match(route, /BTC.*ETH.*LINK.*AVAX.*SOL/);
-  assert.doesNotMatch(route, /api[_-]?key|authorization/i);
+test("consulta a fonte pública diretamente no navegador", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /data-api\.binance\.vision\/api\/v3\/klines/);
+  assert.match(page, /Access|Binance Public Market Data/);
+  assert.doesNotMatch(page, /api[_-]?key|authorization/i);
 });

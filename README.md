@@ -11,7 +11,7 @@ Painel técnico gratuito, determinístico e sem IA para leitura de criptoativos.
 - Radar personalizável salvo no navegador.
 - MSTR aparece no radar, mas permanece sem cotação até existir uma fonte gratuita estável.
 
-Os candles são consultados no endpoint público de mercado da Binance, sem chave de API. A aplicação precisa de acesso à internet em execução para atualizar as cotações.
+Os candles são consultados diretamente pelo navegador no endpoint público da Binance, sem chave de API. Essa arquitetura permite hospedar o piloto gratuitamente no GitHub Pages. A aplicação precisa de acesso à internet para atualizar as cotações.
 
 ## Rodar localmente
 
