@@ -34,6 +34,7 @@ async function fetchMarket(asset:string,period:string,signal?:AbortSignal):Promi
  return{asset,pair:`${asset}/USDT`,source:"Binance Public Market Data",updatedAt:Date.now(),candles};
 }
 const avg=(v:number[])=>v.reduce((a,b)=>a+b,0)/Math.max(v.length,1);
+function freshnessLabel(updatedAt:number|undefined,now:number){if(!updatedAt||!now)return 'ÚLTIMA CONSULTA';const seconds=Math.max(0,Math.floor((now-updatedAt)/1000));if(seconds<60)return `ÚLTIMA CONSULTA HÁ ${seconds}s`;const minutes=Math.floor(seconds/60);if(minutes<60)return `ÚLTIMA CONSULTA HÁ ${minutes}min`;return `ÚLTIMA CONSULTA ÀS ${new Date(updatedAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`}
 function analyze(data:MarketData|null):{signals:Signal[];score:number;confidence:number;change:number}|null{
  if(!data||data.candles.length<55)return null; const c=data.candles, closes=c.map(x=>x.close), last=closes.at(-1)!;
  const sma20=avg(closes.slice(-20)),sma50=avg(closes.slice(-50));
@@ -50,6 +51,8 @@ export function Termometro(){
  const [ticker,setTicker]=useState("BTC"),[query,setQuery]=useState(""),[period,setPeriod]=useState("1S"),[open,setOpen]=useState<number|null>(1),[assets,setAssets]=useState<string[]>(()=>{if(typeof window==="undefined")return defaults;try{const stored:string[]|null=JSON.parse(localStorage.getItem("termometro-assets")||"null");return stored?[...new Set([...defaults,...stored])]:defaults}catch{return defaults}});
  const [market,setMarket]=useState<MarketData|null>(null),[loading,setLoading]=useState(true),[marketError,setMarketError]=useState("");
  const [ranking,setRanking]=useState<BiasItem[]>([]);
+ const [clock,setClock]=useState(0);
+ useEffect(()=>{setClock(Date.now());const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  const [previousReading,setPreviousReading]=useState<{period:string;score:number}|null>(null);
  const [lastComparedPeriod,setLastComparedPeriod]=useState('1S');
  useEffect(()=>{setPreviousReading(null);setLastComparedPeriod(period)},[ticker]);
@@ -91,7 +94,9 @@ export function Termometro(){
  const label=score>=55?"COMPRA FORTE":score>=20?"COMPRA":score>-20?"NEUTRO":score>-55?"VENDA":"VENDA FORTE";
  const toneClass=score>=20?"tonePositive":score<=-20?"toneNegative":"toneNeutral";
  const radarItems=useMemo(()=>[...ranking.map(item=>({...item,available:true})),...assets.filter(asset=>!ranking.some(item=>item.asset===asset)).map(asset=>({asset,score:0,confidence:0,change:0,available:false}))],[ranking,assets]);
+ const sourceLabel=staticAssets[ticker]?'YAHOO FINANCE':'BINANCE',freshnessBase=freshnessLabel(market?.updatedAt,clock),freshness=staticAssets[ticker]?freshnessBase.replace('ÚLTIMA CONSULTA','DADO ATUALIZADO'):freshnessBase;
  return <main>
+  <div className='marketFreshness'><span className='sourceStatus'><i/>{loading?'BUSCANDO MERCADO':marketError?'FONTE INDISPONÍVEL':sourceLabel}</span>{!loading&&market&&<span className='freshness'>{freshness}</span>}<button type='button' onClick={retryMarket} disabled={loading} aria-label='Consultar dados novamente' title='Consultar dados novamente'>↻</button></div>
   <header><a className="brand" href="https://bitcoiniciantes.github.io/estudebitcoin/" target="_blank" rel="noopener noreferrer" title="Abrir Estude Bitcoin"><b>T°</b><span>TERMÔMETRO<small>ESTUDE BITCOIN ↗</small></span></a><nav><a href="#painel">Painel</a><a href="#metodo">Metodologia</a><a href="#regras">Regras</a></nav><span className="live"><i/> {loading?"BUSCANDO MERCADO":marketError?"FONTE INDISPONÍVEL":staticAssets[ticker]?`${displayName} • YAHOO FINANCE`:"DADOS REAIS • BINANCE"}</span></header>
   <section className="analysisDesk workspace" id="painel">
   <div className="analysisColumn analysisLeft">
