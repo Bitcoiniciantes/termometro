@@ -123,3 +123,15 @@
 .periodState.neutral{border-color:#c39a4555;background:#c39a4524;color:#e3b95e}
 @media(max-width:1099px){.desktopPeriodComparison{display:none}.mobilePeriodComparison{display:block;padding:7px 0 2px}.periodComparison{justify-content:flex-end}}
 @media(max-width:520px){.periodComparison{justify-content:space-between;gap:5px}.periodState{flex:1;justify-content:center;padding:7px 6px}.periodState b,.periodState strong{font-size:10px}}
+
+/* Fonte e instante real da última resposta recebida */
+header>.live{display:none}
+.marketFreshness{position:fixed;top:0;right:5vw;z-index:11;height:78px;display:flex;align-items:center;gap:12px;color:#aeb9b4;font-size:9px;font-weight:800;letter-spacing:.07em}
+.sourceStatus{display:flex;align-items:center;color:var(--lime)}
+.sourceStatus i{display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:var(--lime);box-shadow:0 0 12px var(--lime)}
+.freshness{padding-left:12px;border-left:1px solid var(--line);color:#b7c1bc}
+.marketFreshness button{width:29px;height:29px;padding:0;border:1px solid #46534e;border-radius:50%;background:#101815;color:#b7c1bc;font-size:17px;line-height:1;cursor:pointer}
+.marketFreshness button:hover{border-color:var(--lime);color:var(--lime)}
+.marketFreshness button:disabled{opacity:.45;cursor:wait}
+.widgetEmbed .marketFreshness{display:none!important}
+@media(max-width:1000px){.marketFreshness{display:none}}
