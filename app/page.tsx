@@ -25,7 +25,7 @@ function analyze(data:MarketData|null):{signals:Signal[];score:number;confidence
  const score=Math.max(-100,Math.min(100,signals.reduce((a,s)=>a+s[2],0))),agreement=signals.filter(s=>Math.sign(s[2])===Math.sign(score)).length/signals.length; return{signals,score,confidence:Math.round(55+agreement*35),change:(last/closes.at(-2)!-1)*100};
 }
 
-export default function Home(){
+export function Termometro(){
  const [ticker,setTicker]=useState("BTC"),[query,setQuery]=useState(""),[period,setPeriod]=useState("1S"),[open,setOpen]=useState<number|null>(1),[assets,setAssets]=useState<string[]>(()=>{if(typeof window==="undefined")return defaults;try{return JSON.parse(localStorage.getItem("termometro-assets")||"null")||defaults}catch{return defaults}});
  const [market,setMarket]=useState<MarketData|null>(null),[loading,setLoading]=useState(true),[marketError,setMarketError]=useState("");
  const [ranking,setRanking]=useState<BiasItem[]>([]);
@@ -82,4 +82,5 @@ export default function Home(){
   <footer><span><b>T°</b> TERMÔMETRO</span><p>Ferramenta educacional • Motor determinístico • Sem IA</p><small>PILOTO v0.1</small></footer>
  </main>
 }
+export default function Home(){return <Termometro/>}
 function Title({kicker,title,extra}:{kicker:string,title:string,extra?:React.ReactNode}){return <div className="cardTitle"><div><span>{kicker}</span><b>{title}</b></div>{extra}</div>}
