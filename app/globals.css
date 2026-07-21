@@ -42,6 +42,24 @@
 .mobilePeriods{display:none}
 @media(max-width:1099px){.deskTop .periods{display:none}.mobilePeriods{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line);background:#0b1310}.mobilePeriods>span{font-size:8px;color:var(--muted);font-weight:800;letter-spacing:.14em;white-space:nowrap}.mobilePeriods .periods{display:grid;grid-template-columns:repeat(5,1fr);width:min(100%,300px);margin:0}.mobilePeriods .periods button{min-height:40px;padding:8px 10px}}
 @media(max-width:480px){.mobilePeriods{align-items:stretch;flex-direction:column;gap:7px}.mobilePeriods .periods{width:100%}.mobilePeriods .periods button{min-height:42px;padding:8px 4px}}
+@keyframes periodAttention{0%,100%{box-shadow:0 0 0 0 #54b85a00}35%{box-shadow:0 0 0 3px #54b85a42}65%{box-shadow:0 0 16px #54b85a38}}
+@media(max-width:1099px){
+ .mobilePeriods.periodPrompt{display:grid;grid-template-columns:minmax(190px,1fr) minmax(250px,300px);align-items:center}
+ .periodGuide>div{display:flex;align-items:center;gap:7px}
+ .periodGuide span{font-size:9px;color:var(--paper);font-weight:900;letter-spacing:.11em}
+ .periodGuide button{width:20px;height:20px;padding:0;border:1px solid #496058;border-radius:50%;background:transparent;color:var(--lime);font-size:10px;font-weight:900;cursor:pointer}
+ .periodGuide small{display:block;margin-top:5px;color:#9aa7a1;font-size:9px}
+ .periodGuide p{margin:8px 0 0;padding:8px 10px;border-left:2px solid var(--lime);background:#54b85a0d;color:#b5c0bb;font-size:9px;line-height:1.45}
+ .periodPrompt .periods{animation:periodAttention 1.25s ease 1}
+ .periodFeedback{grid-column:1/-1;min-height:20px;padding:6px 9px;border:1px solid #8d753f;background:#c39a4512;color:#d7b65d;font-size:9px;font-weight:800;letter-spacing:.04em}
+ .periodFeedback.done{border-color:#376f4a;background:#54b85a12;color:#70ce78}
+}
+@media(max-width:480px){
+ .mobilePeriods.periodPrompt{grid-template-columns:1fr;gap:9px;padding:12px}
+ .periodGuide span{font-size:8px}
+ .periodGuide small{font-size:9px}
+ .periodFeedback{grid-column:1}
+}
 
 /* Busca única e radar ampliado de compra e venda */
 .assetSearch{margin-top:12px}.workspace .assetSearch>div{display:grid;grid-template-columns:minmax(0,1fr) auto auto;width:100%;padding:4px}.workspace .assetSearch input{min-width:0}.workspace .assetSearch .includeButton{background:#101815;color:var(--lime);border-left:1px solid #4b5a53}
