@@ -108,3 +108,18 @@
 .biasItem.selected .biasRank{background:transparent;color:var(--lime)}
 .biasSelect>i{height:4px}
 .biasBoard>p{color:#96a39d;font-size:9px;line-height:1.45}
+
+/* Comparação curta entre o período anterior e o atual */
+.desktopPeriodFeedback,.periodFeedback,.mobileTopPeriods>small{display:none!important}
+.desktopPeriodComparison{width:min(100%,300px);margin:7px 0 0 auto}
+.mobilePeriodComparison{display:none}
+.periodComparison{display:flex;align-items:center;justify-content:flex-end;gap:9px;min-height:34px}
+.periodComparison>i{color:#9ba7a2;font-size:18px;font-style:normal}
+.periodState{display:flex;align-items:center;gap:5px;padding:7px 10px;border:1px solid;border-radius:12px;white-space:nowrap}
+.periodState b,.periodState strong{font-size:11px}
+.periodState small{font-size:9px;opacity:.72}
+.periodState.buy{border-color:#54b85a55;background:#54b85a20;color:#62d26d}
+.periodState.sell{border-color:#ff5b6755;background:#ff5b6720;color:#ff6f79}
+.periodState.neutral{border-color:#c39a4555;background:#c39a4524;color:#e3b95e}
+@media(max-width:1099px){.desktopPeriodComparison{display:none}.mobilePeriodComparison{display:block;padding:7px 0 2px}.periodComparison{justify-content:flex-end}}
+@media(max-width:520px){.periodComparison{justify-content:space-between;gap:5px}.periodState{flex:1;justify-content:center;padding:7px 6px}.periodState b,.periodState strong{font-size:10px}}
