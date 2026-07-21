@@ -65,3 +65,5 @@
 /* Contraste e espaço da busca */
 .workspace .assetSearch>div{background:var(--paper);color:#111}.workspace .assetSearch input{background:transparent;color:#111;font-size:14px;font-weight:800;padding:12px}.workspace .assetSearch button[type="submit"]{border:0;background:var(--lime);color:var(--ink);font-weight:900}.workspace .assetSearch .includeButton{border:0;border-left:1px solid #4b5a53}
 @media(max-width:520px){.workspace .assetSearch{padding:10px}.workspace .assetSearch>div{gap:0;padding:5px}.workspace .assetSearch input{min-height:54px;padding:14px 12px;font-size:18px}.workspace .assetSearch button{min-height:46px;font-size:12px}}
+/* Versão incorporável do radar */
+.widgetEmbed{min-height:100vh;background:var(--ink)}.widgetEmbed header,.widgetEmbed .analysisRight,.widgetEmbed .analysisLeft>.chart,.widgetEmbed .signals,.widgetEmbed .method,.widgetEmbed footer{display:none!important}.widgetEmbed .analysisDesk.workspace{display:block;padding:0;background:var(--ink)}.widgetEmbed .analysisLeft{display:block}.widgetEmbed .workspaceMain{border:0}.widgetEmbed .biasBoard>p{padding-bottom:8px}.widgetEmbed main{min-height:auto}
