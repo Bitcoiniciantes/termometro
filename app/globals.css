@@ -3,3 +3,31 @@
 @media(max-width:850px){header nav,.live{display:none}.heroRow,.grid,.method{grid-template-columns:1fr}.hero form{margin-top:25px}.assetHead{flex-wrap:wrap}.periods{order:4;margin:0}.updated{margin-left:auto}.chart{min-width:0}.priceChart{height:260px}.methodSteps{grid-template-columns:1fr}.method h2{font-size:40px}footer p{display:none}}
 
 .watchDesk{margin-top:45px;border-top:1px solid var(--line);padding-top:22px}.watchTop{display:flex;justify-content:space-between;align-items:end;gap:18px}.watchTop>div:first-child{display:flex;flex-direction:column;gap:5px}.watchTop b{font-size:13px}.watchLabel{font-size:8px;color:var(--lime);letter-spacing:.18em}.addAsset{display:flex;border:1px solid #38453f;background:#0d1512}.addAsset input{background:transparent;border:0;outline:0;color:white;padding:10px 13px;text-transform:uppercase;font-size:10px}.addAsset button{border:0;border-left:1px solid #38453f;background:transparent;color:var(--lime);font-size:9px;font-weight:900;padding:0 14px;cursor:pointer}.assetChips{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:14px}.assetChips>button{position:relative;display:grid;grid-template-columns:34px 1fr;grid-template-rows:1fr 1fr;text-align:left;column-gap:9px;min-height:60px;padding:11px;background:#101815;border:1px solid var(--line);cursor:pointer}.assetChips>button:hover,.assetChips>button.selected{border-color:var(--lime);background:#16211b}.coin{grid-row:1/3;align-self:center;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#f39a35;color:#111;font-size:12px;font-weight:900}.coin1{background:#8294b8}.coin2{background:#2ee8c2}.coin3{background:#e95447}.coin4{background:#9b70ed}.coin5{background:#e5eef0}.assetChips b{align-self:end;font-size:11px}.assetChips small{color:var(--muted);font-size:8px}.assetChips i{position:absolute;right:7px;top:7px;font-style:normal;font-size:6px;color:var(--lime);letter-spacing:.1em}@media(max-width:850px){.watchTop{align-items:stretch;flex-direction:column}.addAsset input{width:100%}.assetChips{grid-template-columns:repeat(2,1fr)}}
+/* Desktop compacto: painel principal visível sem rolagem excessiva */
+@media (min-width: 1100px) {
+  header { height: 64px; padding-inline: max(32px, calc((100vw - 1500px) / 2)); }
+  .brand>b { width: 36px; height: 36px; font-size: 19px; }
+  .hero { padding: 28px max(32px, calc((100vw - 1500px) / 2)) 22px; }
+  .heroRow { grid-template-columns: 1.45fr .55fr; gap: 5vw; align-items: center; }
+  .hero h1 { font-size: clamp(36px, 3.15vw, 52px); line-height: .98; margin: 12px 0; }
+  .hero p { margin: 0; max-width: 720px; font-size: 13px; line-height: 1.45; }
+  .hero form { padding: 15px; }
+  .hero input { padding: 9px; }
+  .hero form button { padding: 10px 15px; }
+  .watchDesk { margin-top: 20px; padding-top: 14px; }
+  .watchTop { align-items: center; }
+  .addAsset input { padding: 8px 11px; }
+  .assetChips { margin-top: 10px; gap: 7px; }
+  .assetChips>button { min-height: 52px; padding: 8px 10px; grid-template-columns: 30px 1fr; }
+  .coin { width: 28px; height: 28px; }
+  .dashboard { padding: 12px max(32px, calc((100vw - 1500px) / 2)) 52px; }
+  .assetHead { min-height: 72px; padding: 12px 18px; }
+  .assetIcon { width: 39px; height: 39px; }
+  .grid { grid-template-columns: 1.52fr .68fr; margin-top: 10px; gap: 10px; }
+  .cardTitle { height: 62px; padding-inline: 18px; }
+  .priceChart { height: 270px; }
+  .scoreRing { width: 145px; height: 145px; margin: 18px auto 8px; }
+  .scoreRing b { font-size: 41px; }
+  .scale { padding-block: 10px; }
+  .confidence { margin-bottom: 16px; }
+}
