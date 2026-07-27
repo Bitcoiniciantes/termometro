@@ -52,15 +52,15 @@ function analyze(data:MarketData|null):{signals:Signal[];score:number;confidence
 }
 
 export function Termometro(){
- const [ticker,setTicker]=useState("BTC"),[query,setQuery]=useState(""),[period,setPeriod]=useState("1S"),[open,setOpen]=useState<number|null>(1),[assets,setAssets]=useState<string[]>(()=>{if(typeof window==="undefined")return defaults;try{const stored:string[]|null=JSON.parse(localStorage.getItem("termometro-assets")||"null");return stored?[...new Set([...defaults,...stored])]:defaults}catch{return defaults}});
+ const [ticker,setTicker]=useState("BTC"),[query,setQuery]=useState(""),[period,setPeriod]=useState("1D"),[open,setOpen]=useState<number|null>(1),[assets,setAssets]=useState<string[]>(()=>{if(typeof window==="undefined")return defaults;try{const stored:string[]|null=JSON.parse(localStorage.getItem("termometro-assets")||"null");return stored?[...new Set([...defaults,...stored])]:defaults}catch{return defaults}});
  const [market,setMarket]=useState<MarketData|null>(null),[loading,setLoading]=useState(true),[marketError,setMarketError]=useState("");
  const [multiRsi,setMultiRsi]=useState<MultiRsi|null>(null),[multiRsiLoading,setMultiRsiLoading]=useState(true);
  const [ranking,setRanking]=useState<BiasItem[]>([]);
  const [clock,setClock]=useState(0);
  useEffect(()=>{setClock(Date.now());const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  const [previousReading,setPreviousReading]=useState<{period:string;score:number}|null>(null);
- const [lastComparedPeriod,setLastComparedPeriod]=useState('1S');
- useEffect(()=>{setPreviousReading(null);setLastComparedPeriod(period)},[ticker]);
+ const [lastComparedPeriod,setLastComparedPeriod]=useState('1D');
+ useEffect(()=>{const controller=new AbortController();setPreviousReading(null);setLastComparedPeriod('1D');fetchMarket(ticker,'1H',controller.signal).then(data=>{const reading=analyze(data);if(reading)setPreviousReading({period:'1H',score:reading.score})}).catch(e=>{if(e.name!=="AbortError")setPreviousReading(null)});return()=>controller.abort()},[ticker]);
  const [usingCached,setUsingCached]=useState(false);
  useEffect(()=>{setUsingCached(false)},[ticker,period]);
  useEffect(()=>{if(!market||market.asset!==ticker)return;try{localStorage.setItem(`termometro-market-${ticker}-${period}`,JSON.stringify(market))}catch{}},[market,ticker,period]);
@@ -72,7 +72,7 @@ export function Termometro(){
  useEffect(()=>{const controller=new AbortController();Promise.allSettled(assets.map(asset=>fetchMarket(asset,period,controller.signal))).then(results=>{const next=results.flatMap(result=>{if(result.status!=="fulfilled")return[];const reading=analyze(result.value);return reading?[{asset:result.value.asset,score:reading.score,confidence:reading.confidence,change:reading.change}]:[]});setRanking(next.sort((a,b)=>b.score-a.score))});return()=>controller.abort()},[assets,period]);
  const changePeriod=(nextPeriod:string)=>{if(nextPeriod===period){setPeriodFeedback("✓ "+nextPeriod+" já está selecionado");return}setLoading(true);setMarketError("");setPeriodFeedback("Atualizando termômetro para "+nextPeriod+"…");setPeriod(nextPeriod)};
  useEffect(()=>{if(!periodFeedback)return;const timer=window.setTimeout(()=>setPeriodFeedback(""),3200);return()=>window.clearTimeout(timer)},[periodFeedback]);
- const selectAsset=(asset:string)=>{setLoading(true);setMarketError("");if(staticAssets[asset]&&period==="15M")setPeriod("1H");setTicker(asset)};
+ const selectAsset=(asset:string)=>{setLoading(true);setMarketError("");setPeriod("1D");setTicker(asset)};
  const cleanAsset=(value:string)=>value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9.-]/g,"");
  const closeKeyboard=()=>{if(typeof document!=="undefined"&&document.activeElement instanceof HTMLElement)document.activeElement.blur()};
  const analyzeQuery=()=>{const clean=cleanAsset(query);if(clean){selectAsset(clean);setQuery("");closeKeyboard()}};
