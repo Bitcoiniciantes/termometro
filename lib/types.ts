@@ -4,6 +4,7 @@ export type Signal = {
   score: number;
   group: string;
   detail: string;
+  context?: boolean;
 };
 
 export type Candle = {
