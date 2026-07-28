@@ -9,10 +9,11 @@ test("expõe o painel e o motor transparente", async () => {
   ]);
   assert.match(page, /TERMÔMETRO/);
   assert.match(analysis, /export function analyze/);
-  assert.match(analysis, /RSI de 14 períodos/);
+  assert.match(analysis, /RSI de Wilder em 14 períodos/);
   assert.match(analysis, /ATR de 14 períodos/);
   assert.match(page, /termometro-assets/);
   assert.match(page, /desktopPeriodPrompt/);
+  assert.match(page, /EXTREMO TÉCNICO/);
 });
 
 test("consulta a fonte pública diretamente no navegador", async () => {

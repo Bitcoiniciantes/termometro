@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { analyze, scoreLabel, wilderRsi } from "../lib/analysis.ts";
+import { analyze, scoreLabel, wilderAdx, wilderRsi } from "../lib/analysis.ts";
 import { mapSettledWithConcurrency } from "../lib/concurrency.ts";
 
 function marketFromCloses(closes, options = {}) {
@@ -81,4 +81,27 @@ test("limita consultas paralelas sem perder resultados", async () => {
     results.map((result) => result.status === "fulfilled" ? result.value : null),
     [2, 4, 6, 8, 10, 12],
   );
+});
+test("ADX distingue tendência forte de mercado sem direção", () => {
+  const rising = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index)).candles;
+  const flat = marketFromCloses(Array(60).fill(100)).candles;
+  assert.ok(wilderAdx(rising) >= 25);
+  assert.equal(wilderAdx(flat), 0);
+});
+
+test("extremo de RSI em tendência forte não vira reversão automática", () => {
+  const rising = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index)));
+  const falling = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 200 - index)));
+  assert.equal(rising?.extreme.status, "EXTREMO COM TENDÊNCIA");
+  assert.equal(rising?.extreme.tone, "positive");
+  assert.equal(falling?.extreme.status, "EXTREMO COM TENDÊNCIA");
+  assert.equal(falling?.extreme.tone, "negative");
+});
+
+test("Termômetro e painel de extremo usam o mesmo RSI de Wilder", () => {
+  const result = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + Math.sin(index / 3) * 5 + index * 0.2)));
+  assert.ok(result);
+  assert.equal(result.signals[2].summary, `RSI em ${result.extreme.rsi.toFixed(1)}`);
+  assert.ok(Number.isFinite(result.extreme.adx));
+  assert.ok(Number.isFinite(result.extreme.atrDistance));
 });
