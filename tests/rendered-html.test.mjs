@@ -3,32 +3,39 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("expõe o painel e o motor transparente", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const [page, analysis] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/analysis.ts", import.meta.url), "utf8"),
+  ]);
   assert.match(page, /TERMÔMETRO/);
-  assert.match(page, /function analyze/);
-  assert.match(page, /RSI de 14 períodos/);
-  assert.match(page, /ATR de 14 períodos/);
+  assert.match(analysis, /export function analyze/);
+  assert.match(analysis, /RSI de 14 períodos/);
+  assert.match(analysis, /ATR de 14 períodos/);
   assert.match(page, /termometro-assets/);
   assert.match(page, /desktopPeriodPrompt/);
 });
 
 test("consulta a fonte pública diretamente no navegador", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /data-api\.binance\.vision\/api\/v3\/klines/);
-  assert.match(page, /Access|Binance Public Market Data/);
-  assert.match(page, /"1M":"1M"/);
-  assert.doesNotMatch(page, /api[_-]?key|authorization/i);
+  const [api, config] = await Promise.all([
+    readFile(new URL("../lib/api.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/config.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(api, /data-api\.binance\.vision\/api\/v3\/klines/);
+  assert.match(api, /Binance Public Market Data/);
+  assert.match(config, /"1M": "1M"/);
+  assert.doesNotMatch(api, /api[_-]?key|authorization/i);
 });
 
 test("inclui ativos pré-cadastrados com fonte gratuita separada", async () => {
-  const [page, workflow] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  const [api, config, workflow] = await Promise.all([
+    readFile(new URL("../lib/api.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/config.ts", import.meta.url), "utf8"),
     readFile(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /fetchStaticAsset/);
-  assert.match(page, /PRATA/);
-  assert.match(page, /COBRE/);
-  assert.match(page, /URÂNIO/);
+  assert.match(api, /fetchStaticAsset/);
+  assert.match(config, /PRATA/);
+  assert.match(config, /COBRE/);
+  assert.match(config, /URÂNIO/);
   assert.match(workflow, /update-market-data\.mjs/);
   for (const file of ["mstr", "prata", "cobre", "uranio"]) {
     const snapshot = await readFile(new URL(`../public/data/${file}.json`, import.meta.url), "utf8");
