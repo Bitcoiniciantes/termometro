@@ -14,6 +14,8 @@ test("expõe o painel e o motor transparente", async () => {
   assert.match(page, /termometro-assets/);
   assert.match(page, /desktopPeriodPrompt/);
   assert.match(page, /EXTREMO TÉCNICO/);
+  assert.match(page, /sinais de nota/);
+  assert.match(analysis, /Força da tendência \(ADX\)/);
 });
 
 test("consulta a fonte pública diretamente no navegador", async () => {
