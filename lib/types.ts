@@ -51,9 +51,23 @@ export type MultiRsi = {
   signal: string;
 };
 
+export type ExtremeTone = "positive" | "negative" | "warning" | "neutral";
+
+export type ExtremeReading = {
+  status: string;
+  summary: string;
+  detail: string;
+  tone: ExtremeTone;
+  rsi: number;
+  adx: number;
+  atrDistance: number;
+  divergence: "bullish" | "bearish" | null;
+};
+
 export type Analysis = {
   signals: Signal[];
   score: number;
   confidence: number;
   change: number;
+  extreme: ExtremeReading;
 };
