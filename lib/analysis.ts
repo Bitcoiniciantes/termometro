@@ -198,15 +198,42 @@ export function analyze(data: MarketData | null): Analysis | null {
   const volume = volRatio >= 1.25 ? 12 : volRatio < 0.7 ? -5 : 3;
   const pattern = compression < 0.72 ? (ascending ? 18 : 8) : 0;
   const risk = atr > 7 ? -12 : atr > 4 ? -6 : 4;
-  const signals: Signal[] = [
+  const scoringSignals: Signal[] = [
     { title: "Tendência primária", summary: `MM20 ${uptrend ? "acima" : "abaixo"} da MM50`, score: trend, group: "Tendência", detail: `MM20: ${sma20.toFixed(2)} • MM50: ${sma50.toFixed(2)}.` },
     { title: "Compressão de preço", summary: compression < 0.72 ? (ascending ? "Estrutura ascendente detectada" : "Amplitude em contração") : "Sem compressão relevante", score: pattern, group: "Padrão", detail: `A amplitude recente equivale a ${(compression * 100).toFixed(0)}% da janela de 20 candles.` },
     { title: "Força relativa", summary: `RSI em ${rsi.toFixed(1)}`, score: momentum, group: "Momentum", detail: `RSI de Wilder em 14 períodos, contextualizado por ADX ${adx.toFixed(1)}.` },
     { title: "Confirmação por volume", summary: `${volRatio.toFixed(2)}× a média`, score: volume, group: "Volume", detail: "Volume do candle atual comparado à média dos 20 anteriores." },
     { title: "Risco por volatilidade", summary: `ATR em ${atr.toFixed(2)}%`, score: risk, group: "Risco", detail: "ATR de 14 períodos normalizado pelo preço atual." },
   ];
-  const score = Math.max(-100, Math.min(100, signals.reduce((sum, signal) => sum + signal.score, 0)));
-  const agreement = signals.filter((signal) => Math.sign(signal.score) === Math.sign(score)).length / signals.length;
+  const contextSignals: Signal[] = [
+    {
+      title: "Força da tendência (ADX)",
+      summary: `ADX em ${adx.toFixed(1)} • tendência ${strongTrend ? "forte" : "fraca"}`,
+      score: 0,
+      group: "Contexto",
+      context: true,
+      detail: "O ADX mede a força da tendência, não sua direção. Acima de 25, a tendência tende a sustentar extremos de RSI por mais tempo.",
+    },
+    {
+      title: "Divergência RSI–preço",
+      summary: divergence === "bullish" ? "Divergência de alta confirmada" : divergence === "bearish" ? "Divergência de baixa confirmada" : "Nenhuma divergência confirmada",
+      score: 0,
+      group: "Contexto",
+      context: true,
+      detail: divergence === "bullish" ? "O preço fez um fundo mais baixo, mas o RSI ganhou força. É um alerta de possível reação, ainda sem garantir reversão." : divergence === "bearish" ? "O preço fez um topo mais alto, mas o RSI perdeu força. É um alerta de possível exaustão, ainda sem garantir reversão." : "A comparação dos últimos pivôs confirmados não mostrou perda relevante de força entre preço e RSI.",
+    },
+    {
+      title: "Distância da média (ATR)",
+      summary: `${atrDistance >= 0 ? "+" : ""}${atrDistance.toFixed(1)} ATR da MM20 • ${Math.abs(atrDistance) >= 2 ? "preço esticado" : "faixa normal"}`,
+      score: 0,
+      group: "Contexto",
+      context: true,
+      detail: "O ATR representa a oscilação normal do ativo. Uma distância de 2 ATR ou mais da MM20 indica preço esticado, comparável entre ativos com volatilidades diferentes.",
+    },
+  ];
+  const signals = [...scoringSignals, ...contextSignals];
+  const score = Math.max(-100, Math.min(100, scoringSignals.reduce((sum, signal) => sum + signal.score, 0)));
+  const agreement = scoringSignals.filter((signal) => Math.sign(signal.score) === Math.sign(score)).length / scoringSignals.length;
   return {
     signals,
     score,

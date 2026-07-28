@@ -48,9 +48,9 @@ test("motor mantém sinais nomeados e pontuação determinística", () => {
   const second = analyze(marketFromCloses(closes, { volume: 150 }));
 
   assert.deepEqual(first, second);
-  assert.equal(first?.signals.length, 5);
+  assert.equal(first?.signals.filter((signal) => !signal.context).length, 5);
   assert.deepEqual(
-    first?.signals.map((signal) => signal.group),
+    first?.signals.filter((signal) => !signal.context).map((signal) => signal.group),
     ["Tendência", "Padrão", "Momentum", "Volume", "Risco"],
   );
   assert.equal(first?.signals[0].score, 18);
@@ -104,4 +104,16 @@ test("Termômetro e painel de extremo usam o mesmo RSI de Wilder", () => {
   assert.equal(result.signals[2].summary, `RSI em ${result.extreme.rsi.toFixed(1)}`);
   assert.ok(Number.isFinite(result.extreme.adx));
   assert.ok(Number.isFinite(result.extreme.atrDistance));
+});
+test("expõe os novos conceitos como contexto sem alterar a soma", () => {
+  const result = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index)));
+  assert.ok(result);
+  const contexts = result.signals.filter((signal) => signal.context);
+  assert.equal(contexts.length, 3);
+  assert.deepEqual(contexts.map((signal) => signal.title), [
+    "Força da tendência (ADX)",
+    "Divergência RSI–preço",
+    "Distância da média (ATR)",
+  ]);
+  assert.equal(result.score, result.signals.filter((signal) => !signal.context).reduce((sum, signal) => sum + signal.score, 0));
 });
