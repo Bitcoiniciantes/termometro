@@ -1,0 +1,59 @@
+export type Signal = {
+  title: string;
+  summary: string;
+  score: number;
+  group: string;
+  detail: string;
+};
+
+export type Candle = {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+export type MarketData = {
+  asset: string;
+  pair: string;
+  source: string;
+  updatedAt: number;
+  candles: Candle[];
+};
+
+export type BiasItem = {
+  asset: string;
+  score: number;
+  confidence: number;
+  change: number;
+};
+
+export type StaticSnapshot = {
+  source: string;
+  updatedAt: number;
+  periods: Record<string, Candle[]>;
+};
+
+export type RsiRow = {
+  label: string;
+  value: number;
+  previous: number;
+};
+
+export type MultiRsi = {
+  rows: RsiRow[];
+  general: number;
+  previousGeneral: number;
+  bullCount: number;
+  bearCount: number;
+  signal: string;
+};
+
+export type Analysis = {
+  signals: Signal[];
+  score: number;
+  confidence: number;
+  change: number;
+};
