@@ -22,7 +22,7 @@ const assets = [
   { asset: "ETH", period: "15M", source: "binance" },
   { asset: "LINK", period: "15M", source: "binance" },
   { asset: "AVAX", period: "15M", source: "binance" },
-  { asset: "SOL", period: "15M", source: "binance" },
+  { asset: "PAXG", period: "15M", source: "binance" },
   { asset: "MSTR", period: "1H", source: "static", file: "mstr" },
   { asset: "PRATA", period: "1H", source: "static", file: "prata" },
   { asset: "COBRE", period: "1H", source: "static", file: "cobre" },
