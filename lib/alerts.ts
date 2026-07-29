@@ -8,6 +8,8 @@ export type SubscriberCommand =
   | "STOP"
   | "STATUS"
   | "HELP"
+  | "MOVEMENT4_ON"
+  | "MOVEMENT4_OFF"
   | AlertPreference
   | null;
 
@@ -56,9 +58,20 @@ export function shouldDeliverAlert(preference: AlertPreference, kind: AlertKind)
   if (preference === "TODOS") return true;
   return kind === "COMPRA_FORTE" || kind === "SAIDA_FORTE";
 }
+export function bitcoinMovement(reference: number, current: number, threshold = 4) {
+  if (!Number.isFinite(reference) || reference <= 0 || !Number.isFinite(current) || current <= 0) {
+    return null;
+  }
+  const changePercent = ((current / reference) - 1) * 100;
+  if (changePercent >= threshold) return { direction: "ALTA" as const, changePercent };
+  if (changePercent <= -threshold) return { direction: "QUEDA" as const, changePercent };
+  return null;
+}
 export function subscriberCommand(text: unknown): SubscriberCommand {
   if (typeof text !== "string") return null;
-  const command = text.trim().toLocaleLowerCase("pt-BR").split(/\s+/, 1)[0];
+  const parts = text.trim().toLocaleLowerCase("pt-BR").split(/\s+/);
+  const command = parts[0];
+  const argument = parts[1];
   if (command === "/start" || command === "/ativar" || command === "ativar") return "START";
   if (command === "/parar" || command === "parar") return "STOP";
   if (command === "/status" || command === "status") return "STATUS";
@@ -67,6 +80,9 @@ export function subscriberCommand(text: unknown): SubscriberCommand {
   if (command === "/todos" || command === "todos") return "TODOS";
   if (command === "/capitulacao" || command === "capitulacao" || command === "capitulação") {
     return "CAPITULACAO";
+  }
+  if (command === "/movimento4" || command === "movimento4") {
+    return ["parar", "off", "desativar"].includes(argument) ? "MOVEMENT4_OFF" : "MOVEMENT4_ON";
   }
   return null;
 }

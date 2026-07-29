@@ -4,6 +4,7 @@ import test from "node:test";
 import { analyze, scoreDistanceLabel, scoreLabel, wilderAdx, wilderRsi } from "../lib/analysis.ts";
 import {
   alertBand,
+  bitcoinMovement,
   alertKind,
   alertTransition,
   capitulationDetected,
@@ -172,6 +173,9 @@ test("interpreta os comandos simples dos amigos", () => {
   assert.equal(subscriberCommand("/fortes"), "FORTES");
   assert.equal(subscriberCommand("/todos"), "TODOS");
   assert.equal(subscriberCommand("capitulação"), "CAPITULACAO");
+  assert.equal(subscriberCommand("/movimento4"), "MOVEMENT4_ON");
+  assert.equal(subscriberCommand("/movimento4 parar"), "MOVEMENT4_OFF");
+  assert.equal(subscriberCommand("movimento4 desativar"), "MOVEMENT4_OFF");
   assert.equal(subscriberCommand("olá"), null);
   assert.equal(subscriberCommand(undefined), null);
 });
@@ -193,4 +197,11 @@ test("capitulação exige sobrevenda, distância e volume juntos", () => {
   assert.equal(capitulationDetected({ rsi: 31, atrDistance: -2.1, volumeRatio: 1.6 }), false);
   assert.equal(capitulationDetected({ rsi: 29, atrDistance: -1.9, volumeRatio: 1.6 }), false);
   assert.equal(capitulationDetected({ rsi: 29, atrDistance: -2.1, volumeRatio: 1.4 }), false);
+});
+test("alerta de movimento do BTC exige variação acumulada de 4%", () => {
+  assert.equal(bitcoinMovement(100_000, 103_999), null);
+  assert.equal(bitcoinMovement(100_000, 104_000)?.direction, "ALTA");
+  assert.equal(bitcoinMovement(100_000, 96_000)?.direction, "QUEDA");
+  assert.ok(Math.abs(bitcoinMovement(104_000, 99_840).changePercent + 4) < 0.000001);
+  assert.equal(bitcoinMovement(0, 100_000), null);
 });

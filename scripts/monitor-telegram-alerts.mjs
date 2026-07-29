@@ -2,6 +2,7 @@ import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 
 import {
   alertBand,
+  bitcoinMovement,
   alertKind,
   alertTransition,
   capitulationDetected,
@@ -94,45 +95,39 @@ const DEFAULT_PREFERENCE = "FORTES";
 
 function normalizeSubscribers(subscribers = {}) {
   return Object.fromEntries(
-    Object.entries(subscribers).map(([chatId, subscriber]) => [
-      chatId,
-      {
-        active: Boolean(subscriber?.active),
-        joinedAt: subscriber?.joinedAt ?? Date.now(),
-        preference: subscriber?.preference ?? DEFAULT_PREFERENCE,
-      },
-    ]),
+    Object.entries(subscribers).map(([chatId, subscriber]) => {
+      const reference = Number(subscriber?.btcMovementReference);
+      return [
+        chatId,
+        {
+          active: Boolean(subscriber?.active),
+          joinedAt: subscriber?.joinedAt ?? Date.now(),
+          preference: subscriber?.preference ?? DEFAULT_PREFERENCE,
+          movement4: Boolean(subscriber?.movement4),
+          btcMovementReference: Number.isFinite(reference) && reference > 0 ? reference : null,
+        },
+      ];
+    }),
   );
 }
 
 function emptyState() {
-  return { version: 3, updateOffset: 0, subscribers: {}, readings: {} };
+  return { version: 4, updateOffset: 0, subscribers: {}, readings: {} };
 }
 
 async function readState() {
   try {
     const content = await readFile(STATE_PATH, "utf8");
     const parsed = JSON.parse(content);
-    if (parsed?.version === 3) {
+    if ([4, 3, 2].includes(parsed?.version)) {
       return {
         state: {
-          version: 3,
+          version: 4,
           updateOffset: Number(parsed.updateOffset) || 0,
           subscribers: normalizeSubscribers(parsed.subscribers),
           readings: parsed.readings ?? {},
         },
-        migrated: false,
-      };
-    }
-    if (parsed?.version === 2) {
-      return {
-        state: {
-          version: 3,
-          updateOffset: Number(parsed.updateOffset) || 0,
-          subscribers: normalizeSubscribers(parsed.subscribers),
-          readings: parsed.readings ?? {},
-        },
-        migrated: true,
+        migrated: parsed.version !== 4,
       };
     }
     if (parsed?.version === 1) {
@@ -142,11 +137,13 @@ async function readState() {
           active: true,
           joinedAt: Date.now(),
           preference: DEFAULT_PREFERENCE,
+          movement4: false,
+          btcMovementReference: null,
         };
       }
       return {
         state: {
-          version: 3,
+          version: 4,
           updateOffset: 0,
           subscribers,
           readings: parsed.readings ?? {},
@@ -200,11 +197,12 @@ function preferenceLabel(preference) {
   return "Compra Forte + possível capitulação";
 }
 
-function welcomeMessage(preference = DEFAULT_PREFERENCE) {
+function welcomeMessage(preference = DEFAULT_PREFERENCE, movement4 = false) {
   return [
     "✅ ALERTAS DO TERMÔMETRO ATIVADOS",
     "",
     `Seu modo: ${preferenceLabel(preference)}.`,
+    `Movimento de 4% do BTC: ${movement4 ? "ativado" : "desativado"}.`,
     "Criptomoedas: candles encerrados de 15 minutos.",
     "MSTR, prata, cobre e urânio: candles encerrados de 1 hora.",
     "",
@@ -212,6 +210,8 @@ function welcomeMessage(preference = DEFAULT_PREFERENCE) {
     "/fortes — Compra Forte + capitulação (recomendado)",
     "/todos — Compra, Compra Forte, saídas + capitulação",
     "/capitulacao — somente quedas extremas",
+    "/movimento4 — avisar a cada ±4% do BTC",
+    "/movimento4 parar — desativar esse aviso",
     "/status — consultar o monitoramento",
     "/parar — deixar de receber alertas",
   ].join("\n");
@@ -219,7 +219,11 @@ function welcomeMessage(preference = DEFAULT_PREFERENCE) {
 
 function statusMessage(subscriber) {
   return subscriber?.active
-    ? `✅ Alertas ativos. Seu modo: ${preferenceLabel(subscriber.preference ?? DEFAULT_PREFERENCE)}.`
+    ? [
+        "✅ Alertas ativos.",
+        `Modo técnico: ${preferenceLabel(subscriber.preference ?? DEFAULT_PREFERENCE)}.`,
+        `Movimento de 4% do BTC: ${subscriber.movement4 ? "ativado" : "desativado"}.`,
+      ].join("\n")
     : "⏸ Seus alertas estão pausados. Para voltar a receber, envie /start.";
 }
 
@@ -231,6 +235,8 @@ function helpMessage() {
     "/fortes — Compra Forte + capitulação",
     "/todos — todas as condições e saídas",
     "/capitulacao — somente possível capitulação",
+    "/movimento4 — avisar a cada alta ou queda de 4% do BTC",
+    "/movimento4 parar — desativar o aviso de 4%",
     "/status — verificar seu modo",
     "/parar — deixar de receber",
     "",
@@ -245,6 +251,29 @@ function preferenceMessage(preference) {
     `Agora você receberá: ${preferenceLabel(preference)}.`,
     "Envie /status quando quiser conferir.",
   ].join("\n");
+}
+
+function movementPreferenceMessage(active) {
+  return active
+    ? [
+        "✅ ALERTA DE 4% DO BTC ATIVADO",
+        "",
+        "A referência será definida no próximo candle de 15 minutos encerrado.",
+        "Depois de cada alta ou queda de 4%, o preço alertado vira a nova referência.",
+        "Para desativar, envie /movimento4 parar.",
+      ].join("\n")
+    : "⏸ Alerta de 4% do BTC desativado. Para reativar, envie /movimento4.";
+}
+
+function updatedSubscriber(existing, overrides = {}) {
+  return {
+    active: Boolean(existing?.active),
+    joinedAt: existing?.joinedAt ?? Date.now(),
+    preference: existing?.preference ?? DEFAULT_PREFERENCE,
+    movement4: Boolean(existing?.movement4),
+    btcMovementReference: existing?.btcMovementReference ?? null,
+    ...overrides,
+  };
 }
 
 async function processSubscriberUpdates(state) {
@@ -264,38 +293,43 @@ async function processSubscriberUpdates(state) {
 
   for (const [chatId, command] of latestByChat) {
     const existing = state.subscribers[chatId];
-    const preference = existing?.preference ?? DEFAULT_PREFERENCE;
     if (command === "START") {
-      state.subscribers[chatId] = {
-        active: true,
-        joinedAt: existing?.joinedAt ?? Date.now(),
-        preference,
-      };
-      await sendMessage(chatId, welcomeMessage(preference));
+      state.subscribers[chatId] = updatedSubscriber(existing, { active: true });
+      await sendMessage(
+        chatId,
+        welcomeMessage(state.subscribers[chatId].preference, state.subscribers[chatId].movement4),
+      );
     } else if (command === "STOP") {
       await sendMessage(chatId, "⏸ Alertas pausados. Quando quiser voltar, envie /start.");
-      state.subscribers[chatId] = {
-        active: false,
-        joinedAt: existing?.joinedAt ?? Date.now(),
-        preference,
-      };
+      state.subscribers[chatId] = updatedSubscriber(existing, { active: false });
     } else if (command === "STATUS") {
       await sendMessage(chatId, statusMessage(existing));
     } else if (command === "HELP") {
       await sendMessage(chatId, helpMessage());
-    } else {
-      state.subscribers[chatId] = {
+    } else if (command === "MOVEMENT4_ON") {
+      state.subscribers[chatId] = updatedSubscriber(existing, {
         active: true,
-        joinedAt: existing?.joinedAt ?? Date.now(),
+        movement4: true,
+        btcMovementReference: null,
+      });
+      await sendMessage(chatId, movementPreferenceMessage(true));
+    } else if (command === "MOVEMENT4_OFF") {
+      state.subscribers[chatId] = updatedSubscriber(existing, {
+        movement4: false,
+        btcMovementReference: null,
+      });
+      await sendMessage(chatId, movementPreferenceMessage(false));
+    } else {
+      state.subscribers[chatId] = updatedSubscriber(existing, {
+        active: true,
         preference: command,
-      };
+      });
       await sendMessage(chatId, preferenceMessage(command));
     }
   }
 
   return { changed: true, commands: latestByChat.size };
 }
-
 function activeSubscribers(state, kind = null) {
   return Object.entries(state.subscribers)
     .filter(([, subscriber]) =>
@@ -376,6 +410,32 @@ function volumeRatio(candles) {
   return candles.at(-1).volume / Math.max(average, 1);
 }
 
+function formatUsdt(value) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value).replace("US$", "USDT");
+}
+
+function bitcoinMovementMessage(movement, reference, current, candleTime) {
+  const rising = movement.direction === "ALTA";
+  return [
+    `${rising ? "📈" : "📉"} BTC ${rising ? "SUBIU" : "CAIU"} ${Math.abs(movement.changePercent).toFixed(2)}%`,
+    "",
+    `Referência anterior: ${formatUsdt(reference)}`,
+    `Preço no candle encerrado: ${formatUsdt(current)}`,
+    "Período: 15 minutos",
+    `Candle encerrado: ${localTime(candleTime)}`,
+    "",
+    "Este preço passa a ser a nova referência para o próximo movimento de 4%.",
+    "",
+    SITE_URL,
+    "",
+    "Aviso de variação de preço. Não representa sinal de compra ou venda.",
+  ].join("\n");
+}
 function capitulationMessage(config, reading, ratio, candleTime) {
   return [
     "⚠️ POSSÍVEL CAPITULAÇÃO",
@@ -411,6 +471,8 @@ async function main() {
   let successful = 0;
   const errors = [];
   const pendingMessages = [];
+  const directMessages = [];
+  const movementEventTypes = new Set();
   const historyReadings = [];
   const historyEvents = [];
 
@@ -428,6 +490,38 @@ async function main() {
       const previous = state.readings[key];
 
       if (previous?.candleTime === lastClosed.time) continue;
+
+      if (config.asset === "BTC") {
+        for (const [chatId, subscriber] of Object.entries(state.subscribers)) {
+          if (!subscriber?.active || !subscriber?.movement4) continue;
+          const reference = Number(subscriber.btcMovementReference);
+          if (!Number.isFinite(reference) || reference <= 0) {
+            subscriber.btcMovementReference = lastClosed.close;
+            stateChanged = true;
+            continue;
+          }
+          const movement = bitcoinMovement(reference, lastClosed.close);
+          if (!movement) continue;
+          directMessages.push({
+            chatId,
+            text: bitcoinMovementMessage(movement, reference, lastClosed.close, lastClosed.time),
+          });
+          subscriber.btcMovementReference = lastClosed.close;
+          stateChanged = true;
+          const eventType = movement.direction === "ALTA" ? "BTC_ALTA_4" : "BTC_QUEDA_4";
+          if (!movementEventTypes.has(eventType)) {
+            historyEvents.push({
+              asset: "BTC",
+              period: "15M",
+              candleTime: lastClosed.time,
+              type: eventType,
+              score: reading.score,
+              detail: `${movement.changePercent.toFixed(2)}% desde ${reference.toFixed(2)} USDT`,
+            });
+            movementEventTypes.add(eventType);
+          }
+        }
+      }
 
       const ratio = volumeRatio(closed);
       const capitulation = capitulationDetected({
@@ -523,6 +617,7 @@ async function main() {
         "",
         "Modo padrão: Compra Forte + possível capitulação.",
         "Cada pessoa pode mudar com /todos, /fortes ou /capitulacao.",
+        "Alerta opcional de ±4% do BTC: /movimento4.",
         "",
         "Compartilhe este link:",
         `https://t.me/${username}`,
@@ -536,6 +631,20 @@ async function main() {
       delivery.delivered += result.delivered;
       delivery.disabled += result.disabled;
       delivery.failed += result.failed;
+    }
+    for (const message of directMessages) {
+      try {
+        await sendMessage(message.chatId, message.text);
+        delivery.delivered += 1;
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "";
+        if (/HTTP (400|403)/.test(detail)) {
+          state.subscribers[message.chatId].active = false;
+          delivery.disabled += 1;
+        } else {
+          delivery.failed += 1;
+        }
+      }
     }
   }
 
@@ -553,7 +662,7 @@ async function main() {
   await setOutput("subscribers", String(activeSubscribers(state).length));
   await setOutput("history", historyResult.configured ? "configured" : "not_configured");
   console.log(
-    `Monitoramento concluído: ${successful}/${assets.length} ativos • ${activeSubscribers(state).length} assinantes ativos • ${pendingMessages.length} eventos • ${subscriberUpdates.commands} comandos • histórico ${historyResult.readings}/${historyResult.events}`,
+    `Monitoramento concluído: ${successful}/${assets.length} ativos • ${activeSubscribers(state).length} assinantes ativos • ${pendingMessages.length + directMessages.length} eventos • ${subscriberUpdates.commands} comandos • histórico ${historyResult.readings}/${historyResult.events}`,
   );
   if (!historyResult.configured) console.warn("Histórico Firebase aguardando credencial privada.");
   if (delivery.failed) console.warn(`${delivery.failed} entregas temporariamente indisponíveis`);
