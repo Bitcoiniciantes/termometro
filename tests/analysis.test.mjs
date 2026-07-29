@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { analyze, scoreDistanceLabel, scoreLabel, wilderAdx, wilderRsi } from "../lib/analysis.ts";
+import { alertBand, alertTransition } from "../lib/alerts.ts";
 import { mapSettledWithConcurrency } from "../lib/concurrency.ts";
 
 function marketFromCloses(closes, options = {}) {
@@ -142,4 +143,15 @@ test("candle ainda aberto não altera a nota nem o volume", () => {
   const withOpenCandle = analyze({ ...base, candles: [...base.candles, openCandle] }, now);
   assert.deepEqual(withOpenCandle, confirmed);
   assert.match(withOpenCandle.signals[3].summary, /candle encerrado/);
+});
+test("alerta dispara somente nas transições relevantes de compra", () => {
+  assert.equal(alertBand(19), "FORA");
+  assert.equal(alertBand(20), "COMPRA");
+  assert.equal(alertBand(55), "COMPRA_FORTE");
+  assert.equal(alertTransition(undefined, "COMPRA"), null);
+  assert.equal(alertTransition("FORA", "COMPRA"), "ENTRADA");
+  assert.equal(alertTransition("COMPRA", "COMPRA"), null);
+  assert.equal(alertTransition("COMPRA", "COMPRA_FORTE"), "FORTALECEU");
+  assert.equal(alertTransition("COMPRA_FORTE", "COMPRA"), "ENFRAQUECEU");
+  assert.equal(alertTransition("COMPRA", "FORA"), "ENCERROU");
 });

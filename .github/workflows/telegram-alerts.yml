@@ -1,0 +1,41 @@
+name: Alertas Telegram
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "4,19,34,49 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-alerts
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Recuperar estado dos alertas
+        uses: actions/cache/restore@v4
+        with:
+          path: .alert-state
+          key: telegram-alert-state-${{ github.run_id }}
+          restore-keys: |
+            telegram-alert-state-
+      - name: Verificar ativos e avisar
+        id: monitor
+        run: node scripts/monitor-telegram-alerts.mjs
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_SETUP_TEST: ${{ github.event_name == 'workflow_dispatch' }}
+      - name: Guardar novo estado
+        if: steps.monitor.outputs.state_changed == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .alert-state
+          key: telegram-alert-state-${{ github.run_id }}
