@@ -12,6 +12,7 @@ const roundScore = (value: number) => {
 };
 
 const periodMilliseconds: Record<string, number> = {
+  "5M": 5 * 60_000,
   "15M": 15 * 60_000,
   "1H": 60 * 60_000,
   "4H": 4 * 60 * 60_000,
