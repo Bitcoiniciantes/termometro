@@ -3,7 +3,7 @@ export const defaults = [
   "ETH",
   "LINK",
   "AVAX",
-  "SOL",
+  "PAXG",
   "MSTR",
   "PRATA",
   "COBRE",

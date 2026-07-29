@@ -28,6 +28,8 @@ test("consulta a fonte pública diretamente no navegador", async () => {
   assert.match(api, /data-api\.binance\.vision\/api\/v3\/klines/);
   assert.match(api, /Binance Public Market Data/);
   assert.match(config, /"1M": "1M"/);
+  assert.match(config, /PAXG/);
+  assert.doesNotMatch(config, /"SOL"/);
   assert.doesNotMatch(api, /api[_-]?key|authorization/i);
 });
 

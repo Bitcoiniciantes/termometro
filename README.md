@@ -4,7 +4,7 @@ Painel técnico gratuito, determinístico e sem IA para leitura de criptoativos.
 
 ## O que já funciona
 
-- Candles reais de BTC, ETH, LINK, AVAX e SOL.
+- Candles reais de BTC, ETH, LINK, AVAX e PAXG.
 - Períodos de 1 hora, 4 horas, 1 dia e 1 semana.
 - Cálculo local de MM20, MM50, RSI 14, volume relativo, ATR e compressão de preço.
 - Nota explicável de -100 a +100 e confiança por concordância dos sinais.
