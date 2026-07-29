@@ -7,7 +7,9 @@ import {
   bitcoinMovement,
   alertKind,
   alertTransition,
+  capitulationConfirmed,
   capitulationDetected,
+  sellingPressureStabilized,
   shouldDeliverAlert,
   subscriberCommand,
 } from "../lib/alerts.ts";
@@ -198,6 +200,16 @@ test("capitulação exige sobrevenda, distância e volume juntos", () => {
   assert.equal(capitulationDetected({ rsi: 31, atrDistance: -2.1, volumeRatio: 1.6 }), false);
   assert.equal(capitulationDetected({ rsi: 29, atrDistance: -1.9, volumeRatio: 1.6 }), false);
   assert.equal(capitulationDetected({ rsi: 29, atrDistance: -2.1, volumeRatio: 1.4 }), false);
+});
+test("confirma a capitulação somente com nova queda no 5 min e volume", () => {
+  assert.equal(capitulationConfirmed({ sourceClose: 100, confirmationClose: 99, volumeRatio: 1.5 }), true);
+  assert.equal(capitulationConfirmed({ sourceClose: 100, confirmationClose: 100, volumeRatio: 2 }), false);
+  assert.equal(capitulationConfirmed({ sourceClose: 100, confirmationClose: 99, volumeRatio: 1.49 }), false);
+});
+test("estabilização exige candle positivo sem nova mínima", () => {
+  assert.equal(sellingPressureStabilized({ open: 98, close: 99, low: 97, referenceLow: 97, volumeRatio: 1 }), true);
+  assert.equal(sellingPressureStabilized({ open: 99, close: 98, low: 97, referenceLow: 97, volumeRatio: 2 }), false);
+  assert.equal(sellingPressureStabilized({ open: 98, close: 99, low: 96.9, referenceLow: 97, volumeRatio: 2 }), false);
 });
 test("alerta de movimento do BTC exige variação acumulada de 4%", () => {
   assert.equal(bitcoinMovement(100_000, 103_999), null);

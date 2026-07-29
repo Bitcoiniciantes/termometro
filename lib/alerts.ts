@@ -39,6 +39,33 @@ export function capitulationDetected(metrics: {
   return metrics.rsi <= 30 && metrics.atrDistance <= -2 && metrics.volumeRatio >= 1.5;
 }
 
+export function capitulationConfirmed(metrics: {
+  sourceClose: number;
+  confirmationClose: number;
+  volumeRatio: number;
+}) {
+  return (
+    Number.isFinite(metrics.sourceClose) &&
+    Number.isFinite(metrics.confirmationClose) &&
+    metrics.confirmationClose < metrics.sourceClose &&
+    metrics.volumeRatio >= 1.5
+  );
+}
+
+export function sellingPressureStabilized(metrics: {
+  open: number;
+  close: number;
+  low: number;
+  referenceLow: number;
+  volumeRatio: number;
+}) {
+  return (
+    metrics.close > metrics.open &&
+    metrics.low >= metrics.referenceLow &&
+    metrics.volumeRatio >= 1
+  );
+}
+
 export function alertKind(
   transition: AlertTransition,
   current: AlertBand,

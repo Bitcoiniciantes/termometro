@@ -5,7 +5,9 @@ import {
   bitcoinMovement,
   alertKind,
   alertTransition,
+  capitulationConfirmed,
   capitulationDetected,
+  sellingPressureStabilized,
   shouldDeliverAlert,
   subscriberCommand,
 } from "../lib/alerts.ts";
@@ -57,10 +59,10 @@ async function fetchJson(url, options = {}, attempts = 3) {
   throw lastError;
 }
 
-async function marketData(config) {
+async function marketData(config, interval = "15m") {
   if (config.source === "binance") {
     const body = await fetchJson(
-      `https://data-api.binance.vision/api/v3/klines?symbol=${config.asset}USDT&interval=15m&limit=120`,
+      `https://data-api.binance.vision/api/v3/klines?symbol=${config.asset}USDT&interval=${interval}&limit=120`,
     );
     const candles = Array.isArray(body) ? body.map(finiteCandle).filter(Boolean) : [];
     if (candles.length < 55) throw new Error("histórico insuficiente");
@@ -69,7 +71,7 @@ async function marketData(config) {
       pair: `${config.asset}/USDT`,
       source: "Binance Public Market Data",
       updatedAt: Date.now(),
-      period: config.period,
+      period: interval === "5m" ? "5M" : config.period,
       candles,
     };
   }
@@ -112,22 +114,23 @@ function normalizeSubscribers(subscribers = {}) {
 }
 
 function emptyState() {
-  return { version: 4, updateOffset: 0, subscribers: {}, readings: {} };
+  return { version: 5, updateOffset: 0, subscribers: {}, readings: {}, capitulationWatch: {} };
 }
 
 async function readState() {
   try {
     const content = await readFile(STATE_PATH, "utf8");
     const parsed = JSON.parse(content);
-    if ([4, 3, 2].includes(parsed?.version)) {
+    if ([5, 4, 3, 2].includes(parsed?.version)) {
       return {
         state: {
-          version: 4,
+          version: 5,
           updateOffset: Number(parsed.updateOffset) || 0,
           subscribers: normalizeSubscribers(parsed.subscribers),
           readings: parsed.readings ?? {},
+          capitulationWatch: parsed.capitulationWatch ?? {},
         },
-        migrated: parsed.version !== 4,
+        migrated: parsed.version !== 5,
       };
     }
     if (parsed?.version === 1) {
@@ -143,10 +146,11 @@ async function readState() {
       }
       return {
         state: {
-          version: 4,
+          version: 5,
           updateOffset: 0,
           subscribers,
           readings: parsed.readings ?? {},
+          capitulationWatch: {}
         },
         migrated: true,
       };
@@ -454,6 +458,121 @@ function capitulationMessage(config, reading, ratio, candleTime) {
     "Alerta técnico educacional. Não confirma fundo nem representa recomendação personalizada.",
   ].join("\n");
 }
+function capitulationConfirmedMessage(config, watch, candle, ratio) {
+  return [
+    "⚠️ CAPITULAÇÃO EM CONFIRMAÇÃO",
+    "",
+    `Ativo: ${config.asset}`,
+    "Sequência: queda extrema no 15 min + nova queda no 5 min",
+    `Volume do 5 min: ${ratio.toFixed(2)}× a média`,
+    `Candle de 5 min encerrado: ${localTime(candle.time)}`,
+    "",
+    "A pressão vendedora continuou após a queda inicial. Isto não confirma fundo nem é sinal de compra; aguarde estabilização.",
+    "",
+    SITE_URL,
+    "",
+    "Alerta técnico educacional. Não representa recomendação personalizada.",
+  ].join("\n");
+}
+
+function stabilizationMessage(config, candle, ratio) {
+  return [
+    "🟡 PRESSÃO VENDEDORA PERDEU FORÇA",
+    "",
+    `Ativo: ${config.asset}`,
+    "Após a capitulação em confirmação, surgiu um candle positivo de 5 min sem nova mínima.",
+    `Volume do 5 min: ${ratio.toFixed(2)}× a média`,
+    `Candle encerrado: ${localTime(candle.time)}`,
+    "",
+    "É um sinal de estabilização, não uma confirmação de compra. Observe a estrutura e os próximos candles.",
+    "",
+    SITE_URL,
+    "",
+    "Alerta técnico educacional. Não representa recomendação personalizada.",
+  ].join("\n");
+}
+
+async function checkCapitulationWatch(config, key, state, pendingMessages, historyEvents) {
+  const watch = state.capitulationWatch?.[key];
+  if (!watch || config.source !== "binance") return false;
+
+  const fiveMinuteMarket = await marketData(config, "5m");
+  const closed = completedCandles(fiveMinuteMarket.candles, "5M");
+  if (!closed.length) return false;
+
+  if (watch.stage === "PENDING") {
+    const confirmationStart = watch.sourceCandleTime + 15 * 60_000;
+    const confirmation = closed.find((candle) => candle.time >= confirmationStart);
+    if (!confirmation) return false;
+
+    const ratio = volumeRatio(closed.slice(0, closed.findIndex((candle) => candle.time === confirmation.time) + 1));
+    if (capitulationConfirmed({
+      sourceClose: watch.sourceClose,
+      confirmationClose: confirmation.close,
+      volumeRatio: ratio,
+    })) {
+      pendingMessages.push({
+        kind: "CAPITULACAO",
+        text: capitulationConfirmedMessage(config, watch, confirmation, ratio),
+      });
+      historyEvents.push({
+        asset: config.asset,
+        period: "5M",
+        candleTime: confirmation.time,
+        type: "CAPITULACAO_CONFIRMADA",
+        score: watch.score,
+        detail: `queda no 5M • volume ${ratio.toFixed(2)}x`,
+      });
+      state.capitulationWatch[key] = {
+        ...watch,
+        stage: "CONFIRMED",
+        confirmationCandleTime: confirmation.time,
+        referenceLow: confirmation.low,
+        expiresAt: confirmation.time + 60 * 60_000,
+      };
+    } else {
+      delete state.capitulationWatch[key];
+    }
+    return true;
+  }
+
+  if (watch.stage === "CONFIRMED") {
+    const candle = closed.at(-1);
+    if (!candle || candle.time <= watch.confirmationCandleTime || candle.time === watch.lastCheckedCandleTime) return false;
+    if (candle.time > watch.expiresAt) {
+      delete state.capitulationWatch[key];
+      return true;
+    }
+
+    const ratio = volumeRatio(closed);
+    watch.lastCheckedCandleTime = candle.time;
+    if (sellingPressureStabilized({
+      open: candle.open,
+      close: candle.close,
+      low: candle.low,
+      referenceLow: watch.referenceLow,
+      volumeRatio: ratio,
+    })) {
+      pendingMessages.push({
+        kind: "CAPITULACAO",
+        text: stabilizationMessage(config, candle, ratio),
+      });
+      historyEvents.push({
+        asset: config.asset,
+        period: "5M",
+        candleTime: candle.time,
+        type: "ESTABILIZACAO_APOS_CAPITULACAO",
+        score: watch.score,
+        detail: `candle positivo sem nova mínima • volume ${ratio.toFixed(2)}x`,
+      });
+      delete state.capitulationWatch[key];
+    }
+    return true;
+  }
+
+  delete state.capitulationWatch[key];
+  return true;
+}
 async function setOutput(name, value) {
   if (!process.env.GITHUB_OUTPUT) return;
   await appendFile(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
@@ -488,6 +607,14 @@ async function main() {
       const key = `${config.marketAsset ?? config.asset}-${config.period}`;
       const currentBand = alertBand(reading.score);
       const previous = state.readings[key];
+      const watchChanged = await checkCapitulationWatch(
+        config,
+        key,
+        state,
+        pendingMessages,
+        historyEvents,
+      );
+      stateChanged ||= watchChanged;
 
       if (previous?.candleTime === lastClosed.time) continue;
 
@@ -548,20 +675,28 @@ async function main() {
       }
 
       if (capitulation && previous && !previous.capitulation) {
-        pendingMessages.push({
-          kind: "CAPITULACAO",
-          text: capitulationMessage(config, reading, ratio, lastClosed.time),
-        });
-        historyEvents.push({
-          asset: config.asset,
-          period: config.period,
-          candleTime: lastClosed.time,
-          type: "POSSIVEL_CAPITULACAO",
-          score: reading.score,
-          detail: `RSI ${reading.extreme.rsi.toFixed(1)} • ${reading.extreme.atrDistance.toFixed(1)} ATR • volume ${ratio.toFixed(2)}x`,
-        });
+        if (config.source === "binance") {
+          state.capitulationWatch[key] = {
+            stage: "PENDING",
+            sourceCandleTime: lastClosed.time,
+            sourceClose: lastClosed.close,
+            score: reading.score,
+          };
+        } else {
+          pendingMessages.push({
+            kind: "CAPITULACAO",
+            text: capitulationMessage(config, reading, ratio, lastClosed.time),
+          });
+          historyEvents.push({
+            asset: config.asset,
+            period: config.period,
+            candleTime: lastClosed.time,
+            type: "POSSIVEL_CAPITULACAO",
+            score: reading.score,
+            detail: `RSI ${reading.extreme.rsi.toFixed(1)} • ${reading.extreme.atrDistance.toFixed(1)} ATR • volume ${ratio.toFixed(2)}x`,
+          });
+        }
       }
-
       if (reading.extreme.divergence && reading.extreme.divergence !== previous?.divergence) {
         historyEvents.push({
           asset: config.asset,
