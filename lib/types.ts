@@ -73,3 +73,20 @@ export type Analysis = {
   change: number;
   extreme: ExtremeReading;
 };
+export type NuplZoneKey =
+  | "euphoria"
+  | "belief"
+  | "optimism"
+  | "hopeFear"
+  | "capitulation";
+
+export type NuplReading = {
+  value: number;
+  phase: string;
+  zone: NuplZoneKey;
+  color: string;
+  dataDate: string;
+  updatedAt: string;
+  source: string;
+  sourcePage: string;
+};

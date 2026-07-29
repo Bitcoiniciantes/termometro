@@ -1,10 +1,12 @@
 import { displayAsset, intervals, rsiPeriods, staticAssets } from "./config";
 import { completedCandles, wilderRsi } from "./analysis";
 import { mapSettledWithConcurrency } from "./concurrency";
-import type { Candle, MarketData, MultiRsi, StaticSnapshot } from "./types";
+import { latestNuplReading } from "./nupl";
+import type { Candle, MarketData, MultiRsi, NuplReading, StaticSnapshot } from "./types";
 
 const REQUEST_TIMEOUT_MS = 8_000;
 const RETRY_DELAYS_MS = [500, 1_500];
+const NUPL_URL = "https://bitcoiniciantes.github.io/estudebitcoin/dados/nupl.json";
 
 function abortableDelay(milliseconds: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
@@ -156,6 +158,14 @@ export async function fetchMarket(
   };
 }
 
+export async function fetchBitcoinNupl(signal?: AbortSignal): Promise<NuplReading> {
+  const body = await fetchJson(
+    `${NUPL_URL}?v=${Math.floor(Date.now() / 600_000)}`,
+    { signal, cache: "no-store" },
+    [500],
+  );
+  return latestNuplReading(body);
+}
 export async function fetchMultiRsi(
   asset: string,
   signal?: AbortSignal,

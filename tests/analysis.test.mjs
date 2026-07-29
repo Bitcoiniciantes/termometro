@@ -12,6 +12,7 @@ import {
   subscriberCommand,
 } from "../lib/alerts.ts";
 import { mapSettledWithConcurrency } from "../lib/concurrency.ts";
+import { latestNuplReading } from "../lib/nupl.ts";
 
 function marketFromCloses(closes, options = {}) {
   const { volume = 100, spread = 1 } = options;
@@ -204,4 +205,28 @@ test("alerta de movimento do BTC exige variação acumulada de 4%", () => {
   assert.equal(bitcoinMovement(100_000, 96_000)?.direction, "QUEDA");
   assert.ok(Math.abs(bitcoinMovement(104_000, 99_840).changePercent + 4) < 0.000001);
   assert.equal(bitcoinMovement(0, 100_000), null);
+});
+test("NUPL reutiliza a fase mais recente do Estude Bitcoin", () => {
+  const reading = latestNuplReading({
+    source: "Checkonchain",
+    sourcePage: "https://example.com/nupl",
+    updatedAt: "2026-07-29T00:00:00.000Z",
+    dates: ["2026-07-28", "2026-07-29"],
+    euphoria: [null, null],
+    belief: [0.51, 0.52],
+    optimism: [null, null],
+    hopeFear: [null, null],
+    capitulation: [null, null],
+  });
+  assert.equal(reading.value, 0.52);
+  assert.equal(reading.phase, "Cren\u00e7a/Nega\u00e7\u00e3o");
+  assert.equal(reading.zone, "belief");
+  assert.equal(reading.dataDate, "2026-07-29");
+});
+
+test("NUPL rejeita hist�rico sem faixas completas", () => {
+  assert.throws(
+    () => latestNuplReading({ dates: ["2026-07-29"] }),
+    /Faixas do NUPL incompletas/,
+  );
 });
