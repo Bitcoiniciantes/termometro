@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { analyze, scoreDistanceLabel, scoreLabel, wilderAdx, wilderRsi } from "../lib/analysis.ts";
-import { alertBand, alertTransition, subscriberCommand } from "../lib/alerts.ts";
+import {
+  alertBand,
+  alertKind,
+  alertTransition,
+  capitulationDetected,
+  shouldDeliverAlert,
+  subscriberCommand,
+} from "../lib/alerts.ts";
 import { mapSettledWithConcurrency } from "../lib/concurrency.ts";
 
 function marketFromCloses(closes, options = {}) {
@@ -162,6 +169,28 @@ test("interpreta os comandos simples dos amigos", () => {
   assert.equal(subscriberCommand("/parar"), "STOP");
   assert.equal(subscriberCommand("/status"), "STATUS");
   assert.equal(subscriberCommand("/ajuda"), "HELP");
+  assert.equal(subscriberCommand("/fortes"), "FORTES");
+  assert.equal(subscriberCommand("/todos"), "TODOS");
+  assert.equal(subscriberCommand("capitulação"), "CAPITULACAO");
   assert.equal(subscriberCommand("olá"), null);
   assert.equal(subscriberCommand(undefined), null);
+});
+test("filtra alertas conforme a preferência de cada pessoa", () => {
+  assert.equal(alertKind("ENTRADA", "COMPRA"), "COMPRA");
+  assert.equal(alertKind("FORTALECEU", "COMPRA_FORTE"), "COMPRA_FORTE");
+  assert.equal(alertKind("ENFRAQUECEU", "COMPRA", "COMPRA_FORTE"), "SAIDA_FORTE");
+  assert.equal(shouldDeliverAlert("FORTES", "COMPRA"), false);
+  assert.equal(shouldDeliverAlert("FORTES", "COMPRA_FORTE"), true);
+  assert.equal(shouldDeliverAlert("FORTES", "SAIDA_COMPRA"), false);
+  assert.equal(shouldDeliverAlert("FORTES", "SAIDA_FORTE"), true);
+  assert.equal(shouldDeliverAlert("TODOS", "COMPRA"), true);
+  assert.equal(shouldDeliverAlert("CAPITULACAO", "COMPRA_FORTE"), false);
+  assert.equal(shouldDeliverAlert("CAPITULACAO", "CAPITULACAO"), true);
+});
+
+test("capitulação exige sobrevenda, distância e volume juntos", () => {
+  assert.equal(capitulationDetected({ rsi: 29, atrDistance: -2.1, volumeRatio: 1.6 }), true);
+  assert.equal(capitulationDetected({ rsi: 31, atrDistance: -2.1, volumeRatio: 1.6 }), false);
+  assert.equal(capitulationDetected({ rsi: 29, atrDistance: -1.9, volumeRatio: 1.6 }), false);
+  assert.equal(capitulationDetected({ rsi: 29, atrDistance: -2.1, volumeRatio: 1.4 }), false);
 });

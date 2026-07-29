@@ -1,7 +1,15 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 
-import { alertBand, alertTransition, subscriberCommand } from "../lib/alerts.ts";
+import {
+  alertBand,
+  alertKind,
+  alertTransition,
+  capitulationDetected,
+  shouldDeliverAlert,
+  subscriberCommand,
+} from "../lib/alerts.ts";
 import { analyze, completedCandles, scoreLabel } from "../lib/analysis.ts";
+import { firebaseHistoryConfigured, saveFirebaseHistory } from "../lib/firebase-history.ts";
 
 const SITE_URL = "https://bitcoiniciantes.github.io/termometro/";
 const STATE_PATH = new URL("../.alert-state/state.json", import.meta.url);
@@ -82,23 +90,49 @@ async function marketData(config) {
   };
 }
 
+const DEFAULT_PREFERENCE = "FORTES";
+
+function normalizeSubscribers(subscribers = {}) {
+  return Object.fromEntries(
+    Object.entries(subscribers).map(([chatId, subscriber]) => [
+      chatId,
+      {
+        active: Boolean(subscriber?.active),
+        joinedAt: subscriber?.joinedAt ?? Date.now(),
+        preference: subscriber?.preference ?? DEFAULT_PREFERENCE,
+      },
+    ]),
+  );
+}
+
 function emptyState() {
-  return { version: 2, updateOffset: 0, subscribers: {}, readings: {} };
+  return { version: 3, updateOffset: 0, subscribers: {}, readings: {} };
 }
 
 async function readState() {
   try {
     const content = await readFile(STATE_PATH, "utf8");
     const parsed = JSON.parse(content);
-    if (parsed?.version === 2) {
+    if (parsed?.version === 3) {
       return {
         state: {
-          version: 2,
+          version: 3,
           updateOffset: Number(parsed.updateOffset) || 0,
-          subscribers: parsed.subscribers ?? {},
+          subscribers: normalizeSubscribers(parsed.subscribers),
           readings: parsed.readings ?? {},
         },
         migrated: false,
+      };
+    }
+    if (parsed?.version === 2) {
+      return {
+        state: {
+          version: 3,
+          updateOffset: Number(parsed.updateOffset) || 0,
+          subscribers: normalizeSubscribers(parsed.subscribers),
+          readings: parsed.readings ?? {},
+        },
+        migrated: true,
       };
     }
     if (parsed?.version === 1) {
@@ -107,11 +141,12 @@ async function readState() {
         subscribers[String(parsed.chatId)] = {
           active: true,
           joinedAt: Date.now(),
+          preference: DEFAULT_PREFERENCE,
         };
       }
       return {
         state: {
-          version: 2,
+          version: 3,
           updateOffset: 0,
           subscribers,
           readings: parsed.readings ?? {},
@@ -124,7 +159,6 @@ async function readState() {
   }
   return { state: emptyState(), migrated: false };
 }
-
 async function saveState(state) {
   await mkdir(new URL("../.alert-state/", import.meta.url), { recursive: true });
   await writeFile(STATE_PATH, `${JSON.stringify(state, null, 2)}\n`);
@@ -160,24 +194,32 @@ async function sendMessage(chatId, text) {
   if (!result?.ok) throw new Error("Telegram recusou a mensagem");
 }
 
-function welcomeMessage() {
+function preferenceLabel(preference) {
+  if (preference === "TODOS") return "todas as condições de compra + possível capitulação";
+  if (preference === "CAPITULACAO") return "somente possível capitulação";
+  return "Compra Forte + possível capitulação";
+}
+
+function welcomeMessage(preference = DEFAULT_PREFERENCE) {
   return [
     "✅ ALERTAS DO TERMÔMETRO ATIVADOS",
     "",
-    "Você receberá os mesmos alertas técnicos dos nove ativos monitorados.",
-    "Criptomoedas: candles de 15 minutos.",
-    "MSTR, prata, cobre e urânio: candles de 1 hora.",
+    `Seu modo: ${preferenceLabel(preference)}.`,
+    "Criptomoedas: candles encerrados de 15 minutos.",
+    "MSTR, prata, cobre e urânio: candles encerrados de 1 hora.",
     "",
-    "Comandos:",
+    "Para mudar:",
+    "/fortes — Compra Forte + capitulação (recomendado)",
+    "/todos — Compra, Compra Forte, saídas + capitulação",
+    "/capitulacao — somente quedas extremas",
     "/status — consultar o monitoramento",
     "/parar — deixar de receber alertas",
-    "/ajuda — mostrar estas instruções",
   ].join("\n");
 }
 
-function statusMessage(active) {
-  return active
-    ? "✅ Seus alertas estão ativos. Nove ativos estão sendo monitorados. Para sair, envie /parar."
+function statusMessage(subscriber) {
+  return subscriber?.active
+    ? `✅ Alertas ativos. Seu modo: ${preferenceLabel(subscriber.preference ?? DEFAULT_PREFERENCE)}.`
     : "⏸ Seus alertas estão pausados. Para voltar a receber, envie /start.";
 }
 
@@ -186,8 +228,22 @@ function helpMessage() {
     "COMANDOS DO TERMÔMETRO",
     "",
     "/start — ativar os alertas",
-    "/status — verificar se estão ativos",
+    "/fortes — Compra Forte + capitulação",
+    "/todos — todas as condições e saídas",
+    "/capitulacao — somente possível capitulação",
+    "/status — verificar seu modo",
     "/parar — deixar de receber",
+    "",
+    "Possível capitulação é uma queda extrema com volume; não confirma fundo nem recomenda compra.",
+  ].join("\n");
+}
+
+function preferenceMessage(preference) {
+  return [
+    "✅ PREFERÊNCIA ATUALIZADA",
+    "",
+    `Agora você receberá: ${preferenceLabel(preference)}.`,
+    "Envie /status quando quiser conferir.",
   ].join("\n");
 }
 
@@ -208,40 +264,52 @@ async function processSubscriberUpdates(state) {
 
   for (const [chatId, command] of latestByChat) {
     const existing = state.subscribers[chatId];
+    const preference = existing?.preference ?? DEFAULT_PREFERENCE;
     if (command === "START") {
       state.subscribers[chatId] = {
         active: true,
         joinedAt: existing?.joinedAt ?? Date.now(),
+        preference,
       };
-      await sendMessage(chatId, welcomeMessage());
+      await sendMessage(chatId, welcomeMessage(preference));
     } else if (command === "STOP") {
       await sendMessage(chatId, "⏸ Alertas pausados. Quando quiser voltar, envie /start.");
       state.subscribers[chatId] = {
         active: false,
         joinedAt: existing?.joinedAt ?? Date.now(),
+        preference,
       };
     } else if (command === "STATUS") {
-      await sendMessage(chatId, statusMessage(Boolean(existing?.active)));
+      await sendMessage(chatId, statusMessage(existing));
     } else if (command === "HELP") {
       await sendMessage(chatId, helpMessage());
+    } else {
+      state.subscribers[chatId] = {
+        active: true,
+        joinedAt: existing?.joinedAt ?? Date.now(),
+        preference: command,
+      };
+      await sendMessage(chatId, preferenceMessage(command));
     }
   }
 
   return { changed: true, commands: latestByChat.size };
 }
 
-function activeSubscribers(state) {
+function activeSubscribers(state, kind = null) {
   return Object.entries(state.subscribers)
-    .filter(([, subscriber]) => subscriber?.active)
+    .filter(([, subscriber]) =>
+      subscriber?.active &&
+      (!kind || shouldDeliverAlert(subscriber.preference ?? DEFAULT_PREFERENCE, kind)))
     .map(([chatId]) => chatId);
 }
 
-async function broadcast(state, text) {
+async function broadcast(state, text, kind = null) {
   let delivered = 0;
   let disabled = 0;
   let failed = 0;
 
-  for (const chatId of activeSubscribers(state)) {
+  for (const chatId of activeSubscribers(state, kind)) {
     try {
       await sendMessage(chatId, text);
       delivered += 1;
@@ -258,7 +326,6 @@ async function broadcast(state, text) {
 
   return { delivered, disabled, failed };
 }
-
 function localTime(timestamp) {
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
@@ -303,6 +370,30 @@ function alertMessage(config, reading, transition, candleTime) {
   ].join("\n");
 }
 
+function volumeRatio(candles) {
+  const previous = candles.slice(-21, -1);
+  const average = previous.reduce((sum, candle) => sum + candle.volume, 0) / Math.max(previous.length, 1);
+  return candles.at(-1).volume / Math.max(average, 1);
+}
+
+function capitulationMessage(config, reading, ratio, candleTime) {
+  return [
+    "⚠️ POSSÍVEL CAPITULAÇÃO",
+    "",
+    `Ativo: ${config.asset}`,
+    `Período: ${config.period}`,
+    `RSI: ${reading.extreme.rsi.toFixed(1)}`,
+    `Distância: ${reading.extreme.atrDistance.toFixed(1)} ATR da MM20`,
+    `Volume: ${ratio.toFixed(2)}× a média`,
+    `Candle encerrado: ${localTime(candleTime)}`,
+    "",
+    "Queda extrema com volume detectada. Pode anteceder uma oportunidade, mas também pode continuar caindo: aguarde estabilização ou confirmação.",
+    "",
+    SITE_URL,
+    "",
+    "Alerta técnico educacional. Não confirma fundo nem representa recomendação personalizada.",
+  ].join("\n");
+}
 async function setOutput(name, value) {
   if (!process.env.GITHUB_OUTPUT) return;
   await appendFile(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
@@ -320,6 +411,8 @@ async function main() {
   let successful = 0;
   const errors = [];
   const pendingMessages = [];
+  const historyReadings = [];
+  const historyEvents = [];
 
   for (const config of assets) {
     try {
@@ -336,16 +429,80 @@ async function main() {
 
       if (previous?.candleTime === lastClosed.time) continue;
 
+      const ratio = volumeRatio(closed);
+      const capitulation = capitulationDetected({
+        rsi: reading.extreme.rsi,
+        atrDistance: reading.extreme.atrDistance,
+        volumeRatio: ratio,
+      });
       const transition = alertTransition(previous?.band, currentBand);
-      if (transition) {
-        pendingMessages.push(alertMessage(config, reading, transition, lastClosed.time));
+      const kind = alertKind(transition, currentBand, previous?.band);
+
+      if (transition && kind) {
+        pendingMessages.push({
+          kind,
+          text: alertMessage(config, reading, transition, lastClosed.time),
+        });
+        historyEvents.push({
+          asset: config.asset,
+          period: config.period,
+          candleTime: lastClosed.time,
+          type: `ALERTA_${kind}`,
+          score: reading.score,
+          detail: transition,
+        });
       }
+
+      if (capitulation && previous && !previous.capitulation) {
+        pendingMessages.push({
+          kind: "CAPITULACAO",
+          text: capitulationMessage(config, reading, ratio, lastClosed.time),
+        });
+        historyEvents.push({
+          asset: config.asset,
+          period: config.period,
+          candleTime: lastClosed.time,
+          type: "POSSIVEL_CAPITULACAO",
+          score: reading.score,
+          detail: `RSI ${reading.extreme.rsi.toFixed(1)} • ${reading.extreme.atrDistance.toFixed(1)} ATR • volume ${ratio.toFixed(2)}x`,
+        });
+      }
+
+      if (reading.extreme.divergence && reading.extreme.divergence !== previous?.divergence) {
+        historyEvents.push({
+          asset: config.asset,
+          period: config.period,
+          candleTime: lastClosed.time,
+          type: reading.extreme.divergence === "bullish" ? "DIVERGENCIA_ALTA" : "DIVERGENCIA_BAIXA",
+          score: reading.score,
+          detail: reading.extreme.summary,
+        });
+      }
+
+      historyReadings.push({
+        asset: config.asset,
+        period: config.period,
+        candleTime: lastClosed.time,
+        checkedAt: Date.now(),
+        price: lastClosed.close,
+        score: reading.score,
+        band: currentBand,
+        agreement: reading.confidence,
+        rsi: Number(reading.extreme.rsi.toFixed(2)),
+        adx: Number(reading.extreme.adx.toFixed(2)),
+        atrDistance: Number(reading.extreme.atrDistance.toFixed(3)),
+        volumeRatio: Number(ratio.toFixed(3)),
+        divergence: reading.extreme.divergence,
+        capitulation,
+      });
 
       state.readings[key] = {
         band: currentBand,
         score: reading.score,
         candleTime: lastClosed.time,
         checkedAt: Date.now(),
+        divergence: reading.extreme.divergence,
+        capitulation,
       };
       stateChanged = true;
     } catch (error) {
@@ -364,6 +521,9 @@ async function main() {
         "",
         `${successful} de ${assets.length} ativos verificados.`,
         "",
+        "Modo padrão: Compra Forte + possível capitulação.",
+        "Cada pessoa pode mudar com /todos, /fortes ou /capitulacao.",
+        "",
         "Compartilhe este link:",
         `https://t.me/${username}`,
         "",
@@ -372,11 +532,18 @@ async function main() {
     );
   } else {
     for (const message of pendingMessages) {
-      const result = await broadcast(state, message);
+      const result = await broadcast(state, message.text, message.kind);
       delivery.delivered += result.delivered;
       delivery.disabled += result.disabled;
       delivery.failed += result.failed;
     }
+  }
+
+  let historyResult = { configured: firebaseHistoryConfigured(), readings: 0, events: 0 };
+  try {
+    historyResult = await saveFirebaseHistory(historyReadings, historyEvents);
+  } catch (error) {
+    console.warn(`Histórico Firebase indisponível: ${error instanceof Error ? error.message : "falha desconhecida"}`);
   }
 
   if (delivery.disabled) stateChanged = true;
@@ -384,9 +551,11 @@ async function main() {
   await setOutput("state_changed", stateChanged ? "true" : "false");
   await setOutput("assets_ok", String(successful));
   await setOutput("subscribers", String(activeSubscribers(state).length));
+  await setOutput("history", historyResult.configured ? "configured" : "not_configured");
   console.log(
-    `Monitoramento concluído: ${successful}/${assets.length} ativos • ${activeSubscribers(state).length} assinantes ativos • ${pendingMessages.length} transições • ${subscriberUpdates.commands} comandos`,
+    `Monitoramento concluído: ${successful}/${assets.length} ativos • ${activeSubscribers(state).length} assinantes ativos • ${pendingMessages.length} eventos • ${subscriberUpdates.commands} comandos • histórico ${historyResult.readings}/${historyResult.events}`,
   );
+  if (!historyResult.configured) console.warn("Histórico Firebase aguardando credencial privada.");
   if (delivery.failed) console.warn(`${delivery.failed} entregas temporariamente indisponíveis`);
   for (const error of errors) console.warn(error);
 }
