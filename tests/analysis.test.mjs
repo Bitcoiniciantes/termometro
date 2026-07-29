@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { analyze, scoreLabel, wilderAdx, wilderRsi } from "../lib/analysis.ts";
+import { analyze, scoreDistanceLabel, scoreLabel, wilderAdx, wilderRsi } from "../lib/analysis.ts";
 import { mapSettledWithConcurrency } from "../lib/concurrency.ts";
 
 function marketFromCloses(closes, options = {}) {
@@ -11,6 +11,7 @@ function marketFromCloses(closes, options = {}) {
     pair: "TESTE/USDT",
     source: "fixture",
     updatedAt: 1,
+    period: "1H",
     candles: closes.map((close, index) => ({
       time: index,
       open: close,
@@ -25,10 +26,15 @@ function marketFromCloses(closes, options = {}) {
 test("classifica exatamente as faixas públicas da nota", () => {
   assert.equal(scoreLabel(55), "COMPRA FORTE");
   assert.equal(scoreLabel(20), "COMPRA");
-  assert.equal(scoreLabel(19), "NEUTRO");
-  assert.equal(scoreLabel(-19), "NEUTRO");
+  assert.equal(scoreLabel(19), "NEUTRO • VIÉS DE ALTA");
+  assert.equal(scoreLabel(10), "NEUTRO • VIÉS DE ALTA");
+  assert.equal(scoreLabel(9), "NEUTRO");
+  assert.equal(scoreLabel(-9), "NEUTRO");
+  assert.equal(scoreLabel(-10), "NEUTRO • VIÉS DE BAIXA");
+  assert.equal(scoreLabel(-19), "NEUTRO • VIÉS DE BAIXA");
   assert.equal(scoreLabel(-20), "VENDA");
   assert.equal(scoreLabel(-55), "VENDA FORTE");
+  assert.equal(scoreDistanceLabel(-17), "3 pts para Venda.");
 });
 
 test("RSI de Wilder reconhece sequências direcionais", () => {
@@ -53,8 +59,8 @@ test("motor mantém sinais nomeados e pontuação determinística", () => {
     first?.signals.filter((signal) => !signal.context).map((signal) => signal.group),
     ["Tendência", "Padrão", "Momentum", "Volume", "Risco"],
   );
-  assert.equal(first?.signals[0].score, 18);
-  assert.equal(first?.signals[3].score, 12);
+  assert.equal(first?.signals[0].score, 24);
+  assert.equal(first?.signals[3].score, 4);
   assert.ok(Number.isFinite(first?.score));
   assert.ok(Number.isFinite(first?.confidence));
 });
@@ -116,4 +122,24 @@ test("expõe os novos conceitos como contexto sem alterar a soma", () => {
     "Distância da média (ATR)",
   ]);
   assert.equal(result.score, result.signals.filter((signal) => !signal.context).reduce((sum, signal) => sum + signal.score, 0));
+});
+test("candle ainda aberto não altera a nota nem o volume", () => {
+  const now = Date.UTC(2026, 6, 28, 18, 30);
+  const base = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index * 0.2));
+  base.candles = base.candles.map((candle, index) => ({
+    ...candle,
+    time: now - (base.candles.length - index) * 60 * 60_000,
+  }));
+  const openCandle = {
+    time: now - 30 * 60_000,
+    open: 112,
+    high: 260,
+    low: 80,
+    close: 250,
+    volume: 1,
+  };
+  const confirmed = analyze(base, now);
+  const withOpenCandle = analyze({ ...base, candles: [...base.candles, openCandle] }, now);
+  assert.deepEqual(withOpenCandle, confirmed);
+  assert.match(withOpenCandle.signals[3].summary, /candle encerrado/);
 });

@@ -11,6 +11,7 @@
     "start": "vinext start",
     "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "audit:scores": "node scripts/audit-score-distribution.mjs",
     "db:generate": "drizzle-kit generate",
     "build:pages": "next build"
   },
