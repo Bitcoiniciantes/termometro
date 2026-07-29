@@ -1,6 +1,6 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 
-import { alertBand, alertTransition } from "../lib/alerts.ts";
+import { alertBand, alertTransition, subscriberCommand } from "../lib/alerts.ts";
 import { analyze, completedCandles, scoreLabel } from "../lib/analysis.ts";
 
 const SITE_URL = "https://bitcoiniciantes.github.io/termometro/";
@@ -82,14 +82,47 @@ async function marketData(config) {
   };
 }
 
+function emptyState() {
+  return { version: 2, updateOffset: 0, subscribers: {}, readings: {} };
+}
+
 async function readState() {
   try {
     const content = await readFile(STATE_PATH, "utf8");
     const parsed = JSON.parse(content);
-    return parsed?.version === 1 && parsed.readings ? parsed : { version: 1, readings: {} };
+    if (parsed?.version === 2) {
+      return {
+        state: {
+          version: 2,
+          updateOffset: Number(parsed.updateOffset) || 0,
+          subscribers: parsed.subscribers ?? {},
+          readings: parsed.readings ?? {},
+        },
+        migrated: false,
+      };
+    }
+    if (parsed?.version === 1) {
+      const subscribers = {};
+      if (parsed.chatId) {
+        subscribers[String(parsed.chatId)] = {
+          active: true,
+          joinedAt: Date.now(),
+        };
+      }
+      return {
+        state: {
+          version: 2,
+          updateOffset: 0,
+          subscribers,
+          readings: parsed.readings ?? {},
+        },
+        migrated: true,
+      };
+    }
   } catch {
-    return { version: 1, readings: {} };
+    // Primeira execução: o estado será criado depois do primeiro /start.
   }
+  return { state: emptyState(), migrated: false };
 }
 
 async function saveState(state) {
@@ -101,17 +134,17 @@ function telegramUrl(method) {
   return `https://api.telegram.org/bot${TOKEN}/${method}`;
 }
 
-async function findPrivateChatId() {
-  const updates = await fetchJson(`${telegramUrl("getUpdates")}?limit=100&timeout=0`);
-  const messages = (updates?.result ?? [])
-    .map((update) => update.message)
-    .filter((message) => message?.chat?.type === "private");
-  const started = messages.find((message) => message.text?.startsWith("/start"));
-  const message = started ?? messages[0];
-  if (!message?.chat?.id) {
-    throw new Error("Conversa privada não localizada. Envie /start ao bot e execute novamente.");
-  }
-  return message.chat.id;
+async function botUsername() {
+  const response = await fetchJson(telegramUrl("getMe"));
+  if (!response?.result?.username) throw new Error("Username do bot não localizado");
+  return response.result.username;
+}
+
+async function getUpdates(offset) {
+  const response = await fetchJson(
+    `${telegramUrl("getUpdates")}?offset=${offset}&limit=100&timeout=0`,
+  );
+  return Array.isArray(response?.result) ? response.result : [];
 }
 
 async function sendMessage(chatId, text) {
@@ -125,6 +158,105 @@ async function sendMessage(chatId, text) {
     }),
   });
   if (!result?.ok) throw new Error("Telegram recusou a mensagem");
+}
+
+function welcomeMessage() {
+  return [
+    "✅ ALERTAS DO TERMÔMETRO ATIVADOS",
+    "",
+    "Você receberá os mesmos alertas técnicos dos nove ativos monitorados.",
+    "Criptomoedas: candles de 15 minutos.",
+    "MSTR, prata, cobre e urânio: candles de 1 hora.",
+    "",
+    "Comandos:",
+    "/status — consultar o monitoramento",
+    "/parar — deixar de receber alertas",
+    "/ajuda — mostrar estas instruções",
+  ].join("\n");
+}
+
+function statusMessage(active) {
+  return active
+    ? "✅ Seus alertas estão ativos. Nove ativos estão sendo monitorados. Para sair, envie /parar."
+    : "⏸ Seus alertas estão pausados. Para voltar a receber, envie /start.";
+}
+
+function helpMessage() {
+  return [
+    "COMANDOS DO TERMÔMETRO",
+    "",
+    "/start — ativar os alertas",
+    "/status — verificar se estão ativos",
+    "/parar — deixar de receber",
+  ].join("\n");
+}
+
+async function processSubscriberUpdates(state) {
+  const updates = await getUpdates((state.updateOffset || 0) + 1);
+  if (!updates.length) return { changed: false, commands: 0 };
+
+  state.updateOffset = Math.max(...updates.map((update) => Number(update.update_id) || 0));
+  const latestByChat = new Map();
+
+  for (const update of updates) {
+    const message = update.message;
+    if (message?.chat?.type !== "private") continue;
+    const command = subscriberCommand(message.text);
+    if (!command) continue;
+    latestByChat.set(String(message.chat.id), command);
+  }
+
+  for (const [chatId, command] of latestByChat) {
+    const existing = state.subscribers[chatId];
+    if (command === "START") {
+      state.subscribers[chatId] = {
+        active: true,
+        joinedAt: existing?.joinedAt ?? Date.now(),
+      };
+      await sendMessage(chatId, welcomeMessage());
+    } else if (command === "STOP") {
+      await sendMessage(chatId, "⏸ Alertas pausados. Quando quiser voltar, envie /start.");
+      state.subscribers[chatId] = {
+        active: false,
+        joinedAt: existing?.joinedAt ?? Date.now(),
+      };
+    } else if (command === "STATUS") {
+      await sendMessage(chatId, statusMessage(Boolean(existing?.active)));
+    } else if (command === "HELP") {
+      await sendMessage(chatId, helpMessage());
+    }
+  }
+
+  return { changed: true, commands: latestByChat.size };
+}
+
+function activeSubscribers(state) {
+  return Object.entries(state.subscribers)
+    .filter(([, subscriber]) => subscriber?.active)
+    .map(([chatId]) => chatId);
+}
+
+async function broadcast(state, text) {
+  let delivered = 0;
+  let disabled = 0;
+  let failed = 0;
+
+  for (const chatId of activeSubscribers(state)) {
+    try {
+      await sendMessage(chatId, text);
+      delivered += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (/HTTP (400|403)/.test(message)) {
+        state.subscribers[chatId].active = false;
+        disabled += 1;
+      } else {
+        failed += 1;
+      }
+    }
+  }
+
+  return { delivered, disabled, failed };
 }
 
 function localTime(timestamp) {
@@ -179,13 +311,12 @@ async function setOutput(name, value) {
 async function main() {
   if (!TOKEN) throw new Error("TELEGRAM_BOT_TOKEN não configurado");
 
-  const state = await readState();
-  let stateChanged = false;
-  const chatId = state.chatId ?? await findPrivateChatId();
-  if (!state.chatId) {
-    state.chatId = chatId;
-    stateChanged = true;
-  }
+  const username = await botUsername();
+  const { state, migrated } = await readState();
+  let stateChanged = migrated;
+  const subscriberUpdates = await processSubscriberUpdates(state);
+  stateChanged ||= subscriberUpdates.changed;
+
   let successful = 0;
   const errors = [];
   const pendingMessages = [];
@@ -224,31 +355,39 @@ async function main() {
 
   if (!successful) throw new Error(`Nenhum ativo analisado. ${errors.join(" • ")}`);
 
+  let delivery = { delivered: 0, disabled: 0, failed: 0 };
   if (SETUP_TEST) {
-    await sendMessage(
-      chatId,
+    delivery = await broadcast(
+      state,
       [
-        "✅ ALERTAS DO TERMÔMETRO ATIVADOS",
+        "✅ BOT PARA AMIGOS ATIVADO",
         "",
         `${successful} de ${assets.length} ativos verificados.`,
-        "Criptomoedas: candles de 15 minutos.",
-        "MSTR, prata, cobre e urânio: candles de 1 hora.",
         "",
-        "Você receberá mensagens somente quando uma condição de Compra ou Compra Forte surgir, mudar de intensidade ou terminar.",
+        "Compartilhe este link:",
+        `https://t.me/${username}`,
+        "",
+        "Cada amigo precisa tocar em Iniciar. Para sair, basta enviar /parar.",
       ].join("\n"),
     );
   } else {
     for (const message of pendingMessages) {
-      await sendMessage(chatId, message);
+      const result = await broadcast(state, message);
+      delivery.delivered += result.delivered;
+      delivery.disabled += result.disabled;
+      delivery.failed += result.failed;
     }
   }
 
+  if (delivery.disabled) stateChanged = true;
   if (stateChanged) await saveState(state);
   await setOutput("state_changed", stateChanged ? "true" : "false");
   await setOutput("assets_ok", String(successful));
+  await setOutput("subscribers", String(activeSubscribers(state).length));
   console.log(
-    `Monitoramento concluído: ${successful}/${assets.length} ativos • ${pendingMessages.length} transições${errors.length ? ` • ${errors.length} falhas` : ""}`,
+    `Monitoramento concluído: ${successful}/${assets.length} ativos • ${activeSubscribers(state).length} assinantes ativos • ${pendingMessages.length} transições • ${subscriberUpdates.commands} comandos`,
   );
+  if (delivery.failed) console.warn(`${delivery.failed} entregas temporariamente indisponíveis`);
   for (const error of errors) console.warn(error);
 }
 

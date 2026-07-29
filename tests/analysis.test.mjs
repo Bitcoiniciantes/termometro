@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { analyze, scoreDistanceLabel, scoreLabel, wilderAdx, wilderRsi } from "../lib/analysis.ts";
-import { alertBand, alertTransition } from "../lib/alerts.ts";
+import { alertBand, alertTransition, subscriberCommand } from "../lib/alerts.ts";
 import { mapSettledWithConcurrency } from "../lib/concurrency.ts";
 
 function marketFromCloses(closes, options = {}) {
@@ -154,4 +154,14 @@ test("alerta dispara somente nas transições relevantes de compra", () => {
   assert.equal(alertTransition("COMPRA", "COMPRA_FORTE"), "FORTALECEU");
   assert.equal(alertTransition("COMPRA_FORTE", "COMPRA"), "ENFRAQUECEU");
   assert.equal(alertTransition("COMPRA", "FORA"), "ENCERROU");
+});
+test("interpreta os comandos simples dos amigos", () => {
+  assert.equal(subscriberCommand("/start"), "START");
+  assert.equal(subscriberCommand("/start convite"), "START");
+  assert.equal(subscriberCommand("ativar"), "START");
+  assert.equal(subscriberCommand("/parar"), "STOP");
+  assert.equal(subscriberCommand("/status"), "STATUS");
+  assert.equal(subscriberCommand("/ajuda"), "HELP");
+  assert.equal(subscriberCommand("olá"), null);
+  assert.equal(subscriberCommand(undefined), null);
 });
