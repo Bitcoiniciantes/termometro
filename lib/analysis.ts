@@ -3,6 +3,40 @@ import type { Analysis, Candle, ExtremeReading, MarketData, Signal } from "./typ
 export const avg = (values: number[]) =>
   values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
 
+const clamp = (value: number, minimum: number, maximum: number) =>
+  Math.max(minimum, Math.min(maximum, value));
+
+const roundScore = (value: number) => {
+  const rounded = Math.round(value);
+  return Object.is(rounded, -0) ? 0 : rounded;
+};
+
+const periodMilliseconds: Record<string, number> = {
+  "15M": 15 * 60_000,
+  "1H": 60 * 60_000,
+  "4H": 4 * 60 * 60_000,
+  "1D": 24 * 60 * 60_000,
+  "1S": 7 * 24 * 60 * 60_000,
+};
+
+function candleEnd(time: number, period: string) {
+  if (period === "1M") {
+    const start = new Date(time);
+    return Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1);
+  }
+  return time + (periodMilliseconds[period] ?? 0);
+}
+
+export function completedCandles(
+  candles: Candle[],
+  period?: string,
+  now = Date.now(),
+) {
+  const last = candles.at(-1);
+  if (!last || !period || !periodMilliseconds[period] && period !== "1M") return candles;
+  return candleEnd(last.time, period) > now ? candles.slice(0, -1) : candles;
+}
+
 export function wilderRsi(values: number[], length = 14) {
   if (values.length < length + 2) return null;
   const series = wilderRsiSeries(values, length);
@@ -165,25 +199,41 @@ function classifyExtreme(args: {
 export function scoreLabel(score: number) {
   if (score >= 55) return "COMPRA FORTE";
   if (score >= 20) return "COMPRA";
-  if (score > -20) return "NEUTRO";
+  if (score >= 10) return "NEUTRO • VIÉS DE ALTA";
+  if (score > -10) return "NEUTRO";
+  if (score > -20) return "NEUTRO • VIÉS DE BAIXA";
   if (score > -55) return "VENDA";
   return "VENDA FORTE";
 }
 
-export function analyze(data: MarketData | null): Analysis | null {
-  if (!data || data.candles.length < 55) return null;
-  const candles = data.candles;
+export function scoreDistanceLabel(score: number) {
+  if (score >= 55) return "Faixa de compra forte confirmada.";
+  if (score >= 20) return `${55 - score} pts para Compra Forte.`;
+  if (score >= 10) return `${20 - score} pts para Compra.`;
+  if (score >= 0) return `${10 - score} pts para Viés de Alta.`;
+  if (score > -10) return `${score + 10} pts para Viés de Baixa.`;
+  if (score > -20) return `${score + 20} pts para Venda.`;
+  if (score > -55) return `${score + 55} pts para Venda Forte.`;
+  return "Faixa de venda forte confirmada.";
+}
+
+export function analyze(data: MarketData | null, now = Date.now()): Analysis | null {
+  if (!data) return null;
+  const candles = completedCandles(data.candles, data.period, now);
+  if (candles.length < 55) return null;
   const closes = candles.map((candle) => candle.close);
   const last = closes.at(-1)!;
+  const previous = closes.at(-2)!;
   const sma20 = avg(closes.slice(-20));
   const sma50 = avg(closes.slice(-50));
   const rsi = wilderRsi(closes)?.value ?? 50;
   const vol20 = avg(candles.slice(-21, -1).map((candle) => candle.volume));
   const volRatio = candles.at(-1)!.volume / Math.max(vol20, 1);
   const atrAbsolute = avg(trueRanges(candles).slice(-14));
-  const atr = (atrAbsolute / last) * 100;
+  const atr = last ? (atrAbsolute / last) * 100 : 0;
   const adx = wilderAdx(candles) ?? 0;
   const atrDistance = atrAbsolute ? (last - sma20) / atrAbsolute : 0;
+  const trendDistance = atrAbsolute ? (sma20 - sma50) / atrAbsolute : 0;
   const divergence = findDivergence(candles, closes);
   const highs = candles.slice(-20).map((candle) => candle.high);
   const lows = candles.slice(-20).map((candle) => candle.low);
@@ -191,19 +241,60 @@ export function analyze(data: MarketData | null): Analysis | null {
   const recentRange = Math.max(...highs.slice(-10)) - Math.min(...lows.slice(-10));
   const compression = fullRange > 0 ? recentRange / fullRange : 1;
   const ascending = avg(lows.slice(-5)) > avg(lows.slice(0, 5));
-  const uptrend = sma20 > sma50;
+  const uptrend = trendDistance >= 0;
   const strongTrend = adx >= 25;
-  const trend = uptrend ? 18 : -18;
-  const momentum = rsi >= 55 && rsi <= 70 ? 12 : rsi > 70 ? (strongTrend && uptrend ? 8 : -6) : rsi < 30 ? (strongTrend && !uptrend ? -8 : 6) : rsi < 40 ? -8 : 2;
-  const volume = volRatio >= 1.25 ? 12 : volRatio < 0.7 ? -5 : 3;
-  const pattern = compression < 0.72 ? (ascending ? 18 : 8) : 0;
-  const risk = atr > 7 ? -12 : atr > 4 ? -6 : 4;
+
+  const trend = roundScore(clamp(trendDistance * 8, -24, 24));
+  const regimeBoost = strongTrend
+    ? Math.sign(trendDistance) * clamp((adx - 25) / 5, 0, 4)
+    : 0;
+  const divergenceAdjustment = divergence === "bullish" ? 4 : divergence === "bearish" ? -4 : 0;
+  const momentum = roundScore(clamp((rsi - 50) * 0.65 + regimeBoost + divergenceAdjustment, -16, 16));
+  const volume = roundScore(
+    volRatio <= 1
+      ? -6 * (1 - volRatio)
+      : Math.sign(last - previous || candles.at(-1)!.close - candles.at(-1)!.open) * clamp(Math.log2(volRatio) * 6, 0, 10),
+  );
+  const compressionStrength = clamp((0.9 - compression) / 0.35, 0, 1);
+  const pattern = roundScore(compressionStrength * 14 * (ascending ? 1 : -0.5));
+  const risk = roundScore(clamp(6 - atr * 2.2, -12, 6));
+
   const scoringSignals: Signal[] = [
-    { title: "Tendência primária", summary: `MM20 ${uptrend ? "acima" : "abaixo"} da MM50`, score: trend, group: "Tendência", detail: `MM20: ${sma20.toFixed(2)} • MM50: ${sma50.toFixed(2)}.` },
-    { title: "Compressão de preço", summary: compression < 0.72 ? (ascending ? "Estrutura ascendente detectada" : "Amplitude em contração") : "Sem compressão relevante", score: pattern, group: "Padrão", detail: `A amplitude recente equivale a ${(compression * 100).toFixed(0)}% da janela de 20 candles.` },
-    { title: "Força relativa", summary: `RSI em ${rsi.toFixed(1)}`, score: momentum, group: "Momentum", detail: `RSI de Wilder em 14 períodos, contextualizado por ADX ${adx.toFixed(1)}.` },
-    { title: "Confirmação por volume", summary: `${volRatio.toFixed(2)}× a média`, score: volume, group: "Volume", detail: "Volume do candle atual comparado à média dos 20 anteriores." },
-    { title: "Risco por volatilidade", summary: `ATR em ${atr.toFixed(2)}%`, score: risk, group: "Risco", detail: "ATR de 14 períodos normalizado pelo preço atual." },
+    {
+      title: "Tendência primária",
+      summary: `MM20 ${uptrend ? "acima" : "abaixo"} da MM50 • ${Math.abs(trendDistance).toFixed(1)} ATR`,
+      score: trend,
+      group: "Tendência",
+      detail: `A distância entre MM20 e MM50 é normalizada pela volatilidade do ativo, evitando comparar escalas diferentes.`,
+    },
+    {
+      title: "Compressão de preço",
+      summary: compression < 0.9 ? (ascending ? "Estrutura ascendente em compressão" : "Estrutura descendente em compressão") : "Sem compressão relevante",
+      score: pattern,
+      group: "Padrão",
+      detail: `A amplitude recente equivale a ${(compression * 100).toFixed(0)}% da janela de 20 candles; a pontuação varia gradualmente conforme a compressão.`,
+    },
+    {
+      title: "Força relativa",
+      summary: `RSI em ${rsi.toFixed(1)}`,
+      score: momentum,
+      group: "Momentum",
+      detail: `RSI de Wilder em 14 períodos, ajustado gradualmente por ADX e divergência confirmada.`,
+    },
+    {
+      title: "Confirmação por volume",
+      summary: `${volRatio.toFixed(2)}× a média • candle encerrado`,
+      score: volume,
+      group: "Volume",
+      detail: "Volume do último candle encerrado comparado à média dos 20 anteriores. Candles ainda abertos não penalizam a nota.",
+    },
+    {
+      title: "Risco por volatilidade",
+      summary: `ATR em ${atr.toFixed(2)}%`,
+      score: risk,
+      group: "Risco",
+      detail: "ATR de 14 períodos convertido em uma pontuação gradual de risco, sem saltos entre faixas.",
+    },
   ];
   const contextSignals: Signal[] = [
     {
@@ -232,13 +323,16 @@ export function analyze(data: MarketData | null): Analysis | null {
     },
   ];
   const signals = [...scoringSignals, ...contextSignals];
-  const score = Math.max(-100, Math.min(100, scoringSignals.reduce((sum, signal) => sum + signal.score, 0)));
-  const agreement = scoringSignals.filter((signal) => Math.sign(signal.score) === Math.sign(score)).length / scoringSignals.length;
+  const score = roundScore(clamp(scoringSignals.reduce((sum, signal) => sum + signal.score, 0), -100, 100));
+  const directionalSignals = scoringSignals.filter((signal) => signal.score !== 0);
+  const agreement = directionalSignals.length
+    ? directionalSignals.filter((signal) => Math.sign(signal.score) === Math.sign(score)).length / directionalSignals.length
+    : 0;
   return {
     signals,
     score,
     confidence: Math.round(55 + agreement * 35),
-    change: (last / closes.at(-2)! - 1) * 100,
+    change: (last / previous - 1) * 100,
     extreme: classifyExtreme({ rsi, adx, atrDistance, divergence, uptrend }),
   };
 }

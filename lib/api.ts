@@ -1,5 +1,5 @@
 import { displayAsset, intervals, rsiPeriods, staticAssets } from "./config";
-import { wilderRsi } from "./analysis";
+import { completedCandles, wilderRsi } from "./analysis";
 import { mapSettledWithConcurrency } from "./concurrency";
 import type { Candle, MarketData, MultiRsi, StaticSnapshot } from "./types";
 
@@ -129,6 +129,7 @@ export async function fetchStaticAsset(
     pair: `${asset}/${config.currency}`,
     source: snapshot.source,
     updatedAt: snapshot.updatedAt,
+    period,
     candles,
   };
 }
@@ -150,6 +151,7 @@ export async function fetchMarket(
     pair: `${asset}/USDT`,
     source: "Binance Public Market Data",
     updatedAt: Date.now(),
+    period,
     candles,
   };
 }
@@ -170,7 +172,7 @@ export async function fetchMultiRsi(
       );
       candles = parseCandles(body);
     }
-    const reading = wilderRsi(candles.map((candle) => candle.close));
+    const reading = wilderRsi(completedCandles(candles, config.period).map((candle) => candle.close));
     if (!reading) throw new Error("Histórico insuficiente");
     return { label: config.label, ...reading };
   });

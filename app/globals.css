@@ -158,3 +158,7 @@ header>.live{display:none}
 /* Contraste dos textos explicativos do plano */
 .planStatus>p{color:#d6dfdb}
 .disclaimer{color:#cbd6d1!important}
+/* Vieses graduais do Radar e pontuação zero */
+.biasItem.neutro-alta .biasSide,.biasItem.neutro-alta .biasSelect>strong{color:#8dca86}.biasItem.neutro-alta .biasSelect>i>em{background:#6e9e69}
+.biasItem.neutro-baixa .biasSide,.biasItem.neutro-baixa .biasSelect>strong{color:#d6a45f}.biasItem.neutro-baixa .biasSelect>i>em{background:#a77d45}
+.sign.zero{color:#aeb9b4;background:#aeb9b412}
