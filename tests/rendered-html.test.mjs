@@ -15,6 +15,8 @@ test("expõe o painel e o motor transparente", async () => {
   assert.match(page, /desktopPeriodPrompt/);
   assert.match(page, /EXTREMO TÉCNICO/);
   assert.match(page, /sinais de nota/);
+  assert.match(page, /NEUTRO ↑/);
+  assert.match(analysis, /candle encerrado/);
   assert.match(analysis, /Força da tendência \(ADX\)/);
 });
 

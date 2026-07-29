@@ -21,6 +21,7 @@ export type MarketData = {
   pair: string;
   source: string;
   updatedAt: number;
+  period: string;
   candles: Candle[];
 };
 
