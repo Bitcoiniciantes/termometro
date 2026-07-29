@@ -152,6 +152,7 @@ header>.live{display:none}
 .heroThermo.thermo>p{font-size:11px;line-height:1.5}
 .heroThermo .confidence{font-size:10px}
 .extremeDetail{color:#a8b4af;font-size:10px;line-height:1.6}
+.signalText em{font-size:15px}
 .rsiGeneral>small{font-size:9px;line-height:1.4}
 .distanceNote{font-size:9px}
 .disclaimer{color:#82908a!important;font-size:9px!important;line-height:1.65}
