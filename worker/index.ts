@@ -4,6 +4,7 @@ import handler from "vinext/server/app-router-entry";
 
 interface Env {
   ASSETS: Fetcher;
+  GEMINI_API_KEY?: string;
   DB: D1Database;
   IMAGES: {
     input(stream: ReadableStream): {
@@ -17,6 +18,94 @@ interface Env {
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
   passThroughOnException(): void;
+}
+const ALLOWED_AI_ORIGINS = new Set([
+  "https://bitcoiniciantes.github.io",
+  "https://termometro-estude-bitcoin.bitcoiniciantes.chatgpt.site",
+]);
+
+function aiCorsHeaders(request: Request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return new Headers();
+  const parsed = new URL(origin);
+  const local = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  if (!ALLOWED_AI_ORIGINS.has(origin) && !local) return null;
+  return new Headers({
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin",
+  });
+}
+const AI_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["headline", "scenario", "summary", "strategy", "risks", "invalidation"],
+  properties: {
+    headline: { type: "string" },
+    scenario: { type: "string", enum: ["ALTA", "BAIXA", "NEUTRO", "RISCO ELEVADO"] },
+    summary: { type: "string" },
+    strategy: { type: "array", minItems: 2, maxItems: 4, items: { type: "string" } },
+    risks: { type: "array", minItems: 1, maxItems: 3, items: { type: "string" } },
+    invalidation: { type: "string" },
+  },
+} as const;
+
+async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") return Response.json({ error: "Método não permitido." }, { status: 405 });
+  if (!env.GEMINI_API_KEY) {
+    return Response.json({ error: "A chave do Gemini ainda não foi configurada no servidor." }, { status: 503 });
+  }
+
+  if (Number(request.headers.get("content-length") || 0) > 24_000) {
+    return Response.json({ error: "Solicitação muito grande." }, { status: 413 });
+  }
+  const payload = await request.json().catch(() => null);
+  if (!payload || typeof payload !== "object") {
+    return Response.json({ error: "Dados técnicos inválidos." }, { status: 400 });
+  }
+  const prompt = [
+    "Você é um analista educacional de mercado.",
+    "Interprete somente os indicadores fornecidos, sem inventar preços, notícias ou dados.",
+    "Não prometa retorno e não dê ordem personalizada de compra ou venda.",
+    "Apresente um cenário condicional, objetivo e prudente em português do Brasil.",
+    "Explique o que observar, os riscos e o que invalidaria a leitura.",
+    "Dados técnicos determinísticos:",
+    JSON.stringify(payload),
+  ].join("\n");
+  const geminiResponse = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 1000,
+          responseMimeType: "application/json",
+          responseJsonSchema: AI_SCHEMA,
+        },
+      }),
+    },
+  );
+  const geminiBody = (await geminiResponse.json().catch(() => null)) as {
+    error?: { message?: string };
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  } | null;
+  if (!geminiResponse.ok) {
+    const message = geminiResponse.status === 429
+      ? "Limite temporário da API atingido. Tente novamente em instantes."
+      : geminiBody?.error?.message || "O Gemini não respondeu.";
+    return Response.json({ error: message }, { status: geminiResponse.status });
+  }
+  const text = geminiBody?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) return Response.json({ error: "O Gemini não retornou uma análise válida." }, { status: 502 });
+  try {
+    return Response.json({ ...JSON.parse(text), generatedAt: new Date().toISOString() });
+  } catch {
+    return Response.json({ error: "O Gemini retornou um formato inesperado." }, { status: 502 });
+  }
 }
 
 // Image security config. SVG sources with .svg extension auto-skip the
@@ -38,6 +127,16 @@ const worker = {
           return result.response();
         },
       }, allowedWidths);
+    }
+
+    if (url.pathname === "/api/ai-analysis") {
+      const cors = aiCorsHeaders(request);
+      if (!cors) return Response.json({ error: "Origem não autorizada." }, { status: 403 });
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+      const response = await handleAiAnalysis(request, env);
+      const headers = new Headers(response.headers);
+      cors.forEach((value, key) => headers.set(key, value));
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
     }
 
     return handler.fetch(request, env, ctx);

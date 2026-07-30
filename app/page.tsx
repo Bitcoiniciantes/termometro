@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import PriceStructureChart from "./PriceStructureChart";
+import AiAnalysisCard from "./AiAnalysisCard";
 import { analyze, avg, scoreDistanceLabel, scoreLabel } from "../lib/analysis";
 import { fetchBitcoinNupl, fetchMarket, fetchMultiRsi } from "../lib/api";
 import { mapSettledWithConcurrency } from "../lib/concurrency";
@@ -105,11 +106,30 @@ export function Termometro(){
     <article className={`card thermo heroThermo thermoTone ${toneClass}`}><div className="mobilePeriods periodPrompt"><div className="periodGuide"><div><span>ESCOLHA O PERÍODO DA ANÁLISE</span><button type="button" onClick={()=>setShowPeriodHelp(value=>!value)} aria-expanded={showPeriodHelp} aria-label="Explicar períodos">i</button></div><small>O resultado muda conforme o período.</small>{showPeriodHelp&&<p>Períodos curtos reagem mais rápido e têm mais ruído. Períodos longos mostram tendências mais consistentes.</p>}</div><div className="periods">{availablePeriods.map(p=><button key={p} onClick={()=>changePeriod(p)} className={period===p?"active":""} aria-pressed={period===p} aria-label={`Consultar período ${p}`}>{p}</button>)}</div>{periodFeedback&&<div className={`periodFeedback ${periodFeedback.startsWith("✓")?"done":""}`} role="status" aria-live="polite">{periodFeedback}</div>}</div><Title kicker="TERMÔMETRO DO ATIVO" title={loading?`Carregando ${displayName}…`:`Leitura consolidada · ${displayName}`} extra={<button type="button" className="info" title="Regras fixas, sem IA" aria-label="Sobre as regras do Termômetro">i</button>}/><div className="scoreRing" style={{"--score":`${(score+100)*1.8}deg`} as React.CSSProperties}><div><b>{score>0?"+":""}{score}</b><span>DE 100</span></div></div><h3>{label}</h3><p>{scoreExplanation}</p><div className="scale"><div className="scaleTrack"><i style={{left:`${(score+100)/2}%`}}/></div><div><span>-100<br/>Venda</span><span>0<br/>Neutro</span><span>+100<br/>Compra</span></div></div><div className="confidence"><span>Concordância dos sinais</span><b>{confidence}%</b><div><i style={{width:`${confidence}%`}}/></div></div></article>
     {extreme&&<article className={`card extremeCard ${extreme.tone}`}><Title kicker="EXTREMO TÉCNICO" title={extreme.status} extra={<span className="extremePeriod">{period}</span>}/><div className="extremeBody"><p>{extreme.summary}</p><div className="extremeMetrics"><span><small>RSI WILDER</small><b>{extreme.rsi.toFixed(1)}</b></span><span><small>FORÇA ADX</small><b>{extreme.adx.toFixed(1)}</b></span><span><small>DISTÂNCIA</small><b>{extreme.atrDistance.toFixed(1)} ATR</b></span></div><div className="extremeContext"><span>{extreme.adx>=25?'TENDÊNCIA FORTE':'TENDÊNCIA FRACA'}</span><span>{extreme.divergence==='bullish'?'DIVERGÊNCIA DE ALTA':extreme.divergence==='bearish'?'DIVERGÊNCIA DE BAIXA':'SEM DIVERGÊNCIA'}</span></div><small className="extremeDetail">{extreme.detail}</small></div></article>}
     <RsiGeneralPanel asset={displayName} data={multiRsi} loading={multiRsiLoading}/>
+    <AiAnalysisCard
+      disabled={!analysis || loading || !currentPrice}
+      payload={{
+        asset: displayName,
+        period,
+        currentPrice: currentPrice ?? 0,
+        score,
+        confidence,
+        change,
+        support,
+        resistance,
+        entry,
+        stop,
+        target,
+        volumeRatio,
+        multiRsi: multiRsi ? { general: multiRsi.general, bullCount: multiRsi.bullCount, bearCount: multiRsi.bearCount, signal: multiRsi.signal } : null,
+        signals: signals.map(({ title, summary, score: signalScore, group, context }) => ({ title, summary, score: signalScore, group, context })),
+      }}
+    />
     <article className="card levels"><Title kicker="PLANO TÉCNICO" title="Cenário condicional"/><div className={`planStatus ${planTone}`}><span>STATUS DO CENÁRIO</span><b>{planStatus}</b><p>{planMessage}</p></div>{showPlan?<><div className="level target"><span>ALVO PROJETADO</span><b>{fmt(target)}</b><small>{pct(target)}</small></div><div className="level entry"><span>ROMPIMENTO / ENTRADA CONDICIONAL</span><b>{fmt(entry)}</b><small>{entryDistance.toFixed(2)}% do preço atual</small></div><div className="level stop"><span>INVALIDAÇÃO / STOP APÓS ENTRADA</span><b>{fmt(stop)}</b><small>{pct(stop)}</small></div><div className="risk"><span>RISCO : RETORNO</span><b>{entry&&stop?"1 : 2,5":"—"}</b></div></>:<><div className="level currentLevel"><span>PREÇO ATUAL</span><b>{fmt(currentPrice)}</b><small>referência</small></div><div className={`level ${score<=-20?"stop":"entry"}`}><span>{score<=-20?"SUPORTE DE REFERÊNCIA":"RESISTÊNCIA DE REFERÊNCIA"}</span><b>{fmt(score<=-20?support:resistance)}</b><small>{score<=-20?pct(support):pct(resistance)}</small></div><div className="distanceNote"><span>{score<=-20?"DISTÂNCIA ATÉ O SUPORTE":"DISTÂNCIA ATÉ O ROMPIMENTO"}</span><b>{score<=-20?`${supportDistance.toFixed(2)}%`:`${entryDistance.toFixed(2)}%`}</b></div></>}<p className="disclaimer">Níveis usam candles concluídos, estrutura e ATR. Conteúdo educacional, não é recomendação.</p></article>
   </div>
 </section>
   <section className="method" id="metodo"><div><span className="eyebrow">COMO A NOTA NASCE</span><h2>Sem palpite.<br/>Sem caixa-preta.</h2></div><div className="methodSteps">{[["01","Detectamos","Pivôs, linhas, compressões e padrões geométricos."],["02","Confirmamos","Momentum, tendência, volume e volatilidade validam o cenário."],["03","Pontuamos","Cada regra soma ou subtrai pontos com pesos públicos."],["04","Explicamos","Você audita cada ponto e sabe o que muda a leitura."]].map(x=><div key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></div>)}</div></section>
-  <footer><span><b>T°</b> TERMÔMETRO</span><p>Ferramenta educacional • Motor determinístico • Sem IA</p><small>PILOTO v0.1</small></footer>
+  <footer><span><b>T°</b> TERMÔMETRO</span><p>Motor determinístico • Interpretação opcional assistida por IA</p><small>PILOTO v0.2</small></footer>
  </main>
 }
 function PeriodComparison({previous,current}:{previous:{period:string;score:number};current:{period:string;score:number}}){const state=(score:number)=>score>=20?{label:'COMPRA',tone:'buy'}:score<=-20?{label:'VENDA',tone:'sell'}:score>=10?{label:'NEUTRO ↑',tone:'neutral'}:score<=-10?{label:'NEUTRO ↓',tone:'neutral'}:{label:'NEUTRO',tone:'neutral'},before=state(previous.score),after=state(current.score),signed=(score:number)=>`${score>0?'+':''}${score}`;return <div className='periodComparison' role='status' aria-live='polite'><span className={'periodState '+before.tone}><b>{before.label}</b><strong>{signed(previous.score)}</strong><small>{previous.period}</small></span><i aria-hidden='true'>→</i><span className={'periodState '+after.tone}><b>{after.label}</b><strong>{signed(current.score)}</strong><small>{current.period}</small></span></div>}
