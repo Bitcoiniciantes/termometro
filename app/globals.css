@@ -329,3 +329,7 @@ header>.live{display:none}
   .analysisDesk .levels { order:7; }
   .analysisDesk .signals { order:8; }
 }
+.quoteLive>b { color:var(--cyan); text-shadow:0 0 14px rgba(46,232,194,.24); }
+.quoteLive>span::before { content:""; display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; background:var(--cyan); box-shadow:0 0 10px var(--cyan); animation:liveQuotePulse 1.8s ease-in-out infinite; }
+@keyframes liveQuotePulse { 50% { opacity:.38; transform:scale(.72); } }
+@media(prefers-reduced-motion:reduce){.quoteLive>span::before{animation:none}}
