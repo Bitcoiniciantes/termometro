@@ -16,6 +16,8 @@ test("expõe o painel e o motor transparente", async () => {
   assert.doesNotMatch(page, /i%4===0\|\|i%7===0/);
   assert.match(page, /desktopPeriodPrompt/);
   assert.match(page, /mobileChartPeriods/);
+  assert.ok(page.indexOf('className="card chart"') < page.indexOf('className="card signals"'));
+  assert.ok(page.indexOf('className="card signals"') < page.indexOf('className="analysisColumn analysisRight"'));
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(styles, /\.analysisDesk \.mobileChartPeriods \{ order:5; \}/);
   assert.match(page, /EXTREMO TÉCNICO/);
