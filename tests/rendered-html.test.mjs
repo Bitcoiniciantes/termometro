@@ -12,6 +12,8 @@ test("expõe o painel e o motor transparente", async () => {
   assert.match(analysis, /RSI de Wilder em 14 períodos/);
   assert.match(analysis, /ATR de 14 períodos/);
   assert.match(page, /termometro-assets/);
+  assert.match(page, /PriceStructureChart/);
+  assert.doesNotMatch(page, /i%4===0\|\|i%7===0/);
   assert.match(page, /desktopPeriodPrompt/);
   assert.match(page, /EXTREMO TÉCNICO/);
   assert.match(page, /sinais de nota/);

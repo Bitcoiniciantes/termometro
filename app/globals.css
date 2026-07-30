@@ -165,3 +165,128 @@ header>.live{display:none}
 .sign.zero{color:#aeb9b4;background:#aeb9b412}
 .chartTitle{height:auto;min-height:86px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:stretch;gap:18px}.chartTitle>div:first-child,.chartTitle>.badge{align-self:center}.chartTitle>.badge{justify-self:end;font-size:18px;padding:14px}.nuplContext{--nupl-color:#e8c14c;justify-self:center;align-self:stretch;min-width:340px;padding:8px 18px;text-decoration:none;cursor:pointer;transition:filter .2s,background .2s,border-color .2s;border:1px solid #314039;border-left:9px solid var(--nupl-color);background:#0a1210;display:grid;align-content:center;gap:4px;text-align:center}.nuplContext span{color:#a8b4af;font-size:10.5px;line-height:1;letter-spacing:.14em}.nuplContext b{color:var(--nupl-color);font-size:16.5px;line-height:1.1;letter-spacing:.04em}.nuplContext small{color:#8f9d97;font-size:10.5px;line-height:1;letter-spacing:.08em}@media(max-width:700px){.chartTitle{height:auto;min-height:75px;grid-template-columns:1fr auto;padding-top:12px;padding-bottom:12px}.chartTitle>.badge{grid-column:2;grid-row:1;font-size:13px;padding:9px 10px;letter-spacing:.05em}.nuplContext{grid-column:1/3;grid-row:2;width:100%;min-width:0;margin-top:4px}}
 .nuplContext:hover,.nuplContext:focus-visible{background:#101c17;border-color:var(--nupl-color);filter:brightness(1.12);outline:2px solid var(--nupl-color);outline-offset:-2px}
+
+/* Gráfico OHLC real */
+.realPriceChart {
+  height: 360px;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+    radial-gradient(circle at 50% 20%, rgba(46,232,194,.045), transparent 45%),
+    #0d1512;
+  background-size: 100% 20%, 12.5% 100%, auto, auto;
+}
+.priceChartEmpty { display:grid; place-items:center; color:var(--muted); font-size:11px; letter-spacing:.08em; }
+.chartOhlc {
+  position:absolute;
+  top:12px;
+  left:16px;
+  z-index:7;
+  display:flex;
+  align-items:center;
+  gap:13px;
+  min-height:31px;
+  padding:6px 9px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(9,16,14,.82);
+  backdrop-filter:blur(8px);
+  color:#b9c4bf;
+  font-size:9px;
+  font-variant-numeric:tabular-nums;
+}
+.chartOhlc>span { color:#7f8c86; white-space:nowrap; }
+.chartOhlc dl { display:flex; align-items:center; gap:11px; margin:0; }
+.chartOhlc dl div { display:flex; gap:4px; }
+.chartOhlc dt { color:#718079; text-transform:uppercase; }
+.chartOhlc dd { margin:0; font-weight:800; }
+.chartOhlc.up dd { color:var(--cyan); }
+.chartOhlc.down dd { color:var(--red); }
+.chartAxis {
+  position:absolute;
+  top:57px;
+  right:11px;
+  bottom:30px;
+  z-index:5;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  color:#64716b;
+  font-size:8px;
+  font-variant-numeric:tabular-nums;
+  pointer-events:none;
+}
+.candlePlot { position:absolute; inset:57px 88px 30px 17px; z-index:3; }
+.realCandle {
+  position:absolute;
+  top:0;
+  bottom:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  cursor:crosshair;
+  outline:none;
+}
+.realCandle::before {
+  content:"";
+  position:absolute;
+  inset:0 8%;
+  background:rgba(255,255,255,0);
+  transition:background .12s ease;
+}
+.realCandle:hover::before,.realCandle:focus-visible::before { background:rgba(255,255,255,.045); }
+.candleWick,.candleBody { position:absolute; display:block; left:50%; transform:translateX(-50%); pointer-events:none; }
+.candleWick { width:1px; min-height:1px; background:currentColor; opacity:.9; }
+.candleBody { width:clamp(2px,58%,9px); min-height:2px; background:currentColor; border-radius:1px; }
+.realCandle.up { color:var(--cyan); }
+.realCandle.down { color:var(--red); }
+.realCandle.forming .candleBody { box-shadow:0 0 0 1px rgba(255,255,255,.3),0 0 10px currentColor; }
+.realCandle.forming::after {
+  content:"";
+  position:absolute;
+  left:50%;
+  bottom:-16px;
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  background:currentColor;
+  transform:translateX(-50%);
+  box-shadow:0 0 8px currentColor;
+}
+.priceLevel { position:absolute; left:0; right:0; border-top:1px dashed; pointer-events:none; z-index:1; }
+.priceLevel span { position:absolute; left:4px; top:-17px; padding:2px 4px; background:#0d1512; font-size:7px; letter-spacing:.1em; text-transform:uppercase; }
+.resistanceLevel { border-color:rgba(255,91,103,.55); color:var(--red); }
+.supportLevel { border-color:rgba(84,184,90,.6); color:var(--lime); }
+.chartDates {
+  position:absolute;
+  left:17px;
+  right:88px;
+  bottom:9px;
+  z-index:4;
+  display:flex;
+  justify-content:space-between;
+  color:#5f6c66;
+  font-size:8px;
+  font-variant-numeric:tabular-nums;
+  pointer-events:none;
+}
+.candleUpDot { background:var(--cyan); }
+.candleDownDot { background:var(--red); }
+.realPriceChart .chartIdentity { top:50%; z-index:1; transform:translate(-50%,-50%); }
+.realPriceChart .chartIdentity b { font-size:42px; opacity:.09; }
+.realPriceChart .chartIdentity span { opacity:.32; }
+
+@media(max-width:650px){
+  .realPriceChart { height:330px; }
+  .chartOhlc { right:10px; left:10px; align-items:flex-start; gap:6px; padding:6px 7px; }
+  .chartOhlc>span { display:none; }
+  .chartOhlc dl { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; width:100%; }
+  .chartOhlc dl div { justify-content:space-between; }
+  .chartAxis { display:none; }
+  .candlePlot { inset:72px 12px 30px; }
+  .chartDates { left:12px; right:12px; }
+  .priceLevel span { font-size:6px; }
+  .chartFoot { gap:12px; }
+}
