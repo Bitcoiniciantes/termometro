@@ -323,3 +323,9 @@ header>.live{display:none}
     padding:8px 4px;
   }
 }
+@media(max-width:650px){
+  .analysisDesk .mobileChartPeriods { order:5; }
+  .analysisDesk .chart { order:6; }
+  .analysisDesk .levels { order:7; }
+  .analysisDesk .signals { order:8; }
+}
