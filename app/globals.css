@@ -290,3 +290,36 @@ header>.live{display:none}
   .priceLevel span { font-size:6px; }
   .chartFoot { gap:12px; }
 }
+.mobileChartPeriods { display:none; }
+
+@media(max-width:650px){
+  .mobileChartPeriods {
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:12px;
+    padding:12px;
+    border:1px solid var(--line);
+    border-bottom:0;
+    background:#0d1512;
+  }
+  .mobileChartPeriods>span {
+    color:var(--paper);
+    font-size:9px;
+    font-weight:900;
+    letter-spacing:.12em;
+  }
+  .mobileChartPeriods .periods {
+    display:grid;
+    grid-template-columns:none!important;
+    grid-auto-flow:column;
+    grid-auto-columns:1fr;
+    width:100%;
+    margin:0;
+  }
+  .mobileChartPeriods .periods button {
+    min-width:0;
+    min-height:44px;
+    padding:8px 4px;
+  }
+}

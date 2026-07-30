@@ -15,6 +15,7 @@ test("expõe o painel e o motor transparente", async () => {
   assert.match(page, /PriceStructureChart/);
   assert.doesNotMatch(page, /i%4===0\|\|i%7===0/);
   assert.match(page, /desktopPeriodPrompt/);
+  assert.match(page, /mobileChartPeriods/);
   assert.match(page, /EXTREMO TÉCNICO/);
   assert.match(page, /sinais de nota/);
   assert.match(page, /NEUTRO ↑/);
