@@ -163,3 +163,26 @@ export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: Abort
   }
   return body as AiAnalysisResponse;
 }
+
+export type AssetNewsItem = {
+  title: string;
+  url: string;
+  source: string;
+  publishedAt: string | null;
+};
+
+export type AssetNewsResponse = {
+  asset: string;
+  updatedAt: string;
+  items: AssetNewsItem[];
+};
+
+export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promise<AssetNewsResponse> {
+  const base = typeof window !== "undefined" && window.location.hostname === "bitcoiniciantes.github.io"
+    ? "https://termometro-estude-bitcoin.bitcoiniciantes.chatgpt.site"
+    : "";
+  const response = await fetch(base + "/api/asset-news?asset=" + encodeURIComponent(asset), { signal });
+  if (!response.ok) throw new Error("Not?cias indispon?veis.");
+  const body = await response.json() as AssetNewsResponse;
+  return Array.isArray(body.items) ? body : { asset, updatedAt: new Date().toISOString(), items: [] };
+}

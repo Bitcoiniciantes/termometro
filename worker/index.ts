@@ -34,11 +34,50 @@ function aiCorsHeaders(request: Request) {
   if (!ALLOWED_AI_ORIGINS.has(origin) && !local) return null;
   return new Headers({
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Vary": "Origin",
   });
 }
+
+type NewsItem = { title: string; url: string; source: string; publishedAt: string | null };
+
+function decodeXml(value: string) {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+}
+
+function rssTag(xml: string, tag: string) {
+  return decodeXml(xml.match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)<\\/" + tag + ">", "i"))?.[1] || "");
+}
+
+async function handleAssetNews(request: Request): Promise<Response> {
+  if (request.method !== "GET") return Response.json({ error: "M?todo n?o permitido." }, { status: 405 });
+  const asset = (new URL(request.url).searchParams.get("asset") || "").toUpperCase();
+  if (!/^[A-Z0-9]{2,12}$/.test(asset)) return Response.json({ error: "Ativo inv?lido." }, { status: 400 });
+  const query = asset + " cryptocurrency when:2d";
+  const rssUrl = "https://news.google.com/rss/search?q=" + encodeURIComponent(query) + "&hl=pt-BR&gl=BR&ceid=BR:pt-419";
+  try {
+    const response = await fetch(rssUrl, { headers: { "User-Agent": "TermometroEstudeBitcoin/1.0" } });
+    if (!response.ok) throw new Error("news source unavailable");
+    const xml = await response.text();
+    const items: NewsItem[] = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].slice(0, 3).map(match => {
+      const item = match[1];
+      const title = rssTag(item, "title").replace(/\s+-\s+[^-]+$/, "");
+      const url = rssTag(item, "link");
+      const source = rssTag(item, "source") || "Google News";
+      const date = rssTag(item, "pubDate");
+      const publishedAt = date && !Number.isNaN(Date.parse(date)) ? new Date(date).toISOString() : null;
+      return { title, url, source, publishedAt };
+    }).filter(item => item.title && /^https:\/\//.test(item.url));
+    return Response.json({ asset, updatedAt: new Date().toISOString(), items });
+  } catch {
+    return Response.json({ asset, updatedAt: new Date().toISOString(), items: [] });
+  }
+}
+
 const AI_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -292,6 +331,17 @@ const worker = {
       const headers = new Headers(response.headers);
       cors.forEach((value, key) => headers.set(key, value));
       return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    }
+
+
+    if (url.pathname === "/api/asset-news") {
+      const cors = aiCorsHeaders(request);
+      if (!cors) return Response.json({ error: "Origem n?o autorizada." }, { status: 403 });
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+      const response = await handleAssetNews(request);
+      const headers = new Headers(response.headers);
+      cors.forEach((value, key) => headers.set(key, value));
+      return new Response(response.body, { status: response.status, headers });
     }
 
     return handler.fetch(request, env, ctx);

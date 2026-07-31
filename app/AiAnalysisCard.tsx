@@ -5,6 +5,8 @@ import {
   AiAnalysisError,
   buildLocalAiPreview,
   fetchAiAnalysis,
+  fetchAssetNews,
+  type AssetNewsResponse,
   readCachedAiAnalysis,
   writeCachedAiAnalysis,
   type AiAnalysisRequest,
@@ -25,6 +27,8 @@ export default function AiAnalysisCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [retryAfter, setRetryAfter] = useState(0);
+  const [news, setNews] = useState<AssetNewsResponse | null>(null);
+  const [newsLoading, setNewsLoading] = useState(true);
   const requestRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => requestRef.current?.abort(), []);
@@ -41,6 +45,19 @@ export default function AiAnalysisCard({
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [retryAfter]);
+
+
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setNewsLoading(true);
+    setNews(null);
+    fetchAssetNews(payload.asset, controller.signal)
+      .then(result => { if (!controller.signal.aborted) setNews(result); })
+      .catch(() => { if (!controller.signal.aborted) setNews(null); })
+      .finally(() => { if (!controller.signal.aborted) setNewsLoading(false); });
+    return () => controller.abort();
+  }, [payload.asset]);
 
   const generate = async (force = false) => {
     if (loading) return;
@@ -116,6 +133,13 @@ export default function AiAnalysisCard({
           <div className="aiSection"><b>ESTRATÉGIA CONDICIONAL</b><ol>{analysis.strategy.map(item => <li key={item}>{item}</li>)}</ol></div>
           <div className="aiSection aiRisks"><b>RISCOS</b><ul>{analysis.risks.map(item => <li key={item}>{item}</li>)}</ul></div>
           <div className="aiInvalidation"><span>INVALIDAÇÃO DA LEITURA</span><p>{analysis.invalidation}</p></div>
+
+          <div className="aiSection aiNews">
+            <b>FATOS RELEVANTES</b>
+            {newsLoading ? <p>Buscando not?cias recentes?</p> : news?.items.length ? (
+              <ul>{news.items.map(item => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><small>{item.source}{item.publishedAt ? " ? " + new Date(item.publishedAt).toLocaleDateString("pt-BR") : ""}</small></li>)}</ul>
+            ) : <p>Sem not?cias relevantes encontradas nas ?ltimas 48 horas.</p>}
+          </div>
           <div className="aiActions"><small>{new Date(analysis.generatedAt).toLocaleString("pt-BR")}</small><button type="button" onClick={() => void generate(true)} disabled={loading || retryAfter > 0}>{loading ? "REFINANDO…" : retryAfter > 0 ? `AGUARDE ${retryAfter}s` : "ATUALIZAR"}</button></div>
           {error && <small className="aiError" role="alert">{retryAfter > 0 ? `Limite temporário da API atingido. Aguarde ${retryAfter}s.` : error}</small>}
         </div>
