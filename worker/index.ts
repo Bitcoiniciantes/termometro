@@ -85,16 +85,17 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
           temperature: 0.2,
           max_output_tokens: 1000,
         },
-        response_format: [{
+        response_format: {
           type: "text",
           mime_type: "application/json",
           schema: AI_SCHEMA,
-        }],
+        },
       }),
     },
   );
   type GeminiBody = {
     error?: { message?: string };
+    output_text?: string;
     steps?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
   };
   const parsedGeminiBody = (await geminiResponse.json().catch(() => null)) as GeminiBody | GeminiBody[] | null;
@@ -105,10 +106,10 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
       : geminiBody?.error?.message || "O Gemini não respondeu.";
     return Response.json({ error: message }, { status: geminiResponse.status });
   }
-  const text = geminiBody?.steps
-    ?.filter(step => step.type === "model_output")
-    .flatMap(step => step.content || [])
-    .filter(content => content.type === "text")
+  const modelOutputs = geminiBody?.steps?.filter(step => step.type === "model_output") || [];
+  const lastModelOutput = modelOutputs[modelOutputs.length - 1];
+  const text = geminiBody?.output_text || lastModelOutput?.content
+    ?.filter(content => content.type === "text")
     .map(content => content.text || "")
     .join("");
   if (!text) return Response.json({ error: "O Gemini não retornou uma análise válida." }, { status: 502 });
@@ -119,7 +120,15 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     const jsonText = objectStart >= 0 && objectEnd > objectStart
       ? cleaned.slice(objectStart, objectEnd + 1)
       : cleaned;
-    return Response.json({ ...JSON.parse(jsonText), generatedAt: new Date().toISOString() });
+    const analysis = JSON.parse(jsonText) as Record<string, unknown>;
+    const valid = typeof analysis.headline === "string"
+      && typeof analysis.scenario === "string"
+      && typeof analysis.summary === "string"
+      && Array.isArray(analysis.strategy)
+      && Array.isArray(analysis.risks)
+      && typeof analysis.invalidation === "string";
+    if (!valid) throw new Error("Invalid Gemini analysis structure");
+    return Response.json({ ...analysis, generatedAt: new Date().toISOString() });
   } catch {
     return Response.json({ error: "O Gemini retornou um formato inesperado." }, { status: 502 });
   }
