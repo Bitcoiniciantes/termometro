@@ -93,10 +93,12 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
       }),
     },
   );
-  const geminiBody = (await geminiResponse.json().catch(() => null)) as {
+  type GeminiBody = {
     error?: { message?: string };
     steps?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
-  } | null;
+  };
+  const parsedGeminiBody = (await geminiResponse.json().catch(() => null)) as GeminiBody | GeminiBody[] | null;
+  const geminiBody = Array.isArray(parsedGeminiBody) ? parsedGeminiBody[0] : parsedGeminiBody;
   if (!geminiResponse.ok) {
     const message = geminiResponse.status === 429
       ? "Limite temporário da API atingido. Tente novamente em instantes."
