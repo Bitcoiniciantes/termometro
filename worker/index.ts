@@ -113,7 +113,13 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     .join("");
   if (!text) return Response.json({ error: "O Gemini não retornou uma análise válida." }, { status: 502 });
   try {
-    return Response.json({ ...JSON.parse(text), generatedAt: new Date().toISOString() });
+    const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    const objectStart = cleaned.indexOf("{");
+    const objectEnd = cleaned.lastIndexOf("}");
+    const jsonText = objectStart >= 0 && objectEnd > objectStart
+      ? cleaned.slice(objectStart, objectEnd + 1)
+      : cleaned;
+    return Response.json({ ...JSON.parse(jsonText), generatedAt: new Date().toISOString() });
   } catch {
     return Response.json({ error: "O Gemini retornou um formato inesperado." }, { status: 502 });
   }
