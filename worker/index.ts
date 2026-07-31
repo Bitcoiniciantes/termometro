@@ -74,24 +74,28 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     JSON.stringify(payload),
   ].join("\n");
   const geminiResponse = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    "https://generativelanguage.googleapis.com/v1beta2/interactions",
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
+        model: "gemini-3.6-flash",
+        input: prompt,
+        generation_config: {
           temperature: 0.2,
-          maxOutputTokens: 1000,
-          responseMimeType: "application/json",
-          responseJsonSchema: AI_SCHEMA,
+          max_output_tokens: 1000,
         },
+        response_format: [{
+          type: "text",
+          mime_type: "application/json",
+          schema: AI_SCHEMA,
+        }],
       }),
     },
   );
   const geminiBody = (await geminiResponse.json().catch(() => null)) as {
     error?: { message?: string };
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    steps?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
   } | null;
   if (!geminiResponse.ok) {
     const message = geminiResponse.status === 429
@@ -99,7 +103,12 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
       : geminiBody?.error?.message || "O Gemini não respondeu.";
     return Response.json({ error: message }, { status: geminiResponse.status });
   }
-  const text = geminiBody?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = geminiBody?.steps
+    ?.filter(step => step.type === "model_output")
+    .flatMap(step => step.content || [])
+    .filter(content => content.type === "text")
+    .map(content => content.text || "")
+    .join("");
   if (!text) return Response.json({ error: "O Gemini não retornou uma análise válida." }, { status: 502 });
   try {
     return Response.json({ ...JSON.parse(text), generatedAt: new Date().toISOString() });
