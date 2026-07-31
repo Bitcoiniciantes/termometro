@@ -70,6 +70,7 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     "Não prometa retorno e não dê ordem personalizada de compra ou venda.",
     "Apresente um cenário condicional, objetivo e prudente em português do Brasil.",
     "Explique o que observar, os riscos e o que invalidaria a leitura.",
+    "Use a pré-análise local do payload como base e escreva no máximo 220 palavras.",
     "Dados técnicos determinísticos:",
     JSON.stringify(payload),
   ].join("\n");
@@ -82,7 +83,7 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
         model: "gemini-3.6-flash",
         input: prompt,
         generation_config: {
-          temperature: 0.2,
+          thinking_level: "minimal",
           max_output_tokens: 3000,
         },
         response_format: {

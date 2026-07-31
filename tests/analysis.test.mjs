@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { analyze, scoreDistanceLabel, scoreLabel, wilderAdx, wilderRsi } from "../lib/analysis.ts";
+import { buildLocalAiPreview } from "../lib/ai.ts";
 import {
   alertBand,
   bitcoinMovement,
@@ -241,4 +242,26 @@ test("NUPL rejeita hist�rico sem faixas completas", () => {
     () => latestNuplReading({ dates: ["2026-07-29"] }),
     /Faixas do NUPL incompletas/,
   );
+});
+test("pré-análise local entrega leitura imediata e estruturada", () => {
+  const preview = buildLocalAiPreview({
+    asset: "BTC",
+    period: "1D",
+    currentPrice: 65_000,
+    score: 26,
+    confidence: 67,
+    change: 1.2,
+    support: 61_824,
+    resistance: 68_956,
+    entry: 0,
+    stop: 0,
+    target: 0,
+    volumeRatio: 0.8,
+    multiRsi: null,
+    signals: [],
+  });
+  assert.equal(preview.scenario, "ALTA");
+  assert.match(preview.headline, /BTC/);
+  assert.ok(preview.strategy.length >= 2);
+  assert.ok(preview.risks.length >= 1);
 });
