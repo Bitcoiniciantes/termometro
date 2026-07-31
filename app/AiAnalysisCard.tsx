@@ -86,15 +86,15 @@ export default function AiAnalysisCard({
     : source === "cache"
       ? "LEITURA SALVA • ATÉ 5 MINUTOS"
       : source === "mimo"
-      ? "ANÁLISE GERADA POR MIMO"
+      ? "ANÁLISE DIGITAL CONCLUÍDA"
       : source === "gemini"
-        ? "ANÁLISE GERADA POR GEMINI"
+        ? "ANÁLISE DIGITAL CONCLUÍDA"
         : "";
 
   return (
     <article className="card aiAnalysis" aria-busy={loading}>
       <div className="cardTitle">
-        <div><span>ANÁLISE ASSISTIDA</span><b>Interpretação com IA</b></div>
+        <div><span>ANÁLISE ASSISTIDA</span><b>Analista Digital</b></div>
         <span className="aiBadge">IA</span>
       </div>
       {!analysis ? (
