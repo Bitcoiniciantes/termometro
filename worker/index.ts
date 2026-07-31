@@ -100,10 +100,12 @@ async function requestMimo(prompt: string, apiKey: string): Promise<Response | n
       ],
       temperature: 0.2,
       max_tokens: 1800,
-      response_format: { type: "json_object" },
     }),
   });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    console.warn("OpenCode MiMo request failed", response.status);
+    return null;
+  }
   type OpenCodeBody = { choices?: Array<{ message?: { content?: string } }> };
   const body = await response.json().catch(() => null) as OpenCodeBody | null;
   const text = body?.choices?.[0]?.message?.content;
