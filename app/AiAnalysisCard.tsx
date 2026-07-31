@@ -18,9 +18,11 @@ type AnalysisSource = "local" | "groq" | "mimo" | "gemini" | "cache" | null;
 export default function AiAnalysisCard({
   payload,
   disabled,
+  autoRunKey = 0,
 }: {
   payload: AiAnalysisRequest;
   disabled: boolean;
+  autoRunKey?: number;
 }) {
   const [analysis, setAnalysis] = useState<AiAnalysisResponse | null>(null);
   const [source, setSource] = useState<AnalysisSource>(null);
@@ -98,6 +100,10 @@ export default function AiAnalysisCard({
     }
   };
 
+  useEffect(() => {
+    if (!autoRunKey || disabled) return;
+    void generate(false);
+  }, [autoRunKey, disabled]);
   const sourceLabel = source === "local"
     ? loading ? "PRÉ-ANÁLISE LOCAL • IA REFINANDO…" : "PRÉ-ANÁLISE LOCAL"
     : source === "cache"
@@ -109,7 +115,7 @@ export default function AiAnalysisCard({
         : "";
 
   return (
-    <article className="card aiAnalysis" aria-busy={loading}>
+    <article id="analista-digital" className="card aiAnalysis" aria-busy={loading}>
       <div className="cardTitle">
         <div><span>ANÁLISE ASSISTIDA</span><b>Analista Digital</b></div>
         <span className="aiBadge">IA</span>

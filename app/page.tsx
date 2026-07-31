@@ -28,6 +28,7 @@ export function Termometro(){
  const [nupl,setNupl]=useState<NuplReading|null>(null);
  const [ranking,setRanking]=useState<BiasItem[]>([]);
  const [clock,setClock]=useState(()=>Date.now());
+ const [aiRunKey,setAiRunKey]=useState(0);
  const [liveQuote,setLiveQuote]=useState<{asset:string;price:number;updatedAt:number}|null>(null),[liveStatus,setLiveStatus]=useState<LivePriceStatus>("off");
  useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  const liveEligible=!staticAssets[ticker]&&market?.asset===ticker;
@@ -83,7 +84,7 @@ export function Termometro(){
   <div className="analysisColumn analysisLeft">
     <div className="workspaceMain">
     <div className="deskTop">
-      <div className="deskAsset"><span className="assetIcon">{displayName.slice(0,2)}</span><div><span className="eyebrow">ATIVO EM ANÁLISE</span><h1>{displayName}<small>/{currency}</small></h1></div></div>
+      <div className="deskAsset"><button type="button" className="assetIcon assetAiButton" onClick={() => { setAiRunKey(Date.now()); window.setTimeout(() => document.getElementById("analista-digital")?.scrollIntoView({ behavior: "smooth", block: "start" }), 30); }} disabled={!analysis || loading || !currentPrice} aria-label="Abrir Analista Digital e gerar leitura">IA</button><div><span className="eyebrow">ATIVO EM ANÁLISE</span><h1>{displayName}<small>/{currency}</small></h1></div></div>
       <div className={`deskQuote ${cryptoLive?"quoteLive":""}`}><span>{cryptoLive?"COTAÇÃO AO VIVO":"ÚLTIMO PREÇO"}</span><b>{fmt(currentPrice)}</b><small className={change<0?"down":""}>{analysis?`${change>=0?"+":""}${change.toFixed(2)}% no candle`:marketError||"Carregando..."}</small></div>
       <div className={`quickScale ${loading?"isLoading":""}`} role="img" aria-label={`Viés rápido: ${loading?"carregando":score}`}><div className="quickScaleHead"><span>VIÉS RÁPIDO</span><b>{loading?"CARREGANDO":`${score>0?"+":""}${score}`}</b></div><div className="quickScaleTrack"><i style={{left:loading?"50%":`${(score+100)/2}%`}}/></div><div className="quickScaleLabels"><span>-100<br/>Venda</span><span>0<br/>Neutro</span><span>+100<br/>Compra</span></div></div>
       <div className="desktopPeriodPrompt"><div className="desktopPeriodGuide"><div><span>ESCOLHA O PERÍODO</span><button type="button" onClick={()=>setShowPeriodHelp(value=>!value)} aria-expanded={showPeriodHelp} aria-label="Explicar períodos">i</button></div><small>O resultado muda conforme o período.</small>{showPeriodHelp&&<p>Períodos curtos reagem mais rápido e têm mais ruído. Períodos longos mostram tendências mais consistentes.</p>}</div><div className="periods">{availablePeriods.map(p=><button key={p} onClick={()=>changePeriod(p)} className={period===p?"active":""} aria-pressed={period===p} aria-label={`Consultar período ${p}`}>{p}</button>)}</div>{periodFeedback&&<div className={`desktopPeriodFeedback ${periodFeedback.startsWith("✓")?"done":""}`} role="status" aria-live="polite">{periodFeedback}</div>}</div>
@@ -108,6 +109,7 @@ export function Termometro(){
     <RsiGeneralPanel asset={displayName} data={multiRsi} loading={multiRsiLoading}/>
     <AiAnalysisCard
       key={`${ticker}-${period}`}
+      autoRunKey={aiRunKey}
       disabled={!analysis || loading || !currentPrice}
       payload={{
         asset: displayName,
