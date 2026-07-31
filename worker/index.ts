@@ -57,8 +57,10 @@ async function handleAssetNews(request: Request): Promise<Response> {
   if (request.method !== "GET") return Response.json({ error: "M?todo n?o permitido." }, { status: 405 });
   const asset = (new URL(request.url).searchParams.get("asset") || "").toUpperCase();
   if (!/^[A-Z0-9]{2,12}$/.test(asset)) return Response.json({ error: "Ativo inv?lido." }, { status: 400 });
-  const query = asset + " cryptocurrency when:2d";
-  const rssUrl = "https://news.google.com/rss/search?q=" + encodeURIComponent(query) + "&hl=pt-BR&gl=BR&ceid=BR:pt-419";
+  const tags: Record<string, string> = { BTC: "bitcoin", ETH: "ethereum", LINK: "chainlink", AVAX: "avalanche", PAXG: "pax-gold" };
+  const tag = tags[asset];
+  if (!tag) return Response.json({ asset, updatedAt: new Date().toISOString(), items: [] });
+  const rssUrl = "https://cointelegraph.com/rss/tag/" + tag;
   try {
     const response = await fetch(rssUrl, { headers: { "User-Agent": "TermometroEstudeBitcoin/1.0" } });
     if (!response.ok) throw new Error("news source unavailable");
