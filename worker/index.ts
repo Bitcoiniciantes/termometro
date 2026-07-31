@@ -83,7 +83,7 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
         input: prompt,
         generation_config: {
           temperature: 0.2,
-          max_output_tokens: 1000,
+          max_output_tokens: 3000,
         },
         response_format: {
           type: "text",
@@ -95,6 +95,7 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
   );
   type GeminiBody = {
     error?: { message?: string };
+    status?: string;
     output_text?: string;
     steps?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
   };
@@ -106,6 +107,12 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
       : geminiBody?.error?.message || "O Gemini não respondeu.";
     return Response.json({ error: message }, { status: geminiResponse.status });
   }
+  if (geminiBody?.status !== "completed") {
+    const message = geminiBody?.status === "incomplete"
+      ? "O Gemini interrompeu a análise antes de concluir. Tente novamente."
+      : "O Gemini não concluiu a análise. Tente novamente.";
+    return Response.json({ error: message }, { status: 502 });
+  }
   const modelOutputs = geminiBody?.steps?.filter(step => step.type === "model_output") || [];
   const lastModelOutput = modelOutputs[modelOutputs.length - 1];
   const text = geminiBody?.output_text || lastModelOutput?.content
@@ -115,17 +122,20 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
   if (!text) return Response.json({ error: "O Gemini não retornou uma análise válida." }, { status: 502 });
   try {
     const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-    const objectStart = cleaned.indexOf("{");
-    const objectEnd = cleaned.lastIndexOf("}");
-    const jsonText = objectStart >= 0 && objectEnd > objectStart
-      ? cleaned.slice(objectStart, objectEnd + 1)
-      : cleaned;
-    const analysis = JSON.parse(jsonText) as Record<string, unknown>;
+    const analysis = JSON.parse(cleaned) as Record<string, unknown>;
+    const validScenarios = new Set(["ALTA", "BAIXA", "NEUTRO", "RISCO ELEVADO"]);
+    const isStringArray = (value: unknown): value is string[] =>
+      Array.isArray(value) && value.every(item => typeof item === "string");
     const valid = typeof analysis.headline === "string"
       && typeof analysis.scenario === "string"
+      && validScenarios.has(analysis.scenario)
       && typeof analysis.summary === "string"
-      && Array.isArray(analysis.strategy)
-      && Array.isArray(analysis.risks)
+      && isStringArray(analysis.strategy)
+      && analysis.strategy.length >= 2
+      && analysis.strategy.length <= 4
+      && isStringArray(analysis.risks)
+      && analysis.risks.length >= 1
+      && analysis.risks.length <= 3
       && typeof analysis.invalidation === "string";
     if (!valid) throw new Error("Invalid Gemini analysis structure");
     return Response.json({ ...analysis, generatedAt: new Date().toISOString() });
