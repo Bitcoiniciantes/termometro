@@ -59,7 +59,7 @@ export default function AiAnalysisCard({
           <button type="button" onClick={generate} disabled={disabled || loading || retryAfter > 0}>
             {loading ? "ANALISANDO…" : retryAfter > 0 ? `AGUARDE ${retryAfter}s` : "GERAR LEITURA"}
           </button>
-          {error && <small className="aiError" role="alert">{error}</small>}
+          {error && <small className="aiError" role="alert">{retryAfter > 0 ? `Limite temporário da API atingido. Aguarde ${retryAfter}s.` : error}</small>}
         </div>
       ) : (
         <div className="aiResult">
@@ -72,7 +72,7 @@ export default function AiAnalysisCard({
           <div className="aiSection aiRisks"><b>RISCOS</b><ul>{analysis.risks.map(item => <li key={item}>{item}</li>)}</ul></div>
           <div className="aiInvalidation"><span>INVALIDAÇÃO DA LEITURA</span><p>{analysis.invalidation}</p></div>
           <div className="aiActions"><small>{new Date(analysis.generatedAt).toLocaleString("pt-BR")}</small><button type="button" onClick={generate} disabled={loading || retryAfter > 0}>{loading ? "ATUALIZANDO…" : retryAfter > 0 ? `AGUARDE ${retryAfter}s` : "ATUALIZAR"}</button></div>
-          {error && <small className="aiError" role="alert">{error}</small>}
+          {error && <small className="aiError" role="alert">{retryAfter > 0 ? `Limite temporário da API atingido. Aguarde ${retryAfter}s.` : error}</small>}
         </div>
       )}
       <p className="aiDisclaimer">Conteúdo educacional gerado por IA. Não constitui recomendação financeira.</p>
