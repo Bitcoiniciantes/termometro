@@ -26,6 +26,7 @@ export type AiAnalysisResponse = {
   risks: string[];
   invalidation: string;
   generatedAt: string;
+  provider?: "mimo" | "gemini";
 };
 
 const AI_CACHE_TTL_MS = 5 * 60_000;
@@ -72,7 +73,7 @@ export function buildLocalAiPreview(payload: AiAnalysisRequest): AiAnalysisRespo
   return {
     headline: `${payload.asset} em ${direction} no período ${payload.period}`,
     scenario,
-    summary: `${payload.asset} registra nota ${payload.score > 0 ? "+" : ""}${payload.score}, confiança de ${payload.confidence}% e preço atual em ${price(payload.currentPrice)}. Esta é uma pré-análise determinística enquanto o Gemini refina a interpretação.`,
+    summary: `${payload.asset} registra nota ${payload.score > 0 ? "+" : ""}${payload.score}, confiança de ${payload.confidence}% e preço atual em ${price(payload.currentPrice)}. Esta é uma pré-análise determinística enquanto a IA refina a interpretação.`,
     strategy,
     risks: risks.slice(0, 3),
     invalidation,

@@ -5,6 +5,7 @@ import handler from "vinext/server/app-router-entry";
 interface Env {
   ASSETS: Fetcher;
   GEMINI_API_KEY?: string;
+  OPENCODE_API_KEY?: string;
   DB: D1Database;
   IMAGES: {
     input(stream: ReadableStream): {
@@ -51,12 +52,122 @@ const AI_SCHEMA = {
   },
 } as const;
 
+type AiProvider = "mimo" | "gemini";
+type AiAnalysis = {
+  headline: string;
+  scenario: "ALTA" | "BAIXA" | "NEUTRO" | "RISCO ELEVADO";
+  summary: string;
+  strategy: string[];
+  risks: string[];
+  invalidation: string;
+};
+
+function parseAiAnalysis(text: string): AiAnalysis | null {
+  try {
+    const cleaned = text.trim().replace(/^\x60\x60\x60(?:json)?\s*/i, "").replace(/\s*\x60\x60\x60$/, "");
+    const analysis = JSON.parse(cleaned) as Record<string, unknown>;
+    const scenarios = new Set(["ALTA", "BAIXA", "NEUTRO", "RISCO ELEVADO"]);
+    const strings = (value: unknown): value is string[] =>
+      Array.isArray(value) && value.every(item => typeof item === "string");
+    const valid = typeof analysis.headline === "string"
+      && typeof analysis.scenario === "string" && scenarios.has(analysis.scenario)
+      && typeof analysis.summary === "string"
+      && strings(analysis.strategy) && analysis.strategy.length >= 2 && analysis.strategy.length <= 4
+      && strings(analysis.risks) && analysis.risks.length >= 1 && analysis.risks.length <= 3
+      && typeof analysis.invalidation === "string";
+    return valid ? analysis as AiAnalysis : null;
+  } catch {
+    return null;
+  }
+}
+
+function completedAnalysis(analysis: AiAnalysis, provider: AiProvider) {
+  return Response.json({ ...analysis, provider, generatedAt: new Date().toISOString() });
+}
+
+async function requestMimo(prompt: string, apiKey: string): Promise<Response | null> {
+  const response = await fetch("https://opencode.ai/zen/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + apiKey,
+    },
+    body: JSON.stringify({
+      model: "mimo-v2.5-free",
+      messages: [
+        { role: "system", content: "Responda somente com um objeto JSON válido, sem markdown ou comentários." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
+      max_tokens: 1800,
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!response.ok) return null;
+  type OpenCodeBody = { choices?: Array<{ message?: { content?: string } }> };
+  const body = await response.json().catch(() => null) as OpenCodeBody | null;
+  const text = body?.choices?.[0]?.message?.content;
+  if (!text) return null;
+  const analysis = parseAiAnalysis(text);
+  return analysis ? completedAnalysis(analysis, "mimo") : null;
+}
+
+async function requestGemini(prompt: string, apiKey: string): Promise<Response> {
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      model: "gemini-3.6-flash",
+      input: prompt,
+      generation_config: { thinking_level: "minimal", max_output_tokens: 3000 },
+      response_format: { type: "text", mime_type: "application/json", schema: AI_SCHEMA },
+    }),
+  });
+  type GeminiBody = {
+    error?: { message?: string };
+    status?: string;
+    output_text?: string;
+    steps?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
+  };
+  const parsed = await response.json().catch(() => null) as GeminiBody | GeminiBody[] | null;
+  const body = Array.isArray(parsed) ? parsed[0] : parsed;
+  if (!response.ok) {
+    const retryMatch = body?.error?.message?.match(/Please retry in ([0-9.]+)s/i);
+    const retryAfterSeconds = retryMatch ? Math.max(1, Math.ceil(Number(retryMatch[1]))) : undefined;
+    const message = response.status === 429
+      ? retryAfterSeconds
+        ? "Limite temporário da API atingido. Aguarde " + retryAfterSeconds + "s."
+        : "Limite temporário da API atingido. Tente novamente em instantes."
+      : body?.error?.message || "Os serviços de IA não responderam.";
+    return Response.json(
+      { error: message, retryAfterSeconds },
+      {
+        status: response.status,
+        headers: retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : undefined,
+      },
+    );
+  }
+  if (body?.status !== "completed") {
+    return Response.json({ error: "A IA não concluiu a análise. Tente novamente." }, { status: 502 });
+  }
+  const outputs = body?.steps?.filter(step => step.type === "model_output") || [];
+  const last = outputs[outputs.length - 1];
+  const text = body?.output_text || last?.content
+    ?.filter(content => content.type === "text")
+    .map(content => content.text || "")
+    .join("");
+  if (!text) return Response.json({ error: "A IA não retornou uma análise válida." }, { status: 502 });
+  const analysis = parseAiAnalysis(text);
+  return analysis
+    ? completedAnalysis(analysis, "gemini")
+    : Response.json({ error: "A IA retornou um formato inesperado." }, { status: 502 });
+}
+
 async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return Response.json({ error: "Método não permitido." }, { status: 405 });
-  if (!env.GEMINI_API_KEY) {
-    return Response.json({ error: "A chave do Gemini ainda não foi configurada no servidor." }, { status: 503 });
+  if (!env.OPENCODE_API_KEY && !env.GEMINI_API_KEY) {
+    return Response.json({ error: "Os serviços de IA ainda não foram configurados." }, { status: 503 });
   }
-
   if (Number(request.headers.get("content-length") || 0) > 24_000) {
     return Response.json({ error: "Solicitação muito grande." }, { status: 413 });
   }
@@ -71,90 +182,22 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     "Apresente um cenário condicional, objetivo e prudente em português do Brasil.",
     "Explique o que observar, os riscos e o que invalidaria a leitura.",
     "Use a pré-análise local do payload como base e escreva no máximo 220 palavras.",
+    "Retorne exatamente um JSON com headline, scenario, summary, strategy, risks e invalidation.",
+    "scenario deve ser ALTA, BAIXA, NEUTRO ou RISCO ELEVADO.",
+    "strategy deve ter de 2 a 4 itens e risks de 1 a 3 itens.",
     "Dados técnicos determinísticos:",
     JSON.stringify(payload),
   ].join("\n");
-  const geminiResponse = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/interactions",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-      body: JSON.stringify({
-        model: "gemini-3.6-flash",
-        input: prompt,
-        generation_config: {
-          thinking_level: "minimal",
-          max_output_tokens: 3000,
-        },
-        response_format: {
-          type: "text",
-          mime_type: "application/json",
-          schema: AI_SCHEMA,
-        },
-      }),
-    },
-  );
-  type GeminiBody = {
-    error?: { message?: string };
-    status?: string;
-    output_text?: string;
-    steps?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
-  };
-  const parsedGeminiBody = (await geminiResponse.json().catch(() => null)) as GeminiBody | GeminiBody[] | null;
-  const geminiBody = Array.isArray(parsedGeminiBody) ? parsedGeminiBody[0] : parsedGeminiBody;
-  if (!geminiResponse.ok) {
-    const retryMatch = geminiBody?.error?.message?.match(/Please retry in ([0-9.]+)s/i);
-    const retryAfterSeconds = retryMatch
-      ? Math.max(1, Math.ceil(Number(retryMatch[1])))
-      : undefined;
-    const message = geminiResponse.status === 429
-      ? retryAfterSeconds
-        ? `Limite temporário da API atingido. Aguarde ${retryAfterSeconds}s.`
-        : "Limite temporário da API atingido. Tente novamente em instantes."
-      : geminiBody?.error?.message || "O Gemini não respondeu.";
-    return Response.json(
-      { error: message, retryAfterSeconds },
-      {
-        status: geminiResponse.status,
-        headers: retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : undefined,
-      },
-    );
+  if (env.OPENCODE_API_KEY) {
+    try {
+      const mimo = await requestMimo(prompt, env.OPENCODE_API_KEY);
+      if (mimo) return mimo;
+    } catch {
+      // O Gemini assume automaticamente quando o serviço gratuito não responde.
+    }
   }
-  if (geminiBody?.status !== "completed") {
-    const message = geminiBody?.status === "incomplete"
-      ? "O Gemini interrompeu a análise antes de concluir. Tente novamente."
-      : "O Gemini não concluiu a análise. Tente novamente.";
-    return Response.json({ error: message }, { status: 502 });
-  }
-  const modelOutputs = geminiBody?.steps?.filter(step => step.type === "model_output") || [];
-  const lastModelOutput = modelOutputs[modelOutputs.length - 1];
-  const text = geminiBody?.output_text || lastModelOutput?.content
-    ?.filter(content => content.type === "text")
-    .map(content => content.text || "")
-    .join("");
-  if (!text) return Response.json({ error: "O Gemini não retornou uma análise válida." }, { status: 502 });
-  try {
-    const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-    const analysis = JSON.parse(cleaned) as Record<string, unknown>;
-    const validScenarios = new Set(["ALTA", "BAIXA", "NEUTRO", "RISCO ELEVADO"]);
-    const isStringArray = (value: unknown): value is string[] =>
-      Array.isArray(value) && value.every(item => typeof item === "string");
-    const valid = typeof analysis.headline === "string"
-      && typeof analysis.scenario === "string"
-      && validScenarios.has(analysis.scenario)
-      && typeof analysis.summary === "string"
-      && isStringArray(analysis.strategy)
-      && analysis.strategy.length >= 2
-      && analysis.strategy.length <= 4
-      && isStringArray(analysis.risks)
-      && analysis.risks.length >= 1
-      && analysis.risks.length <= 3
-      && typeof analysis.invalidation === "string";
-    if (!valid) throw new Error("Invalid Gemini analysis structure");
-    return Response.json({ ...analysis, generatedAt: new Date().toISOString() });
-  } catch {
-    return Response.json({ error: "O Gemini retornou um formato inesperado." }, { status: 502 });
-  }
+  if (env.GEMINI_API_KEY) return requestGemini(prompt, env.GEMINI_API_KEY);
+  return Response.json({ error: "O serviço gratuito de IA está temporariamente indisponível." }, { status: 503 });
 }
 
 // Image security config. SVG sources with .svg extension auto-skip the

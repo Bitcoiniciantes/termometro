@@ -11,7 +11,7 @@ import {
   type AiAnalysisResponse,
 } from "../lib/ai";
 
-type AnalysisSource = "local" | "gemini" | "cache" | null;
+type AnalysisSource = "local" | "mimo" | "gemini" | "cache" | null;
 
 export default function AiAnalysisCard({
   payload,
@@ -67,7 +67,7 @@ export default function AiAnalysisCard({
       const refined = await fetchAiAnalysis({ ...payload, localPreview }, controller.signal);
       if (controller.signal.aborted) return;
       setAnalysis(refined);
-      setSource("gemini");
+      setSource(refined.provider || "gemini");
       writeCachedAiAnalysis(payload, refined);
     } catch (cause) {
       if (controller.signal.aborted) return;
@@ -82,20 +82,24 @@ export default function AiAnalysisCard({
   };
 
   const sourceLabel = source === "local"
-    ? loading ? "PRÉ-ANÁLISE LOCAL • GEMINI REFINANDO…" : "PRÉ-ANÁLISE LOCAL"
+    ? loading ? "PRÉ-ANÁLISE LOCAL • IA REFINANDO…" : "PRÉ-ANÁLISE LOCAL"
     : source === "cache"
       ? "LEITURA SALVA • ATÉ 5 MINUTOS"
-      : "";
+      : source === "mimo"
+      ? "ANÁLISE GERADA POR MIMO"
+      : source === "gemini"
+        ? "ANÁLISE GERADA POR GEMINI"
+        : "";
 
   return (
     <article className="card aiAnalysis" aria-busy={loading}>
       <div className="cardTitle">
-        <div><span>ANÁLISE ASSISTIDA</span><b>Interpretação com Gemini</b></div>
+        <div><span>ANÁLISE ASSISTIDA</span><b>Interpretação com IA</b></div>
         <span className="aiBadge">IA</span>
       </div>
       {!analysis ? (
         <div className="aiIntro">
-          <p>O Gemini interpreta os sinais já calculados pelo Termômetro. Ele não altera notas, preços ou níveis.</p>
+          <p>A IA interpreta os sinais já calculados pelo Termômetro. Ela não altera notas, preços ou níveis.</p>
           <button type="button" onClick={() => void generate(false)} disabled={disabled || loading || retryAfter > 0}>
             {loading ? "ANALISANDO…" : retryAfter > 0 ? `AGUARDE ${retryAfter}s` : "GERAR LEITURA"}
           </button>
