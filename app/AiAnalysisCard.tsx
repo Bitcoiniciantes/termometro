@@ -11,7 +11,7 @@ import {
   type AiAnalysisResponse,
 } from "../lib/ai";
 
-type AnalysisSource = "local" | "mimo" | "gemini" | "cache" | null;
+type AnalysisSource = "local" | "groq" | "mimo" | "gemini" | "cache" | null;
 
 export default function AiAnalysisCard({
   payload,
@@ -67,7 +67,7 @@ export default function AiAnalysisCard({
       const refined = await fetchAiAnalysis({ ...payload, localPreview }, controller.signal);
       if (controller.signal.aborted) return;
       setAnalysis(refined);
-      setSource(refined.provider || "gemini");
+      setSource(refined.provider || "groq");
       writeCachedAiAnalysis(payload, refined);
     } catch (cause) {
       if (controller.signal.aborted) return;

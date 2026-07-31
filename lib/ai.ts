@@ -26,7 +26,7 @@ export type AiAnalysisResponse = {
   risks: string[];
   invalidation: string;
   generatedAt: string;
-  provider?: "mimo" | "gemini";
+  provider?: "groq" | "gemini" | "mimo";
 };
 
 const AI_CACHE_TTL_MS = 5 * 60_000;

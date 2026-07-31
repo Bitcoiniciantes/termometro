@@ -4,6 +4,7 @@ import handler from "vinext/server/app-router-entry";
 
 interface Env {
   ASSETS: Fetcher;
+  GROQ_API_KEY?: string;
   GEMINI_API_KEY?: string;
   OPENCODE_API_KEY?: string;
   DB: D1Database;
@@ -52,7 +53,7 @@ const AI_SCHEMA = {
   },
 } as const;
 
-type AiProvider = "mimo" | "gemini";
+type AiProvider = "groq" | "gemini" | "mimo";
 type AiAnalysis = {
   headline: string;
   scenario: "ALTA" | "BAIXA" | "NEUTRO" | "RISCO ELEVADO";
@@ -131,6 +132,42 @@ async function requestMimo(prompt: string, apiKey: string): Promise<Response | n
   }
 }
 
+
+async function requestGroq(prompt: string, apiKey: string): Promise<Response | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + apiKey,
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [
+          { role: "system", content: "Responda somente com um objeto JSON válido, sem markdown ou comentários." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 1800,
+        response_format: { type: "json_object" },
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    type GroqBody = { choices?: Array<{ message?: { content?: string } }> };
+    const body = await response.json().catch(() => null) as GroqBody | null;
+    const text = body?.choices?.[0]?.message?.content;
+    const analysis = text ? parseAiAnalysis(text) : null;
+    return analysis ? completedAnalysis(analysis, "groq") : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function requestGemini(prompt: string, apiKey: string): Promise<Response> {
   const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
@@ -184,7 +221,7 @@ async function requestGemini(prompt: string, apiKey: string): Promise<Response> 
 
 async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return Response.json({ error: "Método não permitido." }, { status: 405 });
-  if (!env.OPENCODE_API_KEY && !env.GEMINI_API_KEY) {
+  if (!env.GROQ_API_KEY && !env.GEMINI_API_KEY && !env.OPENCODE_API_KEY) {
     return Response.json({ error: "Os serviços de IA ainda não foram configurados." }, { status: 503 });
   }
   if (Number(request.headers.get("content-length") || 0) > 24_000) {
@@ -207,16 +244,23 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     "Dados técnicos determinísticos:",
     JSON.stringify(payload),
   ].join("\n");
+  if (env.GROQ_API_KEY) {
+    try {
+      const groq = await requestGroq(prompt, env.GROQ_API_KEY);
+      if (groq) return groq;
+    } catch {}
+  }
+  if (env.GEMINI_API_KEY) {
+    const gemini = await requestGemini(prompt, env.GEMINI_API_KEY);
+    if (gemini.ok) return gemini;
+  }
   if (env.OPENCODE_API_KEY) {
     try {
       const mimo = await requestMimo(prompt, env.OPENCODE_API_KEY);
       if (mimo) return mimo;
-    } catch {
-      // O Gemini assume automaticamente quando o serviço gratuito não responde.
-    }
+    } catch {}
   }
-  if (env.GEMINI_API_KEY) return requestGemini(prompt, env.GEMINI_API_KEY);
-  return Response.json({ error: "O serviço gratuito de IA está temporariamente indisponível." }, { status: 503 });
+  return Response.json({ error: "Os serviços de IA estão temporariamente indisponíveis." }, { status: 503 });
 }
 
 // Image security config. SVG sources with .svg extension auto-skip the
