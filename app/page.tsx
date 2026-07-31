@@ -107,6 +107,7 @@ export function Termometro(){
     {extreme&&<article className={`card extremeCard ${extreme.tone}`}><Title kicker="EXTREMO TÉCNICO" title={extreme.status} extra={<span className="extremePeriod">{period}</span>}/><div className="extremeBody"><p>{extreme.summary}</p><div className="extremeMetrics"><span><small>RSI WILDER</small><b>{extreme.rsi.toFixed(1)}</b></span><span><small>FORÇA ADX</small><b>{extreme.adx.toFixed(1)}</b></span><span><small>DISTÂNCIA</small><b>{extreme.atrDistance.toFixed(1)} ATR</b></span></div><div className="extremeContext"><span>{extreme.adx>=25?'TENDÊNCIA FORTE':'TENDÊNCIA FRACA'}</span><span>{extreme.divergence==='bullish'?'DIVERGÊNCIA DE ALTA':extreme.divergence==='bearish'?'DIVERGÊNCIA DE BAIXA':'SEM DIVERGÊNCIA'}</span></div><small className="extremeDetail">{extreme.detail}</small></div></article>}
     <RsiGeneralPanel asset={displayName} data={multiRsi} loading={multiRsiLoading}/>
     <AiAnalysisCard
+      key={`${ticker}-${period}`}
       disabled={!analysis || loading || !currentPrice}
       payload={{
         asset: displayName,

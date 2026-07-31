@@ -102,10 +102,22 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
   const parsedGeminiBody = (await geminiResponse.json().catch(() => null)) as GeminiBody | GeminiBody[] | null;
   const geminiBody = Array.isArray(parsedGeminiBody) ? parsedGeminiBody[0] : parsedGeminiBody;
   if (!geminiResponse.ok) {
+    const retryMatch = geminiBody?.error?.message?.match(/Please retry in ([0-9.]+)s/i);
+    const retryAfterSeconds = retryMatch
+      ? Math.max(1, Math.ceil(Number(retryMatch[1])))
+      : undefined;
     const message = geminiResponse.status === 429
-      ? "Limite temporário da API atingido. Tente novamente em instantes."
+      ? retryAfterSeconds
+        ? `Limite temporário da API atingido. Aguarde ${retryAfterSeconds}s.`
+        : "Limite temporário da API atingido. Tente novamente em instantes."
       : geminiBody?.error?.message || "O Gemini não respondeu.";
-    return Response.json({ error: message }, { status: geminiResponse.status });
+    return Response.json(
+      { error: message, retryAfterSeconds },
+      {
+        status: geminiResponse.status,
+        headers: retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : undefined,
+      },
+    );
   }
   if (geminiBody?.status !== "completed") {
     const message = geminiBody?.status === "incomplete"

@@ -27,6 +27,16 @@ export type AiAnalysisResponse = {
   generatedAt: string;
 };
 
+export class AiAnalysisError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryAfterSeconds = 0,
+  ) {
+    super(message);
+    this.name = "AiAnalysisError";
+  }
+}
 export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: AbortSignal): Promise<AiAnalysisResponse> {
   const endpoint = typeof window !== "undefined" && window.location.hostname === "bitcoiniciantes.github.io"
     ? "https://termometro-estude-bitcoin.bitcoiniciantes.chatgpt.site/api/ai-analysis"
@@ -37,9 +47,22 @@ export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: Abort
     body: JSON.stringify(payload),
     signal,
   });
-  const body = (await response.json().catch(() => null)) as AiAnalysisResponse | { error?: string } | null;
+  const body = (await response.json().catch(() => null)) as
+    | AiAnalysisResponse
+    | { error?: string; retryAfterSeconds?: number }
+    | null;
   if (!response.ok) {
-    throw new Error(body && "error" in body && body.error ? body.error : "Análise por IA indisponível.");
+    const retryAfterHeader = Number(response.headers.get("Retry-After"));
+    const retryAfterSeconds = body && "retryAfterSeconds" in body && Number.isFinite(body.retryAfterSeconds)
+      ? Number(body.retryAfterSeconds)
+      : Number.isFinite(retryAfterHeader)
+        ? retryAfterHeader
+        : 0;
+    throw new AiAnalysisError(
+      body && "error" in body && body.error ? body.error : "Análise por IA indisponível.",
+      response.status,
+      retryAfterSeconds,
+    );
   }
   return body as AiAnalysisResponse;
 }
