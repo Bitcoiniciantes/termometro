@@ -16,6 +16,7 @@ test("expõe o painel e o motor transparente", async () => {
   assert.doesNotMatch(page, /i%4===0\|\|i%7===0/);
   assert.match(page, /desktopPeriodPrompt/);
   assert.match(page, /key=\{`\$\{ticker\}-\$\{period\}`\}/);
+  assert.match(page, /setOpen\]=useState<number\|null>\(null\)/);
   assert.match(page, /mobileChartPeriods/);
   assert.ok(page.indexOf('className="card chart"') < page.indexOf('className="card signals"'));
   assert.ok(page.indexOf('className="card signals"') < page.indexOf('className="analysisColumn analysisRight"'));
