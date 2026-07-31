@@ -74,7 +74,7 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     JSON.stringify(payload),
   ].join("\n");
   const geminiResponse = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta2/interactions",
+    "https://generativelanguage.googleapis.com/v1beta/interactions",
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
