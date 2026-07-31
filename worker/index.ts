@@ -86,32 +86,49 @@ function completedAnalysis(analysis: AiAnalysis, provider: AiProvider) {
 }
 
 async function requestMimo(prompt: string, apiKey: string): Promise<Response | null> {
-  const response = await fetch("https://opencode.ai/zen/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + apiKey,
-    },
-    body: JSON.stringify({
-      model: "mimo-v2.5-free",
-      messages: [
-        { role: "system", content: "Responda somente com um objeto JSON válido, sem markdown ou comentários." },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.2,
-      max_tokens: 1800,
-    }),
-  });
-  if (!response.ok) {
-    console.warn("OpenCode MiMo request failed", response.status);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+
+  try {
+    const response = await fetch("https://opencode.ai/zen/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + apiKey,
+      },
+      body: JSON.stringify({
+        model: "mimo-v2.5-free",
+        messages: [
+          {
+            role: "system",
+            content: "Responda somente com um objeto JSON válido, sem markdown ou comentários.",
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 1800,
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      console.warn("OpenCode MiMo request failed", response.status);
+      return null;
+    }
+    type OpenCodeBody = { choices?: Array<{ message?: { content?: string } }> };
+    const body = await response.json().catch(() => null) as OpenCodeBody | null;
+    const text = body?.choices?.[0]?.message?.content;
+    if (!text) return null;
+    const analysis = parseAiAnalysis(text);
+    return analysis ? completedAnalysis(analysis, "mimo") : null;
+  } catch (error) {
+    console.warn(
+      "OpenCode MiMo request error",
+      error instanceof Error ? error.name : "unknown",
+    );
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
-  type OpenCodeBody = { choices?: Array<{ message?: { content?: string } }> };
-  const body = await response.json().catch(() => null) as OpenCodeBody | null;
-  const text = body?.choices?.[0]?.message?.content;
-  if (!text) return null;
-  const analysis = parseAiAnalysis(text);
-  return analysis ? completedAnalysis(analysis, "mimo") : null;
 }
 
 async function requestGemini(prompt: string, apiKey: string): Promise<Response> {
