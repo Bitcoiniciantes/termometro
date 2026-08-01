@@ -35,7 +35,10 @@ export function latestNuplReading(body: unknown): NuplReading {
   for (let index = payload.dates.length - 1; index >= 0; index -= 1) {
     const dataDate = payload.dates[index];
     if (typeof dataDate !== "string") continue;
-    for (const zone of zones) {
+    
+    // Itera de trás pra frente (como no gráfico)
+    for (let z = zones.length - 1; z >= 0; z -= 1) {
+      const zone = zones[z];
       const rawValue = (zone.values as unknown[])[index];
       if (rawValue === null || rawValue === undefined || rawValue === "") continue;
       const value = Number(rawValue);
