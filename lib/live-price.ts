@@ -36,6 +36,8 @@ export function parseLiveTicker(payload: unknown): LivePriceTick | null {
 export function subscribeLivePrice(asset: string, callbacks: LivePriceCallbacks) {
   let socket: WebSocket | null = null;
   let reconnectTimer: number | null = null;
+  let heartbeatTimer: number | null = null;
+  let lastTickAt = 0;
   let stopped = false;
   let retries = 0;
   const url = livePriceStreamUrl(asset);
@@ -46,14 +48,25 @@ export function subscribeLivePrice(asset: string, callbacks: LivePriceCallbacks)
     socket = new WebSocket(url);
     socket.addEventListener("open", () => {
       retries = 0;
-      callbacks.onStatus("live");
+      lastTickAt = Date.now();
+      heartbeatTimer = window.setInterval(() => {
+        if (Date.now() - lastTickAt > 5_000) socket?.close();
+      }, 1_000);
     });
     socket.addEventListener("message", (event) => {
       const tick = parseLiveTicker(event.data);
-      if (tick) callbacks.onPrice(tick);
+      if (tick) {
+        lastTickAt = Date.now();
+        callbacks.onStatus("live");
+        callbacks.onPrice(tick);
+      }
     });
     socket.addEventListener("error", () => socket?.close());
     socket.addEventListener("close", () => {
+      if (heartbeatTimer !== null) {
+        window.clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
       if (stopped) return;
       retries += 1;
       callbacks.onStatus("reconnecting");
@@ -66,6 +79,7 @@ export function subscribeLivePrice(asset: string, callbacks: LivePriceCallbacks)
   return () => {
     stopped = true;
     if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+    if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
     socket?.close();
   };
 }
