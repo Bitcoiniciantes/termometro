@@ -142,9 +142,9 @@ export default function AiAnalysisCard({
 
           <div className="aiSection aiNews">
             <b>FATOS RELEVANTES</b>
-            {newsLoading ? <p>Buscando not?cias recentes?</p> : news?.items.length ? (
-              <ul>{news.items.map(item => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><small>{item.source}{item.publishedAt ? " ? " + new Date(item.publishedAt).toLocaleDateString("pt-BR") : ""}</small></li>)}</ul>
-            ) : <p>Sem not?cias relevantes encontradas nas ?ltimas 48 horas.</p>}
+            {newsLoading ? <p>Buscando notícias recentes?</p> : news?.items.length ? (
+              <ul>{news.items.map(item => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><small>{item.source}{item.publishedAt ? " • " + new Date(item.publishedAt).toLocaleDateString("pt-BR") : ""}</small></li>)}</ul>
+            ) : <p>Sem notícias relevantes encontradas nas últimas 48 horas.</p>}
           </div>
           <div className="aiActions"><small>{new Date(analysis.generatedAt).toLocaleString("pt-BR")}</small><button type="button" onClick={() => void generate(true)} disabled={loading || retryAfter > 0}>{loading ? "REFINANDO…" : retryAfter > 0 ? `AGUARDE ${retryAfter}s` : "ATUALIZAR"}</button></div>
           {error && <small className="aiError" role="alert">{retryAfter > 0 ? `Limite temporário da API atingido. Aguarde ${retryAfter}s.` : error}</small>}
