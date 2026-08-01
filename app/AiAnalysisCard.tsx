@@ -113,11 +113,20 @@ export default function AiAnalysisCard({
       : source === "gemini"
         ? "ANÁLISE DIGITAL CONCLUÍDA"
         : "";
+  const providerLabel = analysis?.provider === "gemini"
+    ? "Gemini"
+    : analysis?.provider === "groq"
+      ? "Groq"
+      : analysis?.provider === "mimo"
+        ? "MiMo"
+        : source === "local"
+          ? "Local"
+          : null;
 
   return (
     <article id="analista-digital" className="card aiAnalysis" aria-busy={loading}>
       <div className="cardTitle">
-        <div><span>ANÁLISE ASSISTIDA</span><b>Analista Digital</b></div>
+        <div><span>ANÁLISE ASSISTIDA</span><b>Analista Digital{providerLabel ? ` (${providerLabel})` : ""}</b></div>
         <span className="aiBadge">IA</span>
       </div>
       {!analysis ? (
