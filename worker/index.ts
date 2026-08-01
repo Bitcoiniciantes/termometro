@@ -54,9 +54,9 @@ function rssTag(xml: string, tag: string) {
 }
 
 async function handleAssetNews(request: Request): Promise<Response> {
-  if (request.method !== "GET") return Response.json({ error: "M?todo n?o permitido." }, { status: 405 });
+  if (request.method !== "GET") return Response.json({ error: "Método não permitido." }, { status: 405 });
   const asset = (new URL(request.url).searchParams.get("asset") || "").toUpperCase();
-  if (!/^[A-Z0-9]{2,12}$/.test(asset)) return Response.json({ error: "Ativo inv?lido." }, { status: 400 });
+  if (!/^[A-Z0-9]{2,12}$/.test(asset)) return Response.json({ error: "Ativo inválido." }, { status: 400 });
   const tags: Record<string, string> = { BTC: "bitcoin", ETH: "ethereum", LINK: "chainlink", AVAX: "avalanche", PAXG: "pax-gold" };
   const tag = tags[asset];
   if (!tag) return Response.json({ asset, updatedAt: new Date().toISOString(), items: [] });
@@ -338,7 +338,7 @@ const worker = {
 
     if (url.pathname === "/api/asset-news") {
       const cors = aiCorsHeaders(request);
-      if (!cors) return Response.json({ error: "Origem n?o autorizada." }, { status: 403 });
+      if (!cors) return Response.json({ error: "Origem não autorizada." }, { status: 403 });
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
       const response = await handleAssetNews(request);
       const headers = new Headers(response.headers);
