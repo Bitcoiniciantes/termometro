@@ -182,7 +182,7 @@ export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promi
     ? "https://termometro-estude-bitcoin.bitcoiniciantes.chatgpt.site"
     : "";
   const response = await fetch(base + "/api/asset-news?asset=" + encodeURIComponent(asset), { signal });
-  if (!response.ok) throw new Error("Not?cias indispon?veis.");
+  if (!response.ok) throw new Error("Notícias indisponíveis.");
   const body = await response.json() as AssetNewsResponse;
   return Array.isArray(body.items) ? body : { asset, updatedAt: new Date().toISOString(), items: [] };
 }
