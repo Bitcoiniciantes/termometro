@@ -8,7 +8,7 @@ const geistMono=Geist_Mono({variable:"--font-geist-mono",subsets:["latin"]});
 export const metadata:Metadata={
  title:"Term\u00f4metro | Mercado em leitura",
  description:"Term\u00f4metro t\u00e9cnico transparente para ativos, sem IA e sem caixa-preta.",
- icons:{icon:"/icon.svg"}
+ icons:{icon:"./icon.svg"}
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
