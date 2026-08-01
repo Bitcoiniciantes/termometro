@@ -286,8 +286,10 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     JSON.stringify(payload),
   ].join("\n");
   if (env.GEMINI_API_KEY) {
-    const gemini = await requestGemini(prompt, env.GEMINI_API_KEY);
-    if (gemini.ok) return gemini;
+    try {
+      const gemini = await requestGemini(prompt, env.GEMINI_API_KEY);
+      if (gemini.ok) return gemini;
+    } catch {}
   }
   if (env.GROQ_API_KEY) {
     try {
