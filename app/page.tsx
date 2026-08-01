@@ -32,7 +32,7 @@ export function Termometro(){
  const [liveQuote,setLiveQuote]=useState<{asset:string;price:number;updatedAt:number}|null>(null),[liveStatus,setLiveStatus]=useState<LivePriceStatus>("off");
  useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  const liveEligible=!staticAssets[ticker]&&market?.asset===ticker;
- useEffect(()=>{setLiveQuote(null);if(!liveEligible){setLiveStatus("off");return}return subscribeLivePrice(ticker,{onStatus:setLiveStatus,onPrice:tick=>setLiveQuote({asset:ticker,price:tick.price,updatedAt:tick.eventTime})})},[ticker,liveEligible]);
+ useEffect(()=>{setLiveQuote(null);if(!liveEligible){setLiveStatus("off");return}return subscribeLivePrice(ticker,{onStatus:setLiveStatus,onPrice:tick=>setLiveQuote({asset:ticker,price:tick.price,updatedAt:Date.now()})})},[ticker,liveEligible]);
  useEffect(()=>{const controller=new AbortController();fetchBitcoinNupl(controller.signal).then(data=>{if(!controller.signal.aborted)setNupl(data)}).catch(()=>{if(!controller.signal.aborted)setNupl(null)});return()=>controller.abort()},[]);
  const [previousReading,setPreviousReading]=useState<{period:string;score:number}|null>(null);
  useEffect(()=>{const controller=new AbortController();fetchMarket(ticker,'1H',controller.signal).then(data=>{const reading=analyze(data);if(reading&&!controller.signal.aborted)setPreviousReading({period:'1H',score:reading.score})}).catch(()=>{if(!controller.signal.aborted)setPreviousReading(null)});return()=>controller.abort()},[ticker]);
