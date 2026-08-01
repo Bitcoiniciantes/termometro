@@ -212,11 +212,15 @@ async function requestGroq(prompt: string, apiKey: string): Promise<Response | n
 async function requestGemini(prompt: string, apiKey: string): Promise<Response> {
   const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+      "Api-Revision": "2026-05-20",
+    },
     body: JSON.stringify({
       model: "gemini-3.6-flash",
       input: prompt,
-      generation_config: { thinking_level: "minimal", max_output_tokens: 3000 },
+      generation_config: { thinking_level: "low", max_output_tokens: 3000 },
       response_format: { type: "text", mime_type: "application/json", schema: AI_SCHEMA },
     }),
   });
@@ -236,6 +240,7 @@ async function requestGemini(prompt: string, apiKey: string): Promise<Response> 
         ? "Limite temporário da API atingido. Aguarde " + retryAfterSeconds + "s."
         : "Limite temporário da API atingido. Tente novamente em instantes."
       : body?.error?.message || "Os serviços de IA não responderam.";
+    console.warn("Gemini request failed", response.status, body?.error?.message || "(sem mensagem)");
     return Response.json(
       { error: message, retryAfterSeconds },
       {
@@ -289,7 +294,10 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     try {
       const gemini = await requestGemini(prompt, env.GEMINI_API_KEY);
       if (gemini.ok) return gemini;
-    } catch {}
+      console.warn("Gemini não OK, status:", gemini.status);
+    } catch (error) {
+      console.warn("Gemini request error:", error instanceof Error ? error.message : error);
+    }
   }
   if (env.GROQ_API_KEY) {
     try {
