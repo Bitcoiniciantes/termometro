@@ -32,6 +32,7 @@ export default function AiAnalysisCard({
   const [news, setNews] = useState<AssetNewsResponse | null>(null);
   const [newsLoading, setNewsLoading] = useState(true);
   const requestRef = useRef<AbortController | null>(null);
+  const processedAutoRunKey = useRef(autoRunKey);
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
@@ -101,7 +102,8 @@ export default function AiAnalysisCard({
   };
 
   useEffect(() => {
-    if (!autoRunKey || disabled) return;
+    if (!autoRunKey || autoRunKey === processedAutoRunKey.current || disabled) return;
+    processedAutoRunKey.current = autoRunKey;
     void generate(false);
   }, [autoRunKey, disabled]);
   const sourceLabel = source === "local"
