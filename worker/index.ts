@@ -240,7 +240,10 @@ async function requestGemini(prompt: string, apiKey: string): Promise<Response> 
         ? "Limite temporário da API atingido. Aguarde " + retryAfterSeconds + "s."
         : "Limite temporário da API atingido. Tente novamente em instantes."
       : body?.error?.message || "Os serviços de IA não responderam.";
-    console.warn("Gemini request failed", response.status, body?.error?.message || "(sem mensagem)");
+    console.error("Gemini request failed", JSON.stringify({
+      status: response.status,
+      message: body?.error?.message || "(sem mensagem)",
+    }));
     return Response.json(
       { error: message, retryAfterSeconds },
       {
@@ -294,9 +297,9 @@ async function handleAiAnalysis(request: Request, env: Env): Promise<Response> {
     try {
       const gemini = await requestGemini(prompt, env.GEMINI_API_KEY);
       if (gemini.ok) return gemini;
-      console.warn("Gemini não OK, status:", gemini.status);
+      console.error("Gemini fallback activated", JSON.stringify({ status: gemini.status }));
     } catch (error) {
-      console.warn("Gemini request error:", error instanceof Error ? error.message : error);
+      console.error("Gemini request error:", error instanceof Error ? error.message : "unknown");
     }
   }
   if (env.GROQ_API_KEY) {
