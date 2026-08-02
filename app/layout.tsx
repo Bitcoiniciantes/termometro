@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans=Geist({variable:"--font-geist-sans",subsets:["latin"]});
@@ -12,5 +13,8 @@ export const metadata:Metadata={
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
- return <html lang="pt-BR"><body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body></html>;
+ return <html lang="pt-BR"><body className={`${geistSans.variable} ${geistMono.variable}`}>
+  {children}
+  <Script data-goatcounter="https://termometro.goatcounter.com/count" src="https://gc.zgo.at/count.js" strategy="afterInteractive" />
+ </body></html>;
 }
