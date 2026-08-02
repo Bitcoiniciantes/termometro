@@ -125,6 +125,9 @@ export default function AiAnalysisCard({
           ? "Local"
           : null;
 
+  const mainFactors = payload.signals.filter(signal => !signal.context).sort((a, b) => Math.abs(b.score) - Math.abs(a.score)).slice(0, 3);
+  const riskLevel = payload.confidence < 55 || payload.volumeRatio < 0.7 ? "ELEVADO" : Math.abs(payload.change) >= 4 || payload.confidence < 70 ? "MODERADO" : "CONTROLADO";
+
   return (
     <article id="analista-digital" className="card aiAnalysis" aria-busy={loading}>
       <div className="cardTitle">
@@ -146,6 +149,8 @@ export default function AiAnalysisCard({
             <span>CENÁRIO</span><b>{analysis.scenario}</b>
           </div>
           <h3>{analysis.headline}</h3>
+          <div className="aiKeyFactors"><b>↗ PRINCIPAIS FATORES</b>{mainFactors.map(factor=><div className={`aiFactor ${factor.score>0?"positive":factor.score<0?"negative":"neutral"}`} key={factor.title}><span>{factor.score>0?"+":""}{factor.score}</span><div><strong>{factor.title}</strong><small>{factor.summary}</small></div></div>)}</div>
+          <div className={`aiRiskAssessment ${riskLevel.toLowerCase()}`}><div><span>▣ AVALIAÇÃO DE RISCO</span><b>{riskLevel}</b></div><p>{riskLevel==="ELEVADO"?"Volume ou concordância insuficientes aumentam a chance de falsos movimentos.":riskLevel==="MODERADO"?"O cenário exige confirmação por fechamento e volume antes de qualquer conclusão.":"Sinais e volume oferecem contexto mais consistente, mas o risco de mercado permanece."}</p></div>
           <p>{analysis.summary}</p>
           <div className="aiSection"><b>ESTRATÉGIA CONDICIONAL</b><ol>{analysis.strategy.map(item => <li key={item}>{item}</li>)}</ol></div>
           <div className="aiSection aiRisks"><b>RISCOS</b><ul>{analysis.risks.map(item => <li key={item}>{item}</li>)}</ul></div>
