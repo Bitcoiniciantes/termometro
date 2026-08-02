@@ -23,7 +23,6 @@ interface ExecutionContext {
 }
 const ALLOWED_AI_ORIGINS = new Set([
   "https://bitcoiniciantes.github.io",
-  "https://termometro-estude-bitcoin.bitcoiniciantes.chatgpt.site",
 ]);
 
 function aiCorsHeaders(request: Request) {

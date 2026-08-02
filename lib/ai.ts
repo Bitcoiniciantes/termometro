@@ -136,7 +136,7 @@ export class AiAnalysisError extends Error {
 
 export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: AbortSignal): Promise<AiAnalysisResponse> {
   const endpoint = typeof window !== "undefined" && window.location.hostname === "bitcoiniciantes.github.io"
-    ? "https://termometro-estude-bitcoin.bitcoiniciantes.chatgpt.site/api/ai-analysis"
+    ? "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/ai-analysis"
     : "/api/ai-analysis";
   const response = await fetch(endpoint, {
     method: "POST",
@@ -179,7 +179,7 @@ export type AssetNewsResponse = {
 
 export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promise<AssetNewsResponse> {
   const base = typeof window !== "undefined" && window.location.hostname === "bitcoiniciantes.github.io"
-    ? "https://termometro-estude-bitcoin.bitcoiniciantes.chatgpt.site"
+    ? "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev"
     : "";
   const response = await fetch(base + "/api/asset-news?asset=" + encodeURIComponent(asset), { signal });
   if (!response.ok) throw new Error("Notícias indisponíveis.");
