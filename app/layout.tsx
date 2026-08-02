@@ -25,7 +25,7 @@ export default function RootLayout({children}:{children:React.ReactNode}){
       .then(response => response.ok ? response.json() : null)
       .then(data => {
        if (!data?.count) return;
-       target.textContent = " \u00b7 " + data.count + (data.count === "1" ? " acesso" : " acessos");
+       target.textContent = " \u00b7 " + data.count + (data.count === "1" ? " Cerva" : " Cervas");
        target.hidden = false;
       })
       .catch(() => {});
