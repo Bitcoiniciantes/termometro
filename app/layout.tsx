@@ -16,5 +16,22 @@ export default function RootLayout({children}:{children:React.ReactNode}){
  return <html lang="pt-BR"><body className={`${geistSans.variable} ${geistMono.variable}`}>
   {children}
   <Script data-goatcounter="https://termometro.goatcounter.com/count" src="https://gc.zgo.at/count.js" strategy="afterInteractive" />
+  <Script id="goatcounter-total" strategy="afterInteractive">{`
+   (() => {
+    const renderTotal = () => {
+     const target = document.querySelector("[data-goatcounter-total]");
+     if (!target) return;
+     fetch("https://termometro.goatcounter.com/counter/TOTAL.json")
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+       if (!data?.count) return;
+       target.textContent = " \u00b7 " + data.count + (data.count === "1" ? " acesso" : " acessos");
+       target.hidden = false;
+      })
+      .catch(() => {});
+    };
+    window.setTimeout(renderTotal, 500);
+   })();
+  `}</Script>
  </body></html>;
 }
