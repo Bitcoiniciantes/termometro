@@ -51,7 +51,8 @@ function wilderRsiSeries(values: number[], length = 14) {
   const changes = values.slice(1).map((value, index) => value - values[index]);
   let gain = avg(changes.slice(0, length).map((value) => Math.max(value, 0)));
   let loss = avg(changes.slice(0, length).map((value) => Math.max(-value, 0)));
-  const calculate = () => (loss === 0 ? 100 : 100 - 100 / (1 + gain / loss));
+  const calculate = () =>
+    loss === 0 ? (gain === 0 ? 50 : 100) : 100 - 100 / (1 + gain / loss);
   series[length] = calculate();
   for (let index = length; index < changes.length; index += 1) {
     const change = changes[index];
@@ -333,7 +334,10 @@ export function analyze(data: MarketData | null, now = Date.now()): Analysis | n
     signals,
     score,
     confidence: Math.round(55 + agreement * 35),
-    change: (last / previous - 1) * 100,
+    change:
+      Number.isFinite(last) && Number.isFinite(previous) && previous !== 0
+        ? (last / previous - 1) * 100
+        : 0,
     extreme: classifyExtreme({ rsi, adx, atrDistance, divergence, uptrend }),
   };
 }

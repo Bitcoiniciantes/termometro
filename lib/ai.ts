@@ -30,7 +30,30 @@ export type AiAnalysisResponse = {
 };
 
 const AI_CACHE_TTL_MS = 5 * 60_000;
+const NEWS_CACHE_TTL_MS = 5 * 60_000;
+const AI_REQUEST_TIMEOUT_MS = 20_000;
+const NEWS_REQUEST_TIMEOUT_MS = 12_000;
+const WORKER_BASE_URL = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev";
 const validScenarios = new Set<AiAnalysisResponse["scenario"]>(["ALTA", "BAIXA", "NEUTRO", "RISCO ELEVADO"]);
+
+function abortableFetch(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const externalSignal = options.signal;
+  const onExternalAbort = () => controller.abort(externalSignal?.reason);
+  externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+  const timer = setTimeout(
+    () => controller.abort(new DOMException("Tempo de consulta excedido", "TimeoutError")),
+    timeoutMs,
+  );
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => {
+    clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", onExternalAbort);
+  });
+}
 
 function price(value: number) {
   return value > 0 ? value.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "não calculado";
@@ -135,15 +158,16 @@ export class AiAnalysisError extends Error {
 }
 
 export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: AbortSignal): Promise<AiAnalysisResponse> {
-  const endpoint = typeof window !== "undefined" && window.location.hostname === "bitcoiniciantes.github.io"
-    ? "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/ai-analysis"
-    : "/api/ai-analysis";
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal,
-  });
+  const response = await abortableFetch(
+    `${WORKER_BASE_URL}/api/ai-analysis`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal,
+    },
+    AI_REQUEST_TIMEOUT_MS,
+  );
   const body = (await response.json().catch(() => null)) as
     | AiAnalysisResponse
     | { error?: string; retryAfterSeconds?: number }
@@ -177,12 +201,21 @@ export type AssetNewsResponse = {
   items: AssetNewsItem[];
 };
 
+const newsCache = new Map<string, { expiresAt: number; data: AssetNewsResponse }>();
+
 export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promise<AssetNewsResponse> {
-  const base = typeof window !== "undefined" && window.location.hostname === "bitcoiniciantes.github.io"
-    ? "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev"
-    : "";
-  const response = await fetch(base + "/api/asset-news?asset=" + encodeURIComponent(asset), { signal });
+  const cached = newsCache.get(asset);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  const response = await abortableFetch(
+    `${WORKER_BASE_URL}/api/asset-news?asset=${encodeURIComponent(asset)}`,
+    { signal },
+    NEWS_REQUEST_TIMEOUT_MS,
+  );
   if (!response.ok) throw new Error("Notícias indisponíveis.");
-  const body = await response.json() as AssetNewsResponse;
-  return Array.isArray(body.items) ? body : { asset, updatedAt: new Date().toISOString(), items: [] };
+  const body = (await response.json()) as AssetNewsResponse;
+  const data: AssetNewsResponse = Array.isArray(body.items)
+    ? body
+    : { asset, updatedAt: new Date().toISOString(), items: [] };
+  newsCache.set(asset, { expiresAt: Date.now() + NEWS_CACHE_TTL_MS, data });
+  return data;
 }
