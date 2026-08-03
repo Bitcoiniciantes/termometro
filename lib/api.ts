@@ -8,9 +8,6 @@ const REQUEST_TIMEOUT_MS = 8_000;
 const RETRY_DELAYS_MS = [500, 1_500];
 const NUPL_URL = "https://bitcoiniciantes.github.io/estudebitcoin/dados/nupl.json";
 
-// Cache global para evitar chamadas de rede redundantes para arquivos estáticos no mesmo minuto
-const staticAssetCache = new Map<string, Promise<StaticSnapshot>>();
-
 function abortableDelay(milliseconds: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     const timer = window.setTimeout(resolve, milliseconds);
@@ -43,7 +40,6 @@ async function fetchJson(
   retryDelays = RETRY_DELAYS_MS,
 ): Promise<unknown> {
   let lastError: unknown;
-  let isRetryableError = true; // Controla se o erro deve ter retentativa ou não
 
   for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
     const controller = new AbortController();
@@ -59,16 +55,16 @@ async function fetchJson(
       const body = await response.json().catch(() => null);
       if (response.ok) return body;
 
-      isRetryableError = response.status === 429 || response.status >= 500;
+      const retryable = response.status === 429 || response.status >= 500;
       const message = errorMessage(body, `Fonte respondeu HTTP ${response.status}`);
-      throw new Error(message);
+      if (!retryable || attempt === retryDelays.length) throw new Error(message);
+      lastError = new Error(message);
     } catch (error) {
       if (options.signal?.aborted) {
         throw options.signal.reason ?? new DOMException("Operação cancelada", "AbortError");
       }
       lastError = error;
-      // Aborta imediatamente se não for um erro retryable, ou se já esgotou as tentativas
-      if (!isRetryableError || attempt === retryDelays.length) throw error;
+      if (attempt === retryDelays.length) throw error;
     } finally {
       window.clearTimeout(timeout);
       options.signal?.removeEventListener("abort", abortParent);
@@ -120,32 +116,16 @@ export async function fetchStaticAsset(
     typeof window !== "undefined" && window.location.pathname.startsWith("/termometro")
       ? "/termometro"
       : "";
-  
-  const url = `${basePath}/data/${config.file}.json?v=${Math.floor(Date.now() / 60_000)}`;
-
-  // Sistema de cache: se o JSON já está sendo/foi baixado, nós aguardamos a mesma promessa
-  if (!staticAssetCache.has(url)) {
-    const fetchPromise = fetchJson(
-      url,
-      { signal, cache: "no-store" },
-      [500],
-    )
-      .then(body => parseStaticSnapshot(body))
-      .catch(err => {
-        staticAssetCache.delete(url); // Remove do cache em caso de erro para tentar de novo no futuro
-        throw err;
-      });
-
-    staticAssetCache.set(url, fetchPromise);
-  }
-
-  const snapshot = await staticAssetCache.get(url)!;
+  const body = await fetchJson(
+    `${basePath}/data/${config.file}.json?v=${Math.floor(Date.now() / 60_000)}`,
+    { signal, cache: "no-store" },
+    [500],
+  );
+  const snapshot = parseStaticSnapshot(body);
   const candles = snapshot.periods[period] ?? [];
-  
   if (candles.length < 55) {
     throw new Error(`Histórico de ${displayAsset(asset)} insuficiente em ${period}`);
   }
-  
   return {
     asset,
     pair: `${asset}/${config.currency}`,
@@ -186,20 +166,13 @@ export async function fetchBitcoinNupl(signal?: AbortSignal): Promise<NuplReadin
   );
   return latestNuplReading(body);
 }
-
 export async function fetchMultiRsi(
   asset: string,
   signal?: AbortSignal,
 ): Promise<MultiRsi> {
-  const isStatic = !!staticAssets[asset];
-  // Remove 15M da lista caso seja ativo estático para evitar erro previsível
-  const targetPeriods = isStatic 
-    ? rsiPeriods.filter((config) => config.label !== "15M" && config.period !== "15M") 
-    : rsiPeriods;
-
-  const settled = await mapSettledWithConcurrency(targetPeriods, 3, async (config) => {
+  const settled = await mapSettledWithConcurrency(rsiPeriods, 3, async (config) => {
     let candles: Candle[];
-    if (isStatic) {
+    if (staticAssets[asset]) {
       candles = (await fetchStaticAsset(asset, config.period, signal)).candles;
     } else {
       const body = await fetchJson(
