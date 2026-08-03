@@ -21,6 +21,30 @@ function formatNewsDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? "" : ` • ${date.toLocaleDateString("pt-BR")}`;
 }
 
+function LoadingPhrases({ asset, period }: { asset: string; period: string }) {
+  const perPhrase = 2.4;
+  const phrases = [
+    `Consultando o Analista Digital para ${asset}…`,
+    `Período ${period} em análise…`,
+    "Lendo os dados públicos de mercado…",
+    "Buscando notícias recentes…",
+    "Interpretando os sinais técnicos…",
+    "Montando a resposta educativa…",
+  ];
+  const cycle = phrases.length * perPhrase;
+  return (
+    <div className="aiPhraseLoading" role="status" aria-live="polite" aria-label="A IA está interpretando os sinais">
+      <div className="aiPhraseLoadingPhrases">
+        {phrases.map((phrase, index) => (
+          <span key={phrase} style={{ animationDuration: `${cycle}s`, animationDelay: `${index * perPhrase}s` }}>
+            {phrase}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AiAnalysisCard({
   payload,
   disabled,
@@ -152,12 +176,7 @@ export default function AiAnalysisCard({
       ) : (
         <div className="aiResult">
           {sourceLabel && <small className={`aiSource ${source}`} role="status">{sourceLabel}</small>}
-          {loading && (
-            <div className="aiThinking" role="status" aria-live="polite" aria-label="A IA está interpretando os sinais">
-              <span className="aiThinkingDots" aria-hidden="true"><i /><i /><i /></span>
-              <div className="aiThinkingTrack" aria-hidden="true"><i /></div>
-            </div>
-          )}
+          {loading && <LoadingPhrases asset={payload.asset} period={payload.period} />}
           <div className={`aiScenario ${analysis.scenario.toLowerCase().replace(" ", "-")}`}>
             <span>CENÁRIO</span><b>{analysis.scenario}</b>
           </div>
