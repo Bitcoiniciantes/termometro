@@ -15,6 +15,12 @@ import {
 
 type AnalysisSource = "local" | "groq" | "mimo" | "gemini" | "cache" | null;
 
+function formatNewsDate(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : ` • ${date.toLocaleDateString("pt-BR")}`;
+}
+
 export default function AiAnalysisCard({
   payload,
   disabled,
@@ -31,6 +37,7 @@ export default function AiAnalysisCard({
   const [retryAfter, setRetryAfter] = useState(0);
   const [news, setNews] = useState<AssetNewsResponse | null>(null);
   const [newsLoading, setNewsLoading] = useState(true);
+  const [newsError, setNewsError] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const processedAutoRunKey = useRef(autoRunKey);
 
@@ -54,10 +61,11 @@ export default function AiAnalysisCard({
   useEffect(() => {
     const controller = new AbortController();
     setNewsLoading(true);
+    setNewsError(false);
     setNews(null);
     fetchAssetNews(payload.asset, controller.signal)
       .then(result => { if (!controller.signal.aborted) setNews(result); })
-      .catch(() => { if (!controller.signal.aborted) setNews(null); })
+      .catch(() => { if (!controller.signal.aborted) setNewsError(true); })
       .finally(() => { if (!controller.signal.aborted) setNewsLoading(false); });
     return () => controller.abort();
   }, [payload.asset]);
@@ -144,6 +152,12 @@ export default function AiAnalysisCard({
       ) : (
         <div className="aiResult">
           {sourceLabel && <small className={`aiSource ${source}`} role="status">{sourceLabel}</small>}
+          {loading && (
+            <div className="aiThinking" role="status" aria-live="polite" aria-label="A IA está interpretando os sinais">
+              <span className="aiThinkingDots" aria-hidden="true"><i /><i /><i /></span>
+              <div className="aiThinkingTrack" aria-hidden="true"><i /></div>
+            </div>
+          )}
           <div className={`aiScenario ${analysis.scenario.toLowerCase().replace(" ", "-")}`}>
             <span>CENÁRIO</span><b>{analysis.scenario}</b>
           </div>
@@ -156,8 +170,8 @@ export default function AiAnalysisCard({
 
           <div className="aiSection aiNews">
             <b>FATOS RELEVANTES</b>
-            {newsLoading ? <p>Buscando notícias recentes?</p> : news?.items.length ? (
-              <ul>{news.items.map(item => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><small>{item.source}{item.publishedAt ? " • " + new Date(item.publishedAt).toLocaleDateString("pt-BR") : ""}</small></li>)}</ul>
+            {newsLoading ? <p>Buscando notícias recentes?</p> : newsError ? <p>Não foi possível carregar as notícias agora. Tente novamente mais tarde.</p> : news?.items.length ? (
+              <ul>{news.items.map(item => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><small>{item.source}{formatNewsDate(item.publishedAt)}</small></li>)}</ul>
             ) : <p>Sem notícias relevantes encontradas nas últimas 48 horas.</p>}
           </div>
           <div className="aiActions"><small>Leitura gerada em {new Date(analysis.generatedAt).toLocaleString("pt-BR")}</small></div>
