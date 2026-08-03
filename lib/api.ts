@@ -8,14 +8,24 @@ const REQUEST_TIMEOUT_MS = 8_000;
 const RETRY_DELAYS_MS = [500, 1_500];
 const NUPL_URL = "https://bitcoiniciantes.github.io/estudebitcoin/dados/nupl.json";
 
+// Cache global blindado
+const staticAssetCache = new Map<string, Promise<StaticSnapshot>>();
+
 function abortableDelay(milliseconds: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
-    const timer = window.setTimeout(resolve, milliseconds);
+    // Escrito com arrow function para evitar bugs de bind do setTimeout em alguns ambientes
+    const timer = window.setTimeout(() => resolve(), milliseconds);
+    
+    if (signal?.aborted) {
+      window.clearTimeout(timer);
+      return reject(new DOMException("Operação cancelada", "AbortError"));
+    }
+
     signal?.addEventListener(
       "abort",
       () => {
         window.clearTimeout(timer);
-        reject(signal.reason ?? new DOMException("Operação cancelada", "AbortError"));
+        reject(new DOMException("Operação cancelada", "AbortError"));
       },
       { once: true },
     );
@@ -40,6 +50,7 @@ async function fetchJson(
   retryDelays = RETRY_DELAYS_MS,
 ): Promise<unknown> {
   let lastError: unknown;
+  let isRetryableError = true;
 
   for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
     const controller = new AbortController();
@@ -47,24 +58,26 @@ async function fetchJson(
       () => controller.abort(new DOMException("Tempo de consulta excedido", "TimeoutError")),
       REQUEST_TIMEOUT_MS,
     );
-    const abortParent = () => controller.abort(options.signal?.reason);
+    
+    const abortParent = () => controller.abort();
     options.signal?.addEventListener("abort", abortParent, { once: true });
 
     try {
       const response = await fetch(url, { ...options, signal: controller.signal });
       const body = await response.json().catch(() => null);
+      
       if (response.ok) return body;
 
-      const retryable = response.status === 429 || response.status >= 500;
+      isRetryableError = response.status === 429 || response.status >= 500;
       const message = errorMessage(body, `Fonte respondeu HTTP ${response.status}`);
-      if (!retryable || attempt === retryDelays.length) throw new Error(message);
-      lastError = new Error(message);
+      throw new Error(message);
     } catch (error) {
       if (options.signal?.aborted) {
-        throw options.signal.reason ?? new DOMException("Operação cancelada", "AbortError");
+        throw new DOMException("Operação cancelada", "AbortError");
       }
       lastError = error;
-      if (attempt === retryDelays.length) throw error;
+      // Aborta imediatamente se não for um erro retryable, ou se esgotou as tentativas
+      if (!isRetryableError || attempt === retryDelays.length) throw error;
     } finally {
       window.clearTimeout(timeout);
       options.signal?.removeEventListener("abort", abortParent);
@@ -116,16 +129,45 @@ export async function fetchStaticAsset(
     typeof window !== "undefined" && window.location.pathname.startsWith("/termometro")
       ? "/termometro"
       : "";
-  const body = await fetchJson(
-    `${basePath}/data/${config.file}.json?v=${Math.floor(Date.now() / 60_000)}`,
-    { signal, cache: "no-store" },
-    [500],
-  );
-  const snapshot = parseStaticSnapshot(body);
+  
+  const url = `${basePath}/data/${config.file}.json?v=${Math.floor(Date.now() / 60_000)}`;
+
+  if (!staticAssetCache.has(url)) {
+    // ATENÇÃO: Retiramos o 'signal' daqui. O fetch compartilhado não pode ser abortado 
+    // por um único componente, senão ele envenena o cache para os outros.
+    const fetchPromise = fetchJson(
+      url,
+      { cache: "no-store" }, 
+      [500],
+    )
+      .then(body => parseStaticSnapshot(body))
+      .catch(err => {
+        staticAssetCache.delete(url);
+        throw err;
+      });
+
+    staticAssetCache.set(url, fetchPromise);
+  }
+
+  // Interceptamos o aborto local para liberar o componente sem matar o fetch principal
+  const snapshot = await new Promise<StaticSnapshot>((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException("Operação cancelada", "AbortError"));
+    
+    const onAbort = () => reject(new DOMException("Operação cancelada", "AbortError"));
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    staticAssetCache.get(url)!
+      .then(resolve)
+      .catch(reject)
+      .finally(() => signal?.removeEventListener("abort", onAbort));
+  });
+
   const candles = snapshot.periods[period] ?? [];
+  
   if (candles.length < 55) {
     throw new Error(`Histórico de ${displayAsset(asset)} insuficiente em ${period}`);
   }
+  
   return {
     asset,
     pair: `${asset}/${config.currency}`,
@@ -166,13 +208,19 @@ export async function fetchBitcoinNupl(signal?: AbortSignal): Promise<NuplReadin
   );
   return latestNuplReading(body);
 }
+
 export async function fetchMultiRsi(
   asset: string,
   signal?: AbortSignal,
 ): Promise<MultiRsi> {
-  const settled = await mapSettledWithConcurrency(rsiPeriods, 3, async (config) => {
+  const isStatic = !!staticAssets[asset];
+  const targetPeriods = isStatic 
+    ? rsiPeriods.filter((config) => config.label !== "15M" && config.period !== "15M") 
+    : rsiPeriods;
+
+  const settled = await mapSettledWithConcurrency(targetPeriods, 3, async (config) => {
     let candles: Candle[];
-    if (staticAssets[asset]) {
+    if (isStatic) {
       candles = (await fetchStaticAsset(asset, config.period, signal)).candles;
     } else {
       const body = await fetchJson(
