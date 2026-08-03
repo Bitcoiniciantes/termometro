@@ -64,8 +64,18 @@ export default function AiAnalysisCard({
   const [newsError, setNewsError] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const processedAutoRunKey = useRef(autoRunKey);
+  const [elapsedSecs, setElapsedSecs] = useState<number | null>(null);
+  const startedAtRef = useRef<number | null>(null);
+  const elapsedTimerRef = useRef<number | null>(null);
 
-  useEffect(() => () => requestRef.current?.abort(), []);
+  const stopElapsedTimer = () => {
+    if (elapsedTimerRef.current !== null) {
+      window.clearInterval(elapsedTimerRef.current);
+      elapsedTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => () => { requestRef.current?.abort(); stopElapsedTimer(); }, []);
 
   useEffect(() => {
     if (retryAfter <= 0) return;
@@ -115,17 +125,31 @@ export default function AiAnalysisCard({
     setLoading(true);
     const controller = new AbortController();
     requestRef.current = controller;
+    startedAtRef.current = performance.now();
+    setElapsedSecs(0);
+    elapsedTimerRef.current = window.setInterval(() => {
+      if (startedAtRef.current !== null) {
+        setElapsedSecs(Math.floor((performance.now() - startedAtRef.current) / 1000));
+      }
+    }, 1000);
     try {
       const refined = await fetchAiAnalysis({ ...payload, localPreview }, controller.signal);
       if (controller.signal.aborted) return;
+      stopElapsedTimer();
+      if (startedAtRef.current !== null) {
+        setElapsedSecs(Math.floor((performance.now() - startedAtRef.current) / 1000));
+      }
+      startedAtRef.current = null;
       setAnalysis(refined);
       setSource(refined.provider || "groq");
       writeCachedAiAnalysis(payload, refined);
     } catch (cause) {
       if (controller.signal.aborted) return;
+      stopElapsedTimer();
       setError(cause instanceof Error ? cause.message : "Análise por IA indisponível.");
       setRetryAfter(cause instanceof AiAnalysisError ? cause.retryAfterSeconds : 0);
     } finally {
+      stopElapsedTimer();
       if (requestRef.current === controller) {
         requestRef.current = null;
         setLoading(false);
@@ -162,7 +186,7 @@ export default function AiAnalysisCard({
   return (
     <article id="analista-digital" className="card aiAnalysis" aria-busy={loading}>
       <div className="cardTitle">
-        <div><span>ANÁLISE ASSISTIDA</span><b>Analista Digital{providerLabel ? ` (${providerLabel})` : ""}</b></div>
+        <div><span>ANÁLISE ASSISTIDA</span><b>Analista Digital{providerLabel ? ` (${providerLabel})` : ""}{elapsedSecs !== null ? ` ${String(elapsedSecs).padStart(2, "0")}s` : ""}</b></div>
         <span className="aiBadge">IA</span>
       </div>
       {!analysis ? (
