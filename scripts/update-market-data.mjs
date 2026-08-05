@@ -75,6 +75,8 @@ function aggregateFourHours(hourly) {
 }
 
 async function buildAsset(config) {
+  const fifteen = await fetchCandles(config.symbol, "15m", "5d");
+  await wait(250);
   const hourly = await fetchCandles(config.symbol, "1h", "3mo");
   await wait(250);
   const daily = await fetchCandles(config.symbol, "1d", "1y");
@@ -91,6 +93,7 @@ async function buildAsset(config) {
     source: "Yahoo Finance • atualização programada",
     updatedAt: Date.now(),
     periods: {
+      "15M": fifteen.slice(-120),
       "1H": hourly.slice(-120),
       "4H": aggregateFourHours(hourly).slice(-120),
       "1D": daily.slice(-120),
