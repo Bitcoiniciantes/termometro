@@ -11,9 +11,17 @@ const PHASE_RANGES: Record<string, [number, number]> = {
   capitulation: [0, 0.2],
 };
 
+const SHORT_LABEL: Record<string, string> = {
+  euphoria: "Ganância",
+  belief: "Negação",
+  optimism: "Otimismo",
+  hopeFear: "Esperança",
+  capitulation: "Desespero",
+};
+
 function markerPct(value: number): number {
   const clamped = Math.max(0, Math.min(1, value));
-  return clamped * 100;
+  return (1 - clamped) * 100;
 }
 
 export default function NuplBar({ nupl }: { nupl: NuplReading }) {
@@ -38,7 +46,7 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
       </button>
       {visible && (
         <div className="nuplTrack" role="img" aria-label={`NUPL ${nupl.value.toFixed(3)} — ${nupl.phase}`}>
-          {NUPL_ZONES.slice().reverse().map((zone) => {
+          {NUPL_ZONES.map((zone) => {
             const range = PHASE_RANGES[zone.key];
             const width = (range[1] - range[0]) * 100;
             return (
@@ -47,7 +55,9 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
                 className={`nuplSeg ${nupl.zone === zone.key ? "active" : ""}`}
                 style={{ width: `${width}%`, background: zone.color }}
                 title={`${zone.phase} (${(range[0] * 100).toFixed(0)}–${(range[1] * 100).toFixed(0)}%)`}
-              />
+              >
+                <span className="nuplSegLabel">{SHORT_LABEL[zone.key]}</span>
+              </div>
             );
           })}
           <div className="nuplMarker" style={{ left: `${pct}%` }} title={`Você: ${nupl.value.toFixed(3)}`}>
