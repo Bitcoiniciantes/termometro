@@ -3,11 +3,11 @@ import { NUPL_ZONES } from "../lib/nupl";
 import type { NuplReading } from "../lib/types";
 
 const PHASE_RANGES: Record<string, [number, number]> = {
-  euphoria: [0.8, 1],
-  belief: [0.6, 0.8],
-  optimism: [0.4, 0.6],
-  hopeFear: [0.2, 0.4],
-  capitulation: [0, 0.2],
+  euphoria: [0.6, 1],
+  belief: [0.2, 0.6],
+  optimism: [-0.2, 0.2],
+  hopeFear: [-0.6, -0.2],
+  capitulation: [-1, -0.6],
 };
 
 const SHORT_LABEL: Record<string, string> = {
@@ -18,11 +18,11 @@ const SHORT_LABEL: Record<string, string> = {
   capitulation: "Desespero",
 };
 
-const RULER_TICKS = [1, 0.8, 0.6, 0.4, 0.2, 0];
+const RULER_TICKS = [1, 0.6, 0.2, -0.2, -0.6, -1];
 
 function markerPct(value: number): number {
-  const clamped = Math.max(0, Math.min(1, value));
-  return (1 - clamped) * 100;
+  const clamped = Math.max(-1, Math.min(1, value));
+  return ((1 - clamped) / 2) * 100;
 }
 
 export default function NuplBar({ nupl }: { nupl: NuplReading }) {
@@ -36,10 +36,10 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
           <span
             key={tick}
             className="nuplTick"
-            style={{ left: `${(1 - tick) * 100}%` }}
+            style={{ left: `${((1 - tick) / 2) * 100}%` }}
           >
             <span className="nuplTickLine" />
-            <span className="nuplTickLabel">{tick.toFixed(1)}</span>
+            <span className="nuplTickLabel">{tick > 0 ? `+${tick}` : tick}</span>
           </span>
         ))}
         <span className="nuplPhaseLabel" style={{ left: `${pct}%`, color: nupl.color }}>
@@ -54,12 +54,12 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
       >
         {NUPL_ZONES.map((zone) => {
           const range = PHASE_RANGES[zone.key];
-          const width = (range[1] - range[0]) * 90;
+          const widthPct = ((range[1] - range[0]) / 2) * 100;
           return (
             <div
               key={zone.key}
               className={`nuplSeg ${nupl.zone === zone.key ? "active" : ""}`}
-              style={{ width: `${width}%`, background: zone.color }}
+              style={{ width: `${widthPct}%`, background: zone.color }}
               title={SHORT_LABEL[zone.key]}
             >
               <span className="nuplSegLabel">{SHORT_LABEL[zone.key]}</span>
