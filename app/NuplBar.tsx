@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import { NUPL_ZONES } from "../lib/nupl";
 import type { NuplReading } from "../lib/types";
 
@@ -19,52 +18,68 @@ const SHORT_LABEL: Record<string, string> = {
   capitulation: "Desespero",
 };
 
+const RULER_TICKS = [1, 0.8, 0.6, 0.4, 0.2, 0];
+
 function markerPct(value: number): number {
   const clamped = Math.max(0, Math.min(1, value));
   return (1 - clamped) * 100;
 }
 
 export default function NuplBar({ nupl }: { nupl: NuplReading }) {
-  const [visible, setVisible] = useState(true);
   const pct = markerPct(nupl.value);
   const phaseLabel = nupl.zone === "hopeFear" ? "Medo" : nupl.phase.split("/")[0];
 
   return (
-    <div className={`nuplBar${visible ? " open" : ""}`}>
-      <button
-        type="button"
-        className="nuplToggle"
-        onClick={() => setVisible((v) => !v)}
-        aria-expanded={visible}
-        aria-label={visible ? "Ocultar barra NUPL" : "Mostrar barra NUPL"}
+    <div className="nuplBar">
+      <div className="nuplRuler" aria-hidden="true">
+        {RULER_TICKS.map((tick) => (
+          <span
+            key={tick}
+            className="nuplTick"
+            style={{ left: `${(1 - tick) * 100}%` }}
+          >
+            <span className="nuplTickLine" />
+            <span className="nuplTickLabel">{tick.toFixed(1)}</span>
+          </span>
+        ))}
+        <span className="nuplPhaseLabel" style={{ left: `${pct}%`, color: nupl.color }}>
+          {phaseLabel}
+        </span>
+      </div>
+      <div
+        className="nuplTrack"
+        role="img"
+        aria-label={`NUPL ${nupl.value.toFixed(3)} — ${phaseLabel}`}
+        style={{ "--nupl-marker": nupl.color } as React.CSSProperties}
       >
-        <span className="nuplToggleIcon" aria-hidden="true">{visible ? "▾" : "▸"}</span>
-        <span className="nuplToggleLabel">NUPL · Sentimento On-Chain</span>
-        <span className="nuplValue">{nupl.value.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</span>
-        <span className="nuplPhase" style={{ color: nupl.color }}>{phaseLabel}</span>
-      </button>
-      {visible && (
-        <div className="nuplTrack" role="img" aria-label={`NUPL ${nupl.value.toFixed(3)} — ${phaseLabel}`} style={{"--nupl-marker": nupl.color} as React.CSSProperties}>
-          {NUPL_ZONES.map((zone) => {
-            const range = PHASE_RANGES[zone.key];
-            const width = (range[1] - range[0]) * 90;
-            return (
-              <div
-                key={zone.key}
-                className={`nuplSeg ${nupl.zone === zone.key ? "active" : ""}`}
-                style={{ width: `${width}%`, background: zone.color }}
-                title={SHORT_LABEL[zone.key]}
-              >
-                <span className="nuplSegLabel">{SHORT_LABEL[zone.key]}</span>
-                <span className="nuplSegLine" style={{ background: zone.color }} />
-              </div>
-            );
-          })}
-          <div className="nuplMarker" style={{ left: `${pct}%` }} title={`Você: ${nupl.value.toFixed(3)}`}>
-            <span className="nuplMarkerLabel">{nupl.value.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</span>
-          </div>
+        {NUPL_ZONES.map((zone) => {
+          const range = PHASE_RANGES[zone.key];
+          const width = (range[1] - range[0]) * 90;
+          return (
+            <div
+              key={zone.key}
+              className={`nuplSeg ${nupl.zone === zone.key ? "active" : ""}`}
+              style={{ width: `${width}%`, background: zone.color }}
+              title={SHORT_LABEL[zone.key]}
+            >
+              <span className="nuplSegLabel">{SHORT_LABEL[zone.key]}</span>
+              <span className="nuplSegLine" style={{ background: zone.color }} />
+            </div>
+          );
+        })}
+        <div
+          className="nuplMarker"
+          style={{ left: `${pct}%` }}
+          title={`Você: ${nupl.value.toFixed(3)}`}
+        >
+          <span className="nuplMarkerLabel">
+            {nupl.value.toLocaleString("pt-BR", {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3,
+            })}
+          </span>
         </div>
-      )}
+      </div>
     </div>
   );
 }
