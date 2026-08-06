@@ -2,13 +2,15 @@
 import { NUPL_ZONES } from "../lib/nupl";
 import type { NuplReading } from "../lib/types";
 
-const PHASE_RANGES: Record<string, [number, number]> = {
-  euphoria: [0.8, 1],
-  belief: [0.6, 0.8],
-  optimism: [0.2, 0.6],
-  hopeFear: [-0.2, 0.2],
-  capitulation: [-1, -0.2],
+const ZONE_BANDS: Record<string, [number, number]> = {
+  capitulation: [-0.4, 0],
+  hopeFear: [0, 0.25],
+  optimism: [0.25, 0.5],
+  belief: [0.5, 0.75],
+  euphoria: [0.75, 1.5],
 };
+
+const SEGMENT_PCT = 100 / NUPL_ZONES.length;
 
 const SHORT_LABEL: Record<string, string> = {
   euphoria: "Ganância",
@@ -18,13 +20,17 @@ const SHORT_LABEL: Record<string, string> = {
   capitulation: "Desespero",
 };
 
-function markerPct(value: number): number {
-  const clamped = Math.max(-1, Math.min(1, value));
-  return ((1 - clamped) / 2) * 100;
+function markerPct(value: number, zoneKey: string): number {
+  const index = NUPL_ZONES.findIndex((zone) => zone.key === zoneKey);
+  if (index < 0) return 0;
+  const [lo, hi] = ZONE_BANDS[zoneKey];
+  const clamped = Math.max(lo, Math.min(hi, value));
+  const frac = (clamped - lo) / (hi - lo);
+  return (index + Math.max(0, Math.min(1, frac))) * SEGMENT_PCT;
 }
 
 export default function NuplBar({ nupl }: { nupl: NuplReading }) {
-  const pct = markerPct(nupl.value);
+  const pct = markerPct(nupl.value, nupl.zone);
   const phaseLabel = nupl.zone === "hopeFear" ? "Medo" : nupl.phase.split("/")[0];
 
   return (
@@ -36,21 +42,17 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
         aria-label={`NUPL ${nupl.value.toFixed(3)} — ${phaseLabel}`}
         style={{ "--nupl-marker": nupl.color } as React.CSSProperties}
       >
-        {NUPL_ZONES.map((zone) => {
-          const range = PHASE_RANGES[zone.key];
-          const widthPct = ((range[1] - range[0]) / 2) * 100;
-          return (
-            <div
-              key={zone.key}
-              className={`nuplSeg ${nupl.zone === zone.key ? "active" : ""}`}
-              style={{ width: `${widthPct}%`, background: zone.color }}
-              title={SHORT_LABEL[zone.key]}
-            >
-              <span className="nuplSegLabel">{SHORT_LABEL[zone.key]}</span>
-              <span className="nuplSegLine" style={{ background: zone.color }} />
-            </div>
-          );
-        })}
+        {NUPL_ZONES.map((zone) => (
+          <div
+            key={zone.key}
+            className={`nuplSeg ${nupl.zone === zone.key ? "active" : ""}`}
+            style={{ width: `${SEGMENT_PCT}%`, background: zone.color }}
+            title={SHORT_LABEL[zone.key]}
+          >
+            <span className="nuplSegLabel">{SHORT_LABEL[zone.key]}</span>
+            <span className="nuplSegLine" style={{ background: zone.color }} />
+          </div>
+        ))}
         <div
           className="nuplMarker"
           style={{ left: `${pct}%` }}
