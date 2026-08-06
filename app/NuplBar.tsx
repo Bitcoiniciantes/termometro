@@ -47,7 +47,7 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
         <div className="nuplTrack" role="img" aria-label={`NUPL ${nupl.value.toFixed(3)} — ${phaseLabel}`}>
           {NUPL_ZONES.map((zone) => {
             const range = PHASE_RANGES[zone.key];
-            const width = (range[1] - range[0]) * 100;
+            const width = (range[1] - range[0]) * 90;
             return (
               <div
                 key={zone.key}
