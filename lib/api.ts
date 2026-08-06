@@ -7,6 +7,7 @@ import type { Candle, MarketData, MultiRsi, NuplReading, StaticSnapshot } from "
 const REQUEST_TIMEOUT_MS = 8_000;
 const RETRY_DELAYS_MS = [500, 1_500];
 const NUPL_URL = "https://bitcoiniciantes.github.io/estudebitcoin/dados/nupl.json";
+const STOCK_WORKER_URL = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/candles";
 
 function abortableDelay(milliseconds: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
@@ -169,6 +170,32 @@ export async function fetchMarket(
   };
 }
 
+export async function fetchLiveStockMarket(
+  asset: string,
+  period: string,
+  signal?: AbortSignal,
+): Promise<MarketData> {
+  const url = `${STOCK_WORKER_URL}?asset=${encodeURIComponent(asset)}&period=${encodeURIComponent(period)}`;
+  const body = await fetchJson(url, { signal }, []);
+  if (!body || typeof body !== "object" || !Array.isArray((body as { candles?: unknown }).candles)) {
+    throw new Error(`Dados de ${displayAsset(asset)} temporariamente indisponíveis`);
+  }
+  const candles = ((body as { candles: Candle[] }).candles).filter(
+    (c) => Number.isFinite(c.open) && Number.isFinite(c.high) && Number.isFinite(c.low) && Number.isFinite(c.close),
+  );
+  if (candles.length < 55) {
+    throw new Error(`Histórico de ${displayAsset(asset)} insuficiente em ${period}`);
+  }
+  return {
+    asset,
+    pair: `${asset}/USD`,
+    source: "Yahoo Finance",
+    updatedAt: Date.now(),
+    period,
+    candles,
+  };
+}
+
 export async function fetchBitcoinNupl(signal?: AbortSignal): Promise<NuplReading> {
   const body = await fetchJson(
     `${NUPL_URL}?v=${Math.floor(Date.now() / 600_000)}`,
@@ -177,6 +204,19 @@ export async function fetchBitcoinNupl(signal?: AbortSignal): Promise<NuplReadin
   );
   return latestNuplReading(body);
 }
+async function loadBinanceOrStockCandles(asset: string, config: { interval: string; period: string }, signal?: AbortSignal): Promise<Candle[]> {
+  try {
+    const body = await fetchJson(
+      `https://data-api.binance.vision/api/v3/klines?symbol=${asset}USDT` +
+        `&interval=${config.interval}&limit=240`,
+      { signal },
+    );
+    return parseCandles(body);
+  } catch {
+    return (await fetchLiveStockMarket(asset, config.period, signal)).candles;
+  }
+}
+
 export async function fetchMultiRsi(
   asset: string,
   signal?: AbortSignal,
@@ -191,12 +231,7 @@ export async function fetchMultiRsi(
     } else if (staticAssets[asset]) {
       candles = (await fetchStaticAsset(asset, config.period, signal)).candles;
     } else {
-      const body = await fetchJson(
-        `https://data-api.binance.vision/api/v3/klines?symbol=${asset}USDT` +
-          `&interval=${config.interval}&limit=240`,
-        { signal },
-      );
-      candles = parseCandles(body);
+      candles = await loadBinanceOrStockCandles(asset, config, signal);
     }
     const reading = wilderRsi(completedCandles(candles, config.period).map((candle) => candle.close));
     if (!reading) throw new Error("Histórico insuficiente");
