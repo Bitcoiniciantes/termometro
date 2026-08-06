@@ -15,7 +15,7 @@ const SHORT_LABEL: Record<string, string> = {
   euphoria: "Ganância",
   belief: "Negação",
   optimism: "Otimismo",
-  hopeFear: "Esperança",
+  hopeFear: "Medo",
   capitulation: "Desespero",
 };
 
@@ -27,7 +27,7 @@ function markerPct(value: number): number {
 export default function NuplBar({ nupl }: { nupl: NuplReading }) {
   const [visible, setVisible] = useState(true);
   const pct = markerPct(nupl.value);
-  const dateStr = new Date(`${nupl.dataDate}T00:00:00`).toLocaleDateString("pt-BR");
+  const phaseLabel = nupl.zone === "hopeFear" ? "Medo" : nupl.phase.split("/")[0];
 
   return (
     <div className={`nuplBar${visible ? " open" : ""}`}>
@@ -41,11 +41,10 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
         <span className="nuplToggleIcon" aria-hidden="true">{visible ? "▾" : "▸"}</span>
         <span className="nuplToggleLabel">NUPL · Sentimento On-Chain</span>
         <span className="nuplValue">{nupl.value.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</span>
-        <span className="nuplPhase" style={{ color: nupl.color }}>{nupl.phase}</span>
-        <small className="nuplDate">Dados {dateStr}</small>
+        <span className="nuplPhase" style={{ color: nupl.color }}>{phaseLabel}</span>
       </button>
       {visible && (
-        <div className="nuplTrack" role="img" aria-label={`NUPL ${nupl.value.toFixed(3)} — ${nupl.phase}`}>
+        <div className="nuplTrack" role="img" aria-label={`NUPL ${nupl.value.toFixed(3)} — ${phaseLabel}`}>
           {NUPL_ZONES.map((zone) => {
             const range = PHASE_RANGES[zone.key];
             const width = (range[1] - range[0]) * 100;
@@ -54,9 +53,10 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
                 key={zone.key}
                 className={`nuplSeg ${nupl.zone === zone.key ? "active" : ""}`}
                 style={{ width: `${width}%`, background: zone.color }}
-                title={`${zone.phase} (${(range[0] * 100).toFixed(0)}–${(range[1] * 100).toFixed(0)}%)`}
+                title={SHORT_LABEL[zone.key]}
               >
                 <span className="nuplSegLabel">{SHORT_LABEL[zone.key]}</span>
+                <span className="nuplSegLine" style={{ background: zone.color }} />
               </div>
             );
           })}
