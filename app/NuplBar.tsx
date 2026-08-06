@@ -35,7 +35,6 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
 
   return (
     <div className="nuplBar">
-      <div className="nuplPhaseNow" style={{ color: nupl.color }}>{phaseLabel}</div>
       <div
         className="nuplTrack"
         role="img"

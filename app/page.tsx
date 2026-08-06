@@ -34,7 +34,7 @@ export function Termometro(){
  useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  const liveEligible=!staticAssets[ticker]&&market?.asset===ticker;
  useEffect(()=>{setLiveQuote(null);if(!liveEligible){setLiveStatus("off");return}return subscribeLivePrice(ticker,{onStatus:setLiveStatus,onPrice:tick=>setLiveQuote({asset:ticker,price:tick.price,updatedAt:Date.now()})})},[ticker,liveEligible]);
- useEffect(()=>{const controller=new AbortController();fetchBitcoinNupl(controller.signal).then(data=>{if(!controller.signal.aborted)setNupl(data)}).catch(()=>{if(!controller.signal.aborted)setNupl(null)});return()=>controller.abort()},[]);
+ useEffect(()=>{let active=true;async function load(){try{const data=await fetchBitcoinNupl();if(active)setNupl(data)}catch{if(active)setNupl(null)}}load();const timer=window.setInterval(load,600000);return()=>{active=false;window.clearInterval(timer)}},[]);
  const [previousReading,setPreviousReading]=useState<{period:string;score:number}|null>(null);
  useEffect(()=>{const controller=new AbortController();fetchMarket(ticker,'1H',controller.signal).then(data=>{const reading=analyze(data);if(reading&&!controller.signal.aborted)setPreviousReading({period:'1H',score:reading.score})}).catch(()=>{if(!controller.signal.aborted)setPreviousReading(null)});return()=>controller.abort()},[ticker]);
  const [usingCached,setUsingCached]=useState(false);
