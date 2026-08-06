@@ -5,9 +5,9 @@ import type { NuplReading } from "../lib/types";
 const PHASE_RANGES: Record<string, [number, number]> = {
   euphoria: [0.8, 1],
   belief: [0.6, 0.8],
-  optimism: [0.4, 0.6],
-  hopeFear: [0, 0.4],
-  capitulation: [-1, 0],
+  optimism: [0.2, 0.6],
+  hopeFear: [-0.2, 0.2],
+  capitulation: [-1, -0.2],
 };
 
 const SHORT_LABEL: Record<string, string> = {
@@ -18,7 +18,7 @@ const SHORT_LABEL: Record<string, string> = {
   capitulation: "Desespero",
 };
 
-const RULER_TICKS = [1, 0.8, 0.6, 0.4, 0, -0.2, -0.4, -0.6, -0.8, -1];
+const RULER_TICKS = [1, 0.8, 0.6, 0.2, 0, -0.2, -0.6, -1];
 
 function markerPct(value: number): number {
   const clamped = Math.max(-1, Math.min(1, value));
