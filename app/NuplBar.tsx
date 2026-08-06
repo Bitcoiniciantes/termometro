@@ -18,8 +18,6 @@ const SHORT_LABEL: Record<string, string> = {
   capitulation: "Desespero",
 };
 
-const RULER_TICKS = [1, 0.8, 0.6, 0.2, 0, -0.2, -0.6, -1];
-
 function markerPct(value: number): number {
   const clamped = Math.max(-1, Math.min(1, value));
   return ((1 - clamped) / 2) * 100;
@@ -31,21 +29,6 @@ export default function NuplBar({ nupl }: { nupl: NuplReading }) {
 
   return (
     <div className="nuplBar">
-      <div className="nuplRuler" aria-hidden="true">
-        {RULER_TICKS.map((tick) => (
-          <span
-            key={tick}
-            className="nuplTick"
-            style={{ left: `${((1 - tick) / 2) * 100}%` }}
-          >
-            <span className="nuplTickLine" />
-            <span className="nuplTickLabel">{tick > 0 ? `+${tick}` : tick}</span>
-          </span>
-        ))}
-        <span className="nuplPhaseLabel" style={{ left: `${pct}%`, color: nupl.color }}>
-          {phaseLabel}
-        </span>
-      </div>
       <div
         className="nuplTrack"
         role="img"
