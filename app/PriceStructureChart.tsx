@@ -15,9 +15,13 @@ type Props = {
   support: number;
 };
 
-function formatPrice(value: number, currency: string) {
+function formatPriceNumber(value: number) {
   const maximumFractionDigits = value >= 1 ? 2 : 6;
-  return `${currency} ${value.toLocaleString("pt-BR", { maximumFractionDigits })}`;
+  return value.toLocaleString("pt-BR", { maximumFractionDigits });
+}
+
+function formatPrice(value: number, currency: string) {
+  return `${currency} ${formatPriceNumber(value)}`;
 }
 
 function formatDate(time: number, period: string) {
@@ -64,7 +68,7 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
     <div className="candlePlot" onMouseLeave={() => setHoveredIndex(null)}>
       {resistance > 0 && <div className="priceLevel resistanceLevel" style={{ top: level(resistance) }}><span>Resistência</span></div>}
       {support > 0 && <div className="priceLevel supportLevel" style={{ top: level(support) }}><span>Suporte</span></div>}
-      {currentPrice > 0 && <div className="priceLevel currentPriceLevel" style={{ top: level(currentPrice) }}><span>{formatPrice(currentPrice, currency)}</span></div>}
+      {currentPrice > 0 && <div className="priceLevel currentPriceLevel" style={{ top: level(currentPrice) }}><span>{formatPriceNumber(currentPrice)}</span></div>}
       {geometry.candles.map((candle, index) => <button
         type="button"
         key={`${candle.time}-${index}`}
