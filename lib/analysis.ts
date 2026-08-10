@@ -334,6 +334,7 @@ export function analyze(data: MarketData | null, now = Date.now()): Analysis | n
     signals,
     score,
     confidence: Math.round(55 + agreement * 35),
+    rsi,
     change:
       Number.isFinite(last) && Number.isFinite(previous) && previous !== 0
         ? (last / previous - 1) * 100

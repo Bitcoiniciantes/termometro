@@ -30,6 +30,7 @@ export type BiasItem = {
   score: number;
   confidence: number;
   change: number;
+  rsi?: number;
 };
 
 export type StaticSnapshot = {
@@ -71,6 +72,7 @@ export type Analysis = {
   score: number;
   confidence: number;
   change: number;
+  rsi: number;
   extreme: ExtremeReading;
 };
 export type NuplZoneKey =
