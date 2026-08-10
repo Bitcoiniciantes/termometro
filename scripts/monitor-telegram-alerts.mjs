@@ -26,6 +26,8 @@ const assets = [
   { asset: "AVAX", period: "15M", source: "binance" },
   { asset: "PAXG", period: "15M", source: "binance" },
   { asset: "MSTR", period: "1H", source: "static", file: "mstr" },
+  { asset: "SPCX", period: "1H", source: "static", file: "spcx" },
+  { asset: "QBTS", period: "1H", source: "static", file: "qbts" },
   { asset: "PRATA", period: "1H", source: "static", file: "prata" },
   { asset: "COBRE", period: "1H", source: "static", file: "cobre" },
   { asset: "URÂNIO", marketAsset: "URANIO", period: "1H", source: "static", file: "uranio" },
@@ -208,7 +210,7 @@ function welcomeMessage(preference = DEFAULT_PREFERENCE, movement4 = false) {
     `Seu modo: ${preferenceLabel(preference)}.`,
     `Movimento de 4% do BTC: ${movement4 ? "ativado" : "desativado"}.`,
     "Criptomoedas: candles encerrados de 15 minutos.",
-    "MSTR, prata, cobre e urânio: candles encerrados de 1 hora.",
+    "MSTR, SPCX, QBTS, prata, cobre e urânio: candles encerrados de 1 hora.",
     "",
     "Para mudar:",
     "/fortes — Compra Forte + capitulação (recomendado)",
@@ -376,7 +378,17 @@ function signalSummary(reading, group) {
   return reading.signals.find((signal) => signal.group === group)?.summary;
 }
 
-function alertMessage(config, reading, transition, candleTime) {
+function formatQuote(config, value) {
+  if (config.source === "binance") return formatUsdt(value);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function alertMessage(config, reading, transition, candleTime, currentPrice) {
   const icon = transition === "ENCERROU" ? "⚪" : transition === "FORTALECEU" ? "🚀" : "🟢";
   const title =
     transition === "ENCERROU"
@@ -396,6 +408,7 @@ function alertMessage(config, reading, transition, candleTime) {
     `${icon} ${title}`,
     "",
     `Ativo: ${config.asset}`,
+    `Cotação atual: ${formatQuote(config, currentPrice)}`,
     `Período: ${config.period}`,
     `Nota: ${reading.score >= 0 ? "+" : ""}${reading.score} • ${scoreLabel(reading.score)}`,
     `Concordância dos sinais: ${reading.confidence}%`,
@@ -407,7 +420,6 @@ function alertMessage(config, reading, transition, candleTime) {
     "Alerta técnico educacional. Não representa garantia de resultado ou recomendação personalizada.",
   ].join("\n");
 }
-
 function volumeRatio(candles) {
   const previous = candles.slice(-21, -1);
   const average = previous.reduce((sum, candle) => sum + candle.volume, 0) / Math.max(previous.length, 1);
@@ -440,11 +452,12 @@ function bitcoinMovementMessage(movement, reference, current, candleTime) {
     "Aviso de variação de preço. Não representa sinal de compra ou venda.",
   ].join("\n");
 }
-function capitulationMessage(config, reading, ratio, candleTime) {
+function capitulationMessage(config, reading, ratio, candleTime, currentPrice) {
   return [
     "⚠️ POSSÍVEL CAPITULAÇÃO",
     "",
     `Ativo: ${config.asset}`,
+    `Cotação atual: ${formatQuote(config, currentPrice)}`,
     `Período: ${config.period}`,
     `RSI: ${reading.extreme.rsi.toFixed(1)}`,
     `Distância: ${reading.extreme.atrDistance.toFixed(1)} ATR da MM20`,
@@ -463,6 +476,7 @@ function capitulationConfirmedMessage(config, watch, candle, ratio) {
     "⚠️ CAPITULAÇÃO EM CONFIRMAÇÃO",
     "",
     `Ativo: ${config.asset}`,
+    `Cotação atual: ${formatQuote(config, candle.close)}`,
     "Sequência: queda extrema no 15 min + nova queda no 5 min",
     `Volume do 5 min: ${ratio.toFixed(2)}× a média`,
     `Candle de 5 min encerrado: ${localTime(candle.time)}`,
@@ -480,6 +494,7 @@ function stabilizationMessage(config, candle, ratio) {
     "🟡 PRESSÃO VENDEDORA PERDEU FORÇA",
     "",
     `Ativo: ${config.asset}`,
+    `Cotação atual: ${formatQuote(config, candle.close)}`,
     "Após a capitulação em confirmação, surgiu um candle positivo de 5 min sem nova mínima.",
     `Volume do 5 min: ${ratio.toFixed(2)}× a média`,
     `Candle encerrado: ${localTime(candle.time)}`,
@@ -491,7 +506,6 @@ function stabilizationMessage(config, candle, ratio) {
     "Alerta técnico educacional. Não representa recomendação personalizada.",
   ].join("\n");
 }
-
 async function checkCapitulationWatch(config, key, state, pendingMessages, historyEvents) {
   const watch = state.capitulationWatch?.[key];
   if (!watch || config.source !== "binance") return false;
@@ -662,7 +676,7 @@ async function main() {
       if (transition && kind) {
         pendingMessages.push({
           kind,
-          text: alertMessage(config, reading, transition, lastClosed.time),
+          text: alertMessage(config, reading, transition, lastClosed.time, lastClosed.close),
         });
         historyEvents.push({
           asset: config.asset,
@@ -685,7 +699,7 @@ async function main() {
         } else {
           pendingMessages.push({
             kind: "CAPITULACAO",
-            text: capitulationMessage(config, reading, ratio, lastClosed.time),
+            text: capitulationMessage(config, reading, ratio, lastClosed.time, lastClosed.close),
           });
           historyEvents.push({
             asset: config.asset,
