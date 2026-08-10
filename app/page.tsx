@@ -75,7 +75,7 @@ export function Termometro(){
  const label=scoreLabel(score);
  const scoreExplanation=score>=20?"Convergência positiva, com risco controlado.":score<=-20?"Pressão vendedora predominante; evite antecipar reversão.":`${score>=10?"Sinais mistos com viés positivo.":score<=-10?"Sinais mistos com viés negativo.":"Sinais equilibrados."} ${scoreDistanceLabel(score)}`;
  const toneClass=score>=20?"tonePositive":score<=-20?"toneNegative":"toneNeutral";
- const radarItems=useMemo(()=>[...ranking.map(item=>({...item,available:true})),...assets.filter(asset=>!ranking.some(item=>item.asset===asset)).map(asset=>({asset,score:0,confidence:0,change:0,available:false}))],[ranking,assets]);
+ const radarItems=useMemo(()=>[...ranking.filter(item=>item.asset!=="MSTR").map(item=>({...item,available:true})),...assets.filter(asset=>asset!=="MSTR"&&!ranking.some(item=>item.asset===asset)).map(asset=>({asset,score:0,confidence:0,change:0,available:false}))],[ranking,assets]);
  const availablePeriods=staticAssets[ticker]?["15M","1H","4H","1D","1S","1M"]:["15M","1H","4H","1D","1S","1M"];
  const selectedRsi=multiRsi?.rows.find(row=>row.label===rsiLabelByPeriod[period]);
  const selectedRsiTone=!selectedRsi?"neutral":selectedRsi.value>=55?"high":selectedRsi.value<=45?"low":"neutral";
