@@ -4,6 +4,7 @@ const assets = [
   { asset: "MSTR", displayName: "MSTR", symbol: "MSTR", file: "mstr" },
   { asset: "SPCX", displayName: "SPCX", symbol: "SPCX", file: "spcx", requiredPeriods: ["1H"] },
   { asset: "QBTS", displayName: "QBTS", symbol: "QBTS", file: "qbts", requiredPeriods: ["1H"] },
+  { asset: "BRENT", displayName: "BRENT", symbol: "BZ=F", file: "brent", requiredPeriods: ["1H"] },
   { asset: "PRATA", displayName: "PRATA", symbol: "SI=F", file: "prata" },
   { asset: "COBRE", displayName: "COBRE", symbol: "HG=F", file: "cobre" },
   { asset: "URANIO", displayName: "URÂNIO", symbol: "URNM", file: "uranio" },
