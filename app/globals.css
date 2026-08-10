@@ -415,5 +415,5 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .biasItem.selected .biasRsi{border-color:#8ed8ff;background:#123a55;color:#d9f3ff}
 @media(max-width:520px){.biasRsi{top:7px;right:7px;padding:2px 4px;font-size:8.4px}}
 .biasItem{min-height:210px}.biasSelect{min-height:208px!important}.biasItem.selected{border-color:#4dd7ff!important;box-shadow:inset 0 1px 0 #dff7ff66,inset 0 0 0 1px #4dd7ff66,0 14px 30px #00000055!important}@media(max-width:520px){.biasItem{min-height:158px}.biasSelect{min-height:156px!important}}
-.heroThermo .scoreRing{width:161px;height:161px;margin:16px auto 7px}.heroAsset{display:block;margin:3px 0 2px;color:#edf4ef;font:900 11px/1 var(--font-geist-mono),monospace;letter-spacing:.1em}.heroThermo .scoreRing span{display:block}
-@media(max-width:520px){.heroThermo .scoreRing{width:151px;height:151px}.heroAsset{font-size:10px}}
+.heroThermo{position:relative}.heroThermo .scoreRing{width:161px;height:161px;margin:16px auto 7px}.heroAsset{display:block;margin:3px 0 2px;color:#edf4ef;font:900 16.5px/1 var(--font-geist-mono),monospace;letter-spacing:.1em}.heroThermo .scoreRing span{display:block;margin-top:-3px}.heroRsi{position:absolute;top:67px;right:15px;padding:4px 6px;border:1px solid #3c5f8a;border-radius:5px;background:#0d1d33;color:#a9ccff;font:900 9px/1 var(--font-geist-mono),monospace;letter-spacing:.05em;box-shadow:inset 0 1px #ffffff14}
+@media(max-width:520px){.heroThermo .scoreRing{width:151px;height:151px}.heroAsset{font-size:15px}.heroRsi{top:65px;right:12px;font-size:8px}}
