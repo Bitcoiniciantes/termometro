@@ -286,6 +286,9 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .priceLevel span { position:absolute; left:4px; top:-17px; padding:2px 4px; background:#0d1512; font-size:7px; letter-spacing:.1em; text-transform:uppercase; }
 .resistanceLevel { border-color:rgba(255,91,103,.55); color:var(--red); }
 .supportLevel { border-color:rgba(84,184,90,.6); color:var(--lime); }
+.currentPriceLevel { border-color:#4aa8ff; border-top-style:dashed; z-index:2; }
+.currentPriceLevel span { left:auto; right:-82px; top:-10px; width:76px; padding:3px 4px; border-radius:2px; background:#2d8dde; color:#fff; text-align:center; letter-spacing:0; text-transform:none; font-weight:900; }
+.realPriceChart .chartAxis { z-index:2; }
 .chartDates {
   position:absolute;
   left:17px;
@@ -315,6 +318,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   .candlePlot { inset:72px 12px 30px; }
   .chartDates { left:12px; right:12px; }
   .priceLevel span { font-size:6px; }
+  .currentPriceLevel span { right:0; top:-9px; width:auto; min-width:70px; font-size:7px; }
   .chartFoot { gap:12px; }
 }
 .mobileChartPeriods { display:none; }
