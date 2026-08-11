@@ -287,7 +287,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .resistanceLevel { border-color:rgba(255,91,103,.55); color:var(--red); }
 .supportLevel { border-color:rgba(84,184,90,.6); color:var(--lime); }
 .currentPriceLevel { border-color:#4aa8ff; border-top-style:dashed; z-index:2; }
-.currentPriceLevel span { left:auto; right:-82px; top:-12px; width:76px; font-size:10px; padding:3px 4px; border-radius:2px; background:#2d8dde; color:#fff; text-align:center; letter-spacing:0; text-transform:none; font-weight:900; }
+.currentPriceLevel span { left:auto; right:-82px; top:-12px; width:76px; font-size:10px; padding:3px 4px; border-radius:2px; background:rgba(45,141,222,.28); color:#e6f5ff; text-align:center; letter-spacing:0; text-transform:none; font-weight:900; }
 .realPriceChart .chartAxis { z-index:2; }
 .chartDates {
   position:absolute;
