@@ -154,6 +154,7 @@ function classifyExtreme(args: {
   const strongTrend = adx >= 25;
   const stretched = Math.abs(atrDistance) >= 2;
   const metrics = `RSI ${rsi.toFixed(1)} • ADX ${adx.toFixed(1)} • distância ${atrDistance.toFixed(1)} ATR da MM20.`;
+  const sellOpportunityRsi = period === "1H" || period === "4H" ? 79 : period === "1D" || period === "1S" ? 88 : null;
   if (period === "4H" && previousRsi <= 20 && rsi > 20 && stabilized) return {
     status: "COMPRA EM CONFIRMAÇÃO 4H", summary: "RSI saiu da sobrevenda extrema com estabilização do preço",
     detail: `${metrics} O candle fechou positivo, sem nova mínima e com volume suficiente. É confirmação inicial; a estrutura ainda precisa sustentar a reação.`,
@@ -169,14 +170,14 @@ function classifyExtreme(args: {
     detail: `${metrics} O preço ainda não estabilizou. Aguarde candle positivo sem nova mínima, divergência de alta ou recuperação do RSI acima de 20.`,
     tone: "warning", rsi, adx, atrDistance, divergence,
   };
-  if ((period === "1H" || period === "4H") && rsi >= 79 && divergence === "bearish") return {
+  if (sellOpportunityRsi !== null && rsi >= sellOpportunityRsi && divergence === "bearish") return {
     status: `OPORTUNIDADE DE VENDA CONFIRMADA ${period}`, summary: "Sobrecompra extrema com divergência de baixa",
-    detail: `${metrics} O RSI atingiu 79 ou mais e o preço confirmou perda de força por divergência. Ainda exige confirmação da reversão na estrutura do preço.`,
+    detail: `${metrics} O RSI atingiu ${sellOpportunityRsi} ou mais e o preço confirmou perda de força por divergência. Ainda exige confirmação da reversão na estrutura do preço.`,
     tone: "negative", rsi, adx, atrDistance, divergence,
   };
-  if ((period === "1H" || period === "4H") && rsi >= 79) return {
+  if (sellOpportunityRsi !== null && rsi >= sellOpportunityRsi) return {
     status: `OPORTUNIDADE DE VENDA ${period}`, summary: "RSI em sobrecompra extrema",
-    detail: `${metrics} O RSI atingiu 79 ou mais. É uma oportunidade técnica de venda, mas RSI alto isoladamente não garante topo; aguarde enfraquecimento ou perda de suporte.`,
+    detail: `${metrics} O RSI atingiu ${sellOpportunityRsi} ou mais. É uma oportunidade técnica de venda, mas RSI alto isoladamente não garante topo; aguarde enfraquecimento ou perda de suporte.`,
     tone: "warning", rsi, adx, atrDistance, divergence,
   };
   if (rsi >= 70 && divergence === "bearish") return {

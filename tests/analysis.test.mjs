@@ -157,6 +157,17 @@ test("RSI 79 ou maior no 4H identifica oportunidade de venda", () => {
   assert.equal(result.extreme.status, "OPORTUNIDADE DE VENDA 4H");
 });
 
+for (const period of ["1D", "1S"]) {
+  test(`RSI 88 ou maior no ${period} identifica oportunidade de venda`, () => {
+    const market = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index), { volume: 160 });
+    market.period = period;
+    const result = analyze(market);
+    assert.ok(result.extreme.rsi >= 88);
+    assert.equal(result.extreme.status, `OPORTUNIDADE DE VENDA ${period}`);
+    assert.equal(result.extreme.tone, "warning");
+  });
+}
+
 test("Termômetro e painel de extremo usam o mesmo RSI de Wilder", () => {
   const result = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + Math.sin(index / 3) * 5 + index * 0.2)));
   assert.ok(result);
