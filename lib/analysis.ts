@@ -169,6 +169,16 @@ function classifyExtreme(args: {
     detail: `${metrics} O preço ainda não estabilizou. Aguarde candle positivo sem nova mínima, divergência de alta ou recuperação do RSI acima de 20.`,
     tone: "warning", rsi, adx, atrDistance, divergence,
   };
+  if ((period === "1H" || period === "4H") && rsi >= 79 && divergence === "bearish") return {
+    status: `OPORTUNIDADE DE VENDA CONFIRMADA ${period}`, summary: "Sobrecompra extrema com divergência de baixa",
+    detail: `${metrics} O RSI atingiu 79 ou mais e o preço confirmou perda de força por divergência. Ainda exige confirmação da reversão na estrutura do preço.`,
+    tone: "negative", rsi, adx, atrDistance, divergence,
+  };
+  if ((period === "1H" || period === "4H") && rsi >= 79) return {
+    status: `OPORTUNIDADE DE VENDA ${period}`, summary: "RSI em sobrecompra extrema",
+    detail: `${metrics} O RSI atingiu 79 ou mais. É uma oportunidade técnica de venda, mas RSI alto isoladamente não garante topo; aguarde enfraquecimento ou perda de suporte.`,
+    tone: "warning", rsi, adx, atrDistance, divergence,
+  };
   if (rsi >= 70 && divergence === "bearish") return {
     status: "ALERTA DE EXAUSTÃO", summary: "Sobrecompra com divergência de baixa confirmada",
     detail: `${metrics} O preço fez topo mais alto, mas o RSI perdeu força. Aguarde confirmação no preço.`,

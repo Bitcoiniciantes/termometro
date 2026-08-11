@@ -108,9 +108,13 @@ test("ADX distingue tendência forte de mercado sem direção", () => {
   assert.equal(wilderAdx(flat), 0);
 });
 
-test("extremo de RSI em tendência forte não vira reversão automática", () => {
-  const rising = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index)));
-  const falling = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 200 - index)));
+test("extremo de RSI em tendência forte não vira reversão automática fora de 1H e 4H", () => {
+  const risingMarket = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index));
+  risingMarket.period = "15M";
+  const fallingMarket = marketFromCloses(Array.from({ length: 60 }, (_, index) => 200 - index));
+  fallingMarket.period = "15M";
+  const rising = analyze(risingMarket);
+  const falling = analyze(fallingMarket);
   assert.equal(rising?.extreme.status, "EXTREMO COM TENDÊNCIA");
   assert.equal(rising?.extreme.tone, "positive");
   assert.equal(falling?.extreme.status, "EXTREMO COM TENDÊNCIA");
@@ -136,6 +140,23 @@ test("RSI abaixo de 20 no 4H vira oportunidade após estabilização", () => {
   assert.equal(result.extreme.status, "OPORTUNIDADE 4H");
   assert.equal(result.extreme.tone, "positive");
 });
+test("RSI 79 ou maior no 1H identifica oportunidade de venda", () => {
+  const market = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index), { volume: 160 });
+  market.period = "1H";
+  const result = analyze(market);
+  assert.ok(result.extreme.rsi >= 79);
+  assert.equal(result.extreme.status, "OPORTUNIDADE DE VENDA 1H");
+  assert.equal(result.extreme.tone, "warning");
+});
+
+test("RSI 79 ou maior no 4H identifica oportunidade de venda", () => {
+  const market = marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + index), { volume: 160 });
+  market.period = "4H";
+  const result = analyze(market);
+  assert.ok(result.extreme.rsi >= 79);
+  assert.equal(result.extreme.status, "OPORTUNIDADE DE VENDA 4H");
+});
+
 test("Termômetro e painel de extremo usam o mesmo RSI de Wilder", () => {
   const result = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + Math.sin(index / 3) * 5 + index * 0.2)));
   assert.ok(result);
