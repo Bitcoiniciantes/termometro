@@ -139,16 +139,36 @@ function findDivergence(candles: Candle[], closes: number[]) {
 }
 
 function classifyExtreme(args: {
+  period: string;
   rsi: number;
+  previousRsi: number;
   adx: number;
   atrDistance: number;
+  volumeRatio: number;
+  stabilized: boolean;
+  makingNewLow: boolean;
   divergence: "bullish" | "bearish" | null;
   uptrend: boolean;
 }): ExtremeReading {
-  const { rsi, adx, atrDistance, divergence, uptrend } = args;
+  const { period, rsi, previousRsi, adx, atrDistance, volumeRatio, stabilized, makingNewLow, divergence, uptrend } = args;
   const strongTrend = adx >= 25;
   const stretched = Math.abs(atrDistance) >= 2;
   const metrics = `RSI ${rsi.toFixed(1)} • ADX ${adx.toFixed(1)} • distância ${atrDistance.toFixed(1)} ATR da MM20.`;
+  if (period === "4H" && previousRsi <= 20 && rsi > 20 && stabilized) return {
+    status: "COMPRA EM CONFIRMAÇÃO 4H", summary: "RSI saiu da sobrevenda extrema com estabilização do preço",
+    detail: `${metrics} O candle fechou positivo, sem nova mínima e com volume suficiente. É confirmação inicial; a estrutura ainda precisa sustentar a reação.`,
+    tone: "positive", rsi, adx, atrDistance, divergence,
+  };
+  if (period === "4H" && rsi <= 20 && (stabilized || divergence === "bullish")) return {
+    status: "OPORTUNIDADE 4H", summary: stabilized ? "Sobrevenda extrema com estabilização do preço" : "Sobrevenda extrema com divergência de alta",
+    detail: `${metrics} O flush perdeu força e apresentou confirmação inicial. Trate como oportunidade técnica, não como garantia de fundo.`,
+    tone: "positive", rsi, adx, atrDistance, divergence,
+  };
+  if (period === "4H" && rsi <= 20) return {
+    status: "OPORTUNIDADE EM FORMAÇÃO 4H", summary: makingNewLow && volumeRatio >= 1.5 ? "Flush com sobrevenda extrema e volume elevado" : "RSI em sobrevenda extrema no gráfico de 4 horas",
+    detail: `${metrics} O preço ainda não estabilizou. Aguarde candle positivo sem nova mínima, divergência de alta ou recuperação do RSI acima de 20.`,
+    tone: "warning", rsi, adx, atrDistance, divergence,
+  };
   if (rsi >= 70 && divergence === "bearish") return {
     status: "ALERTA DE EXAUSTÃO", summary: "Sobrecompra com divergência de baixa confirmada",
     detail: `${metrics} O preço fez topo mais alto, mas o RSI perdeu força. Aguarde confirmação no preço.`,
@@ -228,9 +248,16 @@ export function analyze(data: MarketData | null, now = Date.now()): Analysis | n
   const previous = closes.at(-2)!;
   const sma20 = avg(closes.slice(-20));
   const sma50 = avg(closes.slice(-50));
-  const rsi = wilderRsi(closes)?.value ?? 50;
+  const rsiReading = wilderRsi(closes);
+  const rsi = rsiReading?.value ?? 50;
+  const previousRsi = rsiReading?.previous ?? rsi;
   const vol20 = avg(candles.slice(-21, -1).map((candle) => candle.volume));
   const volRatio = candles.at(-1)!.volume / Math.max(vol20, 1);
+  const lastCandle = candles.at(-1)!;
+  const previousCandle = candles.at(-2)!;
+  const stabilized = lastCandle.close > lastCandle.open && lastCandle.low >= previousCandle.low && volRatio >= 1;
+  const priorLows = candles.slice(-6, -1).map((candle) => candle.low);
+  const makingNewLow = priorLows.length > 0 && lastCandle.low < Math.min(...priorLows);
   const atrAbsolute = avg(trueRanges(candles).slice(-14));
   const atr = last ? (atrAbsolute / last) * 100 : 0;
   const adx = wilderAdx(candles) ?? 0;
@@ -339,6 +366,6 @@ export function analyze(data: MarketData | null, now = Date.now()): Analysis | n
       Number.isFinite(last) && Number.isFinite(previous) && previous !== 0
         ? (last / previous - 1) * 100
         : 0,
-    extreme: classifyExtreme({ rsi, adx, atrDistance, divergence, uptrend }),
+    extreme: classifyExtreme({ period: data.period, rsi, previousRsi, adx, atrDistance, volumeRatio: volRatio, stabilized, makingNewLow, divergence, uptrend }),
   };
 }

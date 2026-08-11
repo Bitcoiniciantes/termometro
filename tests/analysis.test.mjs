@@ -117,6 +117,25 @@ test("extremo de RSI em tendência forte não vira reversão automática", () =>
   assert.equal(falling?.extreme.tone, "negative");
 });
 
+test("RSI abaixo de 20 no 4H identifica oportunidade em formação", () => {
+  const market = marketFromCloses(Array.from({ length: 60 }, (_, index) => 200 - index), { volume: 160 });
+  market.period = "4H";
+  const result = analyze(market);
+  assert.equal(result?.extreme.status, "OPORTUNIDADE EM FORMAÇÃO 4H");
+  assert.equal(result?.extreme.tone, "warning");
+});
+
+test("RSI abaixo de 20 no 4H vira oportunidade após estabilização", () => {
+  const closes = [...Array.from({ length: 59 }, (_, index) => 200 - index), 143];
+  const market = marketFromCloses(closes, { volume: 150 });
+  market.period = "4H";
+  market.candles.at(-1).open = 142;
+  market.candles.at(-1).low = market.candles.at(-2).low;
+  const result = analyze(market);
+  assert.ok(result.extreme.rsi <= 20);
+  assert.equal(result.extreme.status, "OPORTUNIDADE 4H");
+  assert.equal(result.extreme.tone, "positive");
+});
 test("Termômetro e painel de extremo usam o mesmo RSI de Wilder", () => {
   const result = analyze(marketFromCloses(Array.from({ length: 60 }, (_, index) => 100 + Math.sin(index / 3) * 5 + index * 0.2)));
   assert.ok(result);
