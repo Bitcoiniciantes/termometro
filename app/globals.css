@@ -425,3 +425,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 @media(min-width:1100px){main>header nav{position:absolute;left:50%;top:50%;margin:0;transform:translate(-50%,-50%)}}
 @media(min-width:1100px) and (max-width:1420px){.marketFreshness .freshness{display:none}}
 @media(min-width:1100px) and (max-width:1220px){.marketFreshness .sourceStatus{display:none}}
+
+/* Distribuição mais ampla da escala de viés no painel desktop. */
+@media(min-width:1100px){.deskTop{gap:14px}.deskAsset{flex:0 0 180px}.deskQuote{flex:0 0 140px;padding-left:14px}.quickScale{flex:1 1 360px;min-width:280px;max-width:520px;padding:5px 4px 3px}.desktopPeriodPrompt{flex:0 0 270px;min-width:270px;margin-left:0}}
+@media(min-width:1100px) and (max-width:1240px){.deskAsset{flex-basis:165px}.deskQuote{flex-basis:125px}.quickScale{min-width:250px}.desktopPeriodPrompt{flex-basis:250px;min-width:250px}}
