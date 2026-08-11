@@ -3,7 +3,7 @@ export type AlertBand = "FORA" | "COMPRA" | "COMPRA_FORTE";
 export type AlertTransition = "ENTRADA" | "FORTALECEU" | "ENFRAQUECEU" | "ENCERROU" | null;
 export type AlertPreference = "FORTES" | "TODOS" | "CAPITULACAO";
 export type AlertKind = "COMPRA" | "COMPRA_FORTE" | "SAIDA_COMPRA" | "SAIDA_FORTE" | "CAPITULACAO" | "OPORTUNIDADE";
-export type RsiOpportunity = "COMPRA_RETESTE_15M" | "COMPRA_4H" | "VENDA_1H" | "VENDA_4H" | "VENDA_1D" | "VENDA_1S" | null;
+export type RsiOpportunity = "COMPRA_RETESTE_15M" | "COMPRA_4H" | "VENDA_1H" | "VENDA_4H" | "VENDA_1D" | "VENDA_1S" | "COMPRA_BRENT_1H" | "VENDA_BRENT_1H" | "COMPRA_LINK_1H" | "COMPRA_LINK_4H" | null;
 export type SubscriberCommand =
   | "START"
   | "STOP"
@@ -40,8 +40,15 @@ export function capitulationDetected(metrics: {
   return metrics.rsi <= 30 && metrics.atrDistance <= -2 && metrics.volumeRatio >= 1.5;
 }
 
-export function rsiOpportunity(period: string, rsi: number): RsiOpportunity {
+export function rsiOpportunity(asset: string, period: string, rsi: number): RsiOpportunity {
   if (!Number.isFinite(rsi)) return null;
+  if (asset === "BRENT" && period === "1H") {
+    if (rsi < 21) return "COMPRA_BRENT_1H";
+    if (rsi > 80) return "VENDA_BRENT_1H";
+    return null;
+  }
+  if (asset === "LINK" && period === "1H" && rsi < 25) return "COMPRA_LINK_1H";
+  if (asset === "LINK" && period === "4H" && rsi < 25) return "COMPRA_LINK_4H";
   if (period === "15M" && rsi < 18) return "COMPRA_RETESTE_15M";
   if (period === "4H" && rsi <= 20) return "COMPRA_4H";
   if (period === "1H" && rsi >= 79) return "VENDA_1H";

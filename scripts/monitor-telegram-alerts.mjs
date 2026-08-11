@@ -442,7 +442,13 @@ function rsiOpportunityMessage(config, reading, opportunity, candleTime, current
     ? "RSI abaixo de 18 no candle encerrado de 15 minutos. Aguarde o reteste e a estabilização do preço antes de considerar uma entrada."
     : opportunity === "COMPRA_4H"
       ? "RSI em 20 ou menos no gráfico de 4 horas. Sobrevenda extrema; aguarde estabilização ou confirmação da reação."
-      : "RSI acima do limite definido para este período. Aguarde enfraquecimento, divergência de baixa ou perda de suporte para confirmar a venda.";
+      : opportunity === "COMPRA_BRENT_1H"
+        ? "BRENT (BZ=F) com RSI abaixo de 21 no gráfico de 1 hora. Aguarde estabilização ou confirmação da reação."
+        : opportunity === "VENDA_BRENT_1H"
+          ? "BRENT (BZ=F) com RSI acima de 80 no gráfico de 1 hora. Aguarde enfraquecimento ou perda de suporte para confirmar a venda."
+          : opportunity === "COMPRA_LINK_1H" || opportunity === "COMPRA_LINK_4H"
+            ? `LINK com RSI abaixo de 25 no gráfico de ${config.period}. Aguarde estabilização ou confirmação da reação.`
+            : "RSI acima do limite definido para este período. Aguarde enfraquecimento, divergência de baixa ou perda de suporte para confirmar a venda.";
 
   return [
     title,
@@ -714,7 +720,7 @@ async function main() {
         atrDistance: reading.extreme.atrDistance,
         volumeRatio: ratio,
       });
-      const opportunity = rsiOpportunity(config.period, reading.extreme.rsi);
+      const opportunity = rsiOpportunity(config.asset, config.period, reading.extreme.rsi);
       const transition = config.primary ? alertTransition(previous?.band, currentBand) : null;
       const kind = alertKind(transition, currentBand, previous?.band);
 

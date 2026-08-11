@@ -258,14 +258,21 @@ test("capitulação exige sobrevenda, distância e volume juntos", () => {
   assert.equal(capitulationDetected({ rsi: 29, atrDistance: -2.1, volumeRatio: 1.4 }), false);
 });
 test("oportunidades de RSI respeitam os limites por período", () => {
-  assert.equal(rsiOpportunity("15M", 17.9), "COMPRA_RETESTE_15M");
-  assert.equal(rsiOpportunity("15M", 18), null);
-  assert.equal(rsiOpportunity("4H", 20), "COMPRA_4H");
-  assert.equal(rsiOpportunity("1H", 79), "VENDA_1H");
-  assert.equal(rsiOpportunity("4H", 79), "VENDA_4H");
-  assert.equal(rsiOpportunity("1D", 88), "VENDA_1D");
-  assert.equal(rsiOpportunity("1S", 88), "VENDA_1S");
-  assert.equal(rsiOpportunity("1D", 87.9), null);
+  assert.equal(rsiOpportunity("BTC", "15M", 17.9), "COMPRA_RETESTE_15M");
+  assert.equal(rsiOpportunity("BTC", "15M", 18), null);
+  assert.equal(rsiOpportunity("BTC", "4H", 20), "COMPRA_4H");
+  assert.equal(rsiOpportunity("BTC", "1H", 79), "VENDA_1H");
+  assert.equal(rsiOpportunity("BTC", "4H", 79), "VENDA_4H");
+  assert.equal(rsiOpportunity("BTC", "1D", 88), "VENDA_1D");
+  assert.equal(rsiOpportunity("BTC", "1S", 88), "VENDA_1S");
+  assert.equal(rsiOpportunity("BTC", "1D", 87.9), null);
+  assert.equal(rsiOpportunity("BRENT", "1H", 20.9), "COMPRA_BRENT_1H");
+  assert.equal(rsiOpportunity("BRENT", "1H", 21), null);
+  assert.equal(rsiOpportunity("BRENT", "1H", 80), null);
+  assert.equal(rsiOpportunity("BRENT", "1H", 80.1), "VENDA_BRENT_1H");
+  assert.equal(rsiOpportunity("LINK", "1H", 24.9), "COMPRA_LINK_1H");
+  assert.equal(rsiOpportunity("LINK", "4H", 24.9), "COMPRA_LINK_4H");
+  assert.equal(rsiOpportunity("LINK", "1H", 25), null);
 });
 
 test("confirma a capitulação somente com nova queda no 5 min e volume", () => {
