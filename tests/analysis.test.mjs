@@ -10,6 +10,7 @@ import {
   alertTransition,
   capitulationConfirmed,
   capitulationDetected,
+  rsiOpportunity,
   sellingPressureStabilized,
   shouldDeliverAlert,
   subscriberCommand,
@@ -245,6 +246,9 @@ test("filtra alertas conforme a preferência de cada pessoa", () => {
   assert.equal(shouldDeliverAlert("TODOS", "COMPRA"), true);
   assert.equal(shouldDeliverAlert("CAPITULACAO", "COMPRA_FORTE"), false);
   assert.equal(shouldDeliverAlert("CAPITULACAO", "CAPITULACAO"), true);
+  assert.equal(shouldDeliverAlert("FORTES", "OPORTUNIDADE"), true);
+  assert.equal(shouldDeliverAlert("TODOS", "OPORTUNIDADE"), true);
+  assert.equal(shouldDeliverAlert("CAPITULACAO", "OPORTUNIDADE"), false);
 });
 
 test("capitulação exige sobrevenda, distância e volume juntos", () => {
@@ -253,6 +257,17 @@ test("capitulação exige sobrevenda, distância e volume juntos", () => {
   assert.equal(capitulationDetected({ rsi: 29, atrDistance: -1.9, volumeRatio: 1.6 }), false);
   assert.equal(capitulationDetected({ rsi: 29, atrDistance: -2.1, volumeRatio: 1.4 }), false);
 });
+test("oportunidades de RSI respeitam os limites por período", () => {
+  assert.equal(rsiOpportunity("15M", 17.9), "COMPRA_RETESTE_15M");
+  assert.equal(rsiOpportunity("15M", 18), null);
+  assert.equal(rsiOpportunity("4H", 20), "COMPRA_4H");
+  assert.equal(rsiOpportunity("1H", 79), "VENDA_1H");
+  assert.equal(rsiOpportunity("4H", 79), "VENDA_4H");
+  assert.equal(rsiOpportunity("1D", 88), "VENDA_1D");
+  assert.equal(rsiOpportunity("1S", 88), "VENDA_1S");
+  assert.equal(rsiOpportunity("1D", 87.9), null);
+});
+
 test("confirma a capitulação somente com nova queda no 5 min e volume", () => {
   assert.equal(capitulationConfirmed({ sourceClose: 100, confirmationClose: 99, volumeRatio: 1.5 }), true);
   assert.equal(capitulationConfirmed({ sourceClose: 100, confirmationClose: 100, volumeRatio: 2 }), false);
