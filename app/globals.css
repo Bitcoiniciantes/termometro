@@ -429,3 +429,26 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 /* Distribuição mais ampla da escala de viés no painel desktop. */
 @media(min-width:1100px){.deskTop{gap:14px}.deskAsset{flex:0 0 180px}.deskQuote{flex:0 0 140px;padding-left:14px}.quickScale{flex:1 1 360px;min-width:280px;max-width:520px;padding:5px 4px 3px}.desktopPeriodPrompt{flex:0 0 270px;min-width:270px;margin-left:0}}
 @media(min-width:1100px) and (max-width:1240px){.deskAsset{flex-basis:165px}.deskQuote{flex-basis:125px}.quickScale{min-width:250px}.desktopPeriodPrompt{flex-basis:250px;min-width:250px}}
+
+/* Buscador: rótulo alinhado ao ativo em análise e largura estável. */
+.desktopSearchRow .assetSearch {
+  display:grid;
+  grid-template-columns:max-content minmax(0, 1fr);
+  align-items:center;
+  column-gap:10px;
+  min-width:0;
+}
+.desktopSearchRow .assetSearch label {
+  margin:0;
+  color:var(--lime);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.19em;
+  line-height:1;
+  white-space:nowrap;
+}
+.desktopSearchRow .assetSearch > div { min-width:0; }
+@media (max-width:1099px) {
+  .desktopSearchRow .assetSearch { display:block; }
+  .desktopSearchRow .assetSearch label { display:block; margin-bottom:7px; }
+}
