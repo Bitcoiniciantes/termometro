@@ -452,3 +452,10 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   .desktopSearchRow .assetSearch { display:block; }
   .desktopSearchRow .assetSearch label { display:block; margin-bottom:7px; }
 }
+/* Prioriza o campo de busca em vez do botão de análise. */
+.desktopSearchRow .assetSearch button[type="submit"] {
+  width:76px;
+  min-width:76px;
+  padding:0 8px;
+  font-size:11px;
+}
