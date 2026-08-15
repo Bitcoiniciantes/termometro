@@ -1,19 +1,30 @@
 # Termômetro
 
-Painel técnico gratuito, determinístico e sem IA para leitura de criptoativos.
+Painel técnico para leitura de criptoativos e ativos selecionados. O site público é publicado pelo GitHub Pages em `https://bitcoiniciantes.github.io/termometro/`.
 
-## O que já funciona
+## O que o painel faz
 
-- Candles reais de BTC, ETH, LINK, AVAX e PAXG.
-- Períodos de 1 hora, 4 horas, 1 dia e 1 semana.
-- Cálculo local de MM20, MM50, RSI 14, volume relativo, ATR e compressão de preço.
-- Nota explicável de -100 a +100 e confiança por concordância dos sinais.
-- Radar personalizável salvo no navegador.
-- MSTR aparece no radar, mas permanece sem cotação até existir uma fonte gratuita estável.
+- Consulta candles públicos da Binance para BTC, ETH, LINK, AVAX e PAXG.
+- Atualiza dados de MSTR, SPCX, QBTS, Brent, prata, cobre e urânio por Yahoo Finance.
+- Calcula MM20, MM50, RSI 14, volume relativo, ATR, compressão e nota de -100 a +100.
+- Atualiza fatos relevantes pelo Worker `bitcoiniciantes-ia`; a tela renova as notícias a cada cinco minutos.
+- Envia alertas do Telegram conforme os sinais e preferências dos assinantes.
 
-Os candles são consultados diretamente pelo navegador no endpoint público da Binance, sem chave de API. Essa arquitetura permite hospedar o piloto gratuitamente no GitHub Pages. A aplicação precisa de acesso à internet para atualizar as cotações.
+## Publicação e atualização
 
-## Rodar localmente
+O workflow `.github/workflows/deploy-pages.yml` publica o site ao receber alterações na `main` e atualiza os dados de mercado em dias úteis, das 13h às 22h UTC, a cada 15 minutos.
+
+Antes de uma publicação, ele executa:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+O workflow `.github/workflows/telegram-alerts.yml` verifica o mercado a cada cinco minutos. O disparo manual desse workflow envia uma mensagem de configuração aos assinantes ativos; não o use apenas para teste rotineiro.
+
+## Desenvolvimento local
 
 Requer Node.js 22.13 ou superior.
 
@@ -24,11 +35,19 @@ npm run dev
 
 Abra `http://localhost:3000`.
 
-## Validar
+## Recuperação rápida
 
-```bash
-npm test
-```
+1. Confira os resultados em `Actions` no repositório `Bitcoiniciantes/termometro`.
+2. Se a publicação falhar, leia o log do workflow `Publicar GitHub Pages`; testes e lint falham antes de alterar o site público.
+3. Se o Telegram parar, confira o workflow `Alertas Telegram` e se o segredo `TELEGRAM_BOT_TOKEN` continua presente nas configurações do repositório.
+4. Se as notícias pararem, teste `https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/asset-news?asset=BTC`. O código do Worker está em `estudebitcoin/cloudflare/bitcoiniciantes-ia`.
+5. Não publique chaves, tokens, arquivos `.env` ou credenciais no Git.
+
+## Limites conhecidos
+
+- SPCX ainda não tem histórico diário e semanal suficiente para cálculos de RSI de 55 candles; os alertas desse ativo usam 15 minutos, 1 hora e 4 horas.
+- O estado dos alertas do Telegram é salvo em cache do GitHub Actions. O histórico no Firebase exige que a credencial privada esteja configurada como segredo do repositório.
+- A manutenção automática registra atividade nos dias 1 e 15 de cada mês, evitando que o GitHub desligue os workflows agendados por inatividade.
 
 ## Aviso
 
