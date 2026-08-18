@@ -18,26 +18,27 @@ export default function RootLayout({children}:{children:React.ReactNode}){
   <Script id="worker-counter" strategy="afterInteractive">{`
    (() => {
     var WORKER_URL = 'https://floral-truth-af64.bitcoiniciantes.workers.dev';
+    var SITE_NAME = 'termometro';
     var el = document.querySelector('[data-goatcounter-total]');
     var today = new Date().toISOString().slice(0, 10);
-    var lastVisit = localStorage.getItem('btc_last_visit');
+    var lastVisit = localStorage.getItem('btc_last_visit_' + SITE_NAME);
     
     if (lastVisit === today) {
-     fetch(WORKER_URL + '/total')
+     fetch(WORKER_URL + '/total?site=' + SITE_NAME)
       .then(r => r.json())
       .then(data => {
        if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
       })
       .catch(() => {});
     } else {
-     localStorage.setItem('btc_last_visit', today);
-     fetch(WORKER_URL + '/count')
+     localStorage.setItem('btc_last_visit_' + SITE_NAME, today);
+     fetch(WORKER_URL + '/count?site=' + SITE_NAME)
       .then(r => r.json())
       .then(data => {
        if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
       })
       .catch(() => {
-       fetch(WORKER_URL + '/total')
+       fetch(WORKER_URL + '/total?site=' + SITE_NAME)
         .then(r => r.json())
         .then(data => {
          if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
