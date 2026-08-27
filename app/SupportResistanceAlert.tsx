@@ -59,11 +59,11 @@ export function SupportResistanceAlert({
           })}
         </span>
         <span className="priceAlertLevels">
-          <span className="levelTag support">S {currency} {support.toLocaleString("pt-BR", {
+          <span className="levelTag alertSupport">S {currency} {support.toLocaleString("pt-BR", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}</span>
-          <span className="levelTag resistance">R {currency} {resistance.toLocaleString("pt-BR", {
+          <span className="levelTag alertResistance">R {currency} {resistance.toLocaleString("pt-BR", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}</span>

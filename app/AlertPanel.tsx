@@ -51,8 +51,8 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
                 </div>
               </div>
               <div className="alertCardLevels">
-                <span className="alertLevel support">S {formatNumber(config.support)}</span>
-                <span className="alertLevel resistance">R {formatNumber(config.resistance)}</span>
+                <span className="alertLevel alertSupport">S {formatNumber(config.support)}</span>
+                <span className="alertLevel alertResistance">R {formatNumber(config.resistance)}</span>
               </div>
               <div className="alertCardBase">
                 <small>{base}</small>
