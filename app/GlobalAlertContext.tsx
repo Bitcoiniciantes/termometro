@@ -40,7 +40,6 @@ const STORAGE_KEY = "termometro-global-alert-configs";
 const PREDEFINED_ALERTS: Record<string, AssetAlertConfig> = {
   BTCUSDT: { symbol: "BTCUSDT", support: 110000, resistance: 115000, enabled: false, source: "PREDEFINED" },
   ETHUSDT: { symbol: "ETHUSDT", support: 4400, resistance: 4800, enabled: false, source: "PREDEFINED" },
-  SOLUSDT: { symbol: "SOLUSDT", support: 220, resistance: 250, enabled: false, source: "PREDEFINED" },
 };
 
 function loadPersistedConfigs(): Record<string, AssetAlertConfig> | null {
@@ -49,6 +48,7 @@ function loadPersistedConfigs(): Record<string, AssetAlertConfig> | null {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Record<string, AssetAlertConfig>;
+    delete parsed.SOLUSDT;
     return { ...PREDEFINED_ALERTS, ...parsed };
   } catch {
     return null;
