@@ -33,13 +33,6 @@ export function SupportResistanceAlert({
     }
   }, [isVisible]);
 
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const timer = setTimeout(() => removeAlert(alertId), 10000);
-    return () => clearTimeout(timer);
-  }, [isVisible, alertId, removeAlert]);
-
   if (!isVisible) return null;
 
   const isSupport = type === "SUPPORT";
