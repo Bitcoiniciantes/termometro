@@ -3,7 +3,7 @@ let audioCtx: AudioContext | null = null;
 export const playBeep = async () => {
   try {
     if (!audioCtx) {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioContextClass) return;
       audioCtx = new AudioContextClass();
     }

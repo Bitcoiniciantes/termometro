@@ -48,7 +48,7 @@ export default function RootLayout({children}:{children:React.ReactNode}){
     }
    })();
   `}</Script>
-  <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "023b8944136f45f7852b6de1b1e2c662"}'></script>
+  <Script src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "023b8944136f45f7852b6de1b1e2c662"}' strategy="afterInteractive" />
  </body></html>;
 }
 
