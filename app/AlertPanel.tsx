@@ -9,7 +9,7 @@ function formatNumber(value: number) {
 }
 
 export function AlertPanel({ livePrices }: { livePrices: Record<string, number> }) {
-  const { configs, toggleAlert, removeConfig } = useGlobalAlerts();
+  const { configs, activeAlerts, toggleAlert, removeConfig, removeActiveAlert } = useGlobalAlerts();
   const entries = Object.values(configs);
 
   if (entries.length === 0) {
@@ -35,6 +35,7 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
           const raw = config.symbol.replace(/(USDT|USD)$/, "");
           const displayName = displayAsset(raw);
           const currentPrice = livePrices[raw];
+          const triggeredAlert = activeAlerts.find(a => a.symbol === config.symbol);
           const base = currentPrice
             ? <><span className="alertBaseLabel">Base: </span><b className="alertBaseValue">{formatNumber(currentPrice)}</b></>
             : <><span className="alertBaseLabel">Base: </span><em className="alertBaseWaiting">aguardando cotação…</em></>;
@@ -57,6 +58,30 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
               <div className="alertCardBase">
                 <small>{base}</small>
               </div>
+              {triggeredAlert && (
+                <div className="alertCardTriggeredState">
+                  <div className="triggeredTitle">
+                    <span>⚡</span>
+                    <strong>{triggeredAlert.type === "RESISTANCE" ? "RESISTÊNCIA ATINGIDA" : "SUPORTE ATINGIDO"}</strong>
+                  </div>
+                  <div className="triggeredFrozen">
+                    <span>🧊</span>
+                    <small>congelado</small>
+                  </div>
+                  <div className="triggeredAction">
+                    <span>
+                      ⏱️ {triggeredAlert.type === "RESISTANCE" ? "Resistência" : "Suporte"} em USDT {formatNumber(triggeredAlert.price)} —
+                    </span>
+                    <button
+                      type="button"
+                      className="alertOkBtn"
+                      onClick={() => removeActiveAlert(triggeredAlert.id)}
+                    >
+                      OK
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="alertCardActions">
                 <button
                   type="button"

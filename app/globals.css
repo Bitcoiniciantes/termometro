@@ -519,3 +519,58 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .alertRemoveBtn{width:22px;height:22px;display:grid;place-items:center;border-radius:4px;border:1px solid #46524d;background:transparent;color:var(--muted);font-size:11px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
 .alertRemoveBtn:hover{border-color:var(--red);color:var(--red);background:#ff5b6718}
 @media(max-width:650px){.alertCard{flex:0 0 170px}}
+
+/* Bloco de alerta disparado dentro do card */
+.alertCardTriggeredState {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #3c4944;
+}
+.triggeredTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #f4a52c;
+}
+.triggeredTitle strong {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.triggeredFrozen {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #56a8ff;
+}
+.triggeredFrozen small {
+  font-size: 10px;
+  font-weight: 600;
+}
+.triggeredAction {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #a8b4af;
+  font-size: 9px;
+  margin-top: 2px;
+}
+.alertOkBtn {
+  background: #54b85a;
+  color: #09100e;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
+  letter-spacing: .08em;
+  transition: filter 0.15s;
+}
+.alertOkBtn:hover {
+  filter: brightness(1.15);
+}

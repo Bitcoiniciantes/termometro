@@ -2,6 +2,7 @@
 
 import { useGlobalAlerts } from "./GlobalAlertContext";
 import { SupportResistanceAlert } from "./SupportResistanceAlert";
+import { displayAsset } from "../lib/config";
 
 export function GlobalAlertRenderer({ currency }: { currency: string }) {
   const { activeAlerts, removeActiveAlert } = useGlobalAlerts();
@@ -25,7 +26,7 @@ export function GlobalAlertRenderer({ currency }: { currency: string }) {
         <SupportResistanceAlert
           key={alert.id}
           alertId={alert.id}
-          asset={alert.symbol}
+          asset={displayAsset(alert.symbol.replace(/(USDT|USD)$/, ""))}
           currency={currency}
           isVisible={true}
           price={alert.price}

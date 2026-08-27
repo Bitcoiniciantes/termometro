@@ -94,21 +94,23 @@ export function GlobalAlertProvider({
   );
 
   useEffect(() => {
-    Object.entries(livePrices).forEach(([symbol, currentPrice]) => {
+    Object.entries(livePrices).forEach(([priceSymbol, currentPrice]) => {
       if (currentPrice == null || !Number.isFinite(currentPrice)) return;
 
-      const previousPrice = prevPricesRef.current[symbol];
-      prevPricesRef.current[symbol] = currentPrice;
+      const previousPrice = prevPricesRef.current[priceSymbol];
+      prevPricesRef.current[priceSymbol] = currentPrice;
 
-      const config = configs[symbol];
+      const config = configs[priceSymbol]
+        ?? configs[`${priceSymbol}USDT`]
+        ?? configs[`${priceSymbol}USD`];
       if (!config?.enabled || previousPrice === undefined) return;
 
       if (previousPrice < config.resistance && currentPrice >= config.resistance) {
-        triggerAlert(symbol, "RESISTANCE", currentPrice, config.support, config.resistance);
+        triggerAlert(config.symbol, "RESISTANCE", currentPrice, config.support, config.resistance);
       }
 
       if (previousPrice > config.support && currentPrice <= config.support) {
-        triggerAlert(symbol, "SUPPORT", currentPrice, config.support, config.resistance);
+        triggerAlert(config.symbol, "SUPPORT", currentPrice, config.support, config.resistance);
       }
     });
   }, [livePrices, configs, triggerAlert]);
