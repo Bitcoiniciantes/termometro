@@ -48,7 +48,6 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
                   <span className={`alertCardBadge ${config.enabled ? "on" : "off"}`}>
                     {config.enabled ? "ATIVO" : "PAUSADO"}
                   </span>
-                  {config.period && <span className="alertCardPeriod">{config.period}</span>}
                 </div>
               </div>
               <div className="alertCardLevels">

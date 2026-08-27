@@ -501,7 +501,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .alertCardBadge.on{background:#54b85a20;color:var(--lime);border:1px solid #54b85a44}
 .alertCardBadge.off{background:#ffffff08;color:var(--muted);border:1px solid #46524d}
 .alertCardPeriod{padding:2px 5px;border-radius:4px;font-size:6px;font-weight:800;letter-spacing:.08em;color:var(--paper);border:1px solid #46524d;background:#ffffff08}
-.alertCardLevels{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.alertCardLevels{display:flex;flex-direction:row;gap:10px;align-items:baseline}
 .alertLevel{font-size:10px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
 .alertLevel.alertSupport{color:var(--lime)}
 .alertLevel.alertResistance{color:var(--red)}
@@ -510,7 +510,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .alertBaseLabel{color:var(--muted);font-weight:700}
 .alertBaseValue{color:var(--paper);font-weight:900;font-size:10px;font-variant-numeric:tabular-nums}
 .alertBaseWaiting{color:var(--muted);font-style:normal;font-weight:600}
-.alertCardActions{display:flex;gap:4px;margin-top:2px}
+.alertCardActions{display:flex;gap:4px;margin-top:14px}
 .alertActionBtn{flex:1;padding:5px 0;border-radius:4px;font-size:6px;font-weight:900;letter-spacing:.06em;cursor:pointer;border:1px solid;transition:background .15s,border-color .15s,color .15s}
 .alertActionBtn.pause{background:#ffffff08;border-color:#46524d;color:var(--muted)}
 .alertActionBtn.pause:hover{background:#ffffff14;color:var(--paper)}
