@@ -461,7 +461,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 }
 
 /* Alertas de Suporte/Resistência */
-.priceAlert{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:8px;background:#111916;box-shadow:0 8px 24px rgba(0,0,0,.35);border-left:4px solid;animation:slideInRight .3s ease-out,pulse .5s ease-in-out 3;color:var(--paper)}
+.priceAlert{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:8px;background:#111916;box-shadow:0 8px 24px rgba(0,0,0,.35);border-left:4px solid;animation:slideInRight .3s ease-out;color:var(--paper)}
 .supportAlert{border-left-color:var(--lime)}
 .resistanceAlert{border-left-color:var(--red)}
 .priceAlertIcon{font-size:28px;line-height:1}
