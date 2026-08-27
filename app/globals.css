@@ -283,7 +283,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   box-shadow:0 0 8px currentColor;
 }
 .priceLevel { position:absolute; left:0; right:0; border-top:1px dashed; pointer-events:none; z-index:1; }
-.priceLevel span { position:absolute; left:4px; top:-17px; padding:2px 4px; background:#0d1512; font-size:7px; letter-spacing:.1em; text-transform:uppercase; }
+.priceLevel span { position:absolute; right:4px; top:-17px; padding:2px 4px; background:#0d1512; font-size:7px; letter-spacing:.1em; text-transform:uppercase; }
 .resistanceLevel { border-color:rgba(255,91,103,.55); color:var(--red); }
 .supportLevel { border-color:rgba(84,184,90,.6); color:var(--lime); }
 .currentPriceLevel { border-color:#4aa8ff; border-top-style:dashed; z-index:2; }
