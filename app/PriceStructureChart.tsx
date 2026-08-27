@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildPriceGeometry } from "../lib/chart";
+import { useGlobalAlerts } from "./GlobalAlertContext";
 import type { Candle } from "../lib/types";
 
 type Props = {
   asset: string;
+  ticker: string;
   candles: Candle[];
   currentPrice: number;
   currency: string;
@@ -31,9 +33,18 @@ function formatDate(time: number, period: string) {
   return new Date(time).toLocaleString("pt-BR", { ...options, timeZone: "America/Sao_Paulo" });
 }
 
-export default function PriceStructureChart({ asset, candles, currentPrice, currency, loading, period, resistance, support }: Props) {
+export default function PriceStructureChart({ asset, ticker, candles, currentPrice, currency, loading, period, resistance, support }: Props) {
   const geometry = useMemo(() => buildPriceGeometry(candles, 48), [candles]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const { configs, toggleAlert, updateConfigLevels } = useGlobalAlerts();
+  const symbol = `${ticker}USDT`;
+  const isAlertEnabled = configs[symbol]?.enabled ?? false;
+
+  useEffect(() => {
+    if (support > 0 && resistance > 0) {
+      updateConfigLevels(symbol, support, resistance, "GRAPH");
+    }
+  }, [symbol, support, resistance, updateConfigLevels]);
 
   if (!geometry) {
     return <div className="priceChart priceChartEmpty" aria-busy={loading}>
@@ -51,6 +62,7 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
 
   return <div className="priceChart realPriceChart">
     <div className="chartIdentity" aria-hidden="true"><b>{asset}</b><span>{period} · OHLC REAL</span></div>
+    <button type="button" onClick={() => toggleAlert(symbol, support, resistance, "GRAPH")} className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`} aria-pressed={isAlertEnabled}>{isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}</button>
     <div className={`chartOhlc ${selectedTone}`} aria-live="polite">
       <span>{formatDate(selected.time, period)}</span>
       <dl>

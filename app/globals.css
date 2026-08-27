@@ -459,3 +459,54 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   padding:0 8px;
   font-size:11px;
 }
+
+/* Alertas de Suporte/Resistência */
+.priceAlert{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:8px;background:#111916;box-shadow:0 8px 24px rgba(0,0,0,.35);border-left:4px solid;animation:slideInRight .3s ease-out,pulse .5s ease-in-out 3;color:var(--paper)}
+.supportAlert{border-left-color:var(--lime)}
+.resistanceAlert{border-left-color:var(--red)}
+.priceAlertIcon{font-size:28px;line-height:1}
+.priceAlertContent{display:flex;flex-direction:column;gap:3px}
+.priceAlertContent strong{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--paper)}
+.priceAlertContent span{font-size:10px;color:var(--muted)}
+.priceAlertPrice{font-size:16px!important;font-weight:800!important;color:var(--paper)!important}
+.priceAlertClose{margin-left:auto;background:transparent;border:0;font-size:22px;cursor:pointer;color:var(--muted);padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+.priceAlertClose:hover{color:var(--paper);background:#ffffff12}
+.alertToggleBtn{position:absolute;top:12px;right:12px;z-index:6;padding:5px 10px;border-radius:5px;border:1px solid #496058;background:#101815cc;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer;backdrop-filter:blur(6px);transition:background .15s,border-color .15s,color .15s}
+.alertToggleBtn:hover{background:#1a2822;border-color:#66736d;color:var(--paper)}
+.alertToggleBtn.active{background:#54b85a18;border-color:var(--lime);color:var(--lime)}
+.globalAlertContainer .priceAlert{position:static;top:auto;right:auto;border-radius:8px}
+@keyframes slideInRight{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+@media(max-width:768px){.priceAlert{bottom:20px;right:10px;left:10px;max-width:calc(100vw - 20px)}}
+
+/* Painel de gestão de alertas */
+.alertPanelCard{overflow:visible}
+.alertPanel{overflow:visible}
+.alertPanelHead{display:flex;align-items:baseline;gap:10px;padding:0 0 10px;border-bottom:1px solid var(--line)}
+.alertPanelEyebrow{color:var(--lime);font-size:9px;font-weight:900;letter-spacing:.16em}
+.alertPanelSub{color:var(--muted);font-size:11px;font-weight:600}
+.alertPanelEmpty{padding:14px 0;color:var(--muted);font-size:10px;text-align:center}
+.alertPanelGrid{display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#46524d transparent;padding-bottom:4px}
+.alertCard{flex:0 0 190px;background:#0b1310;border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:7px;transition:border-color .15s}
+.alertCard.active{border-color:#54b85a55}
+.alertCard.paused{border-color:#46524d}
+.alertCardHead{display:flex;align-items:center;justify-content:space-between}
+.alertCardAsset{font-size:13px;font-weight:900;color:var(--paper);letter-spacing:.04em}
+.alertCardBadge{padding:2px 6px;border-radius:4px;font-size:7px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.alertCardBadge.on{background:#54b85a20;color:var(--lime);border:1px solid #54b85a44}
+.alertCardBadge.off{background:#ffffff08;color:var(--muted);border:1px solid #46524d}
+.alertCardLevels{display:flex;gap:8px;align-items:baseline}
+.alertLevel{font-size:12px;font-weight:800;color:var(--paper);font-variant-numeric:tabular-nums}
+.alertLevel small{font-size:7px;font-weight:700;margin-right:2px;opacity:.6}
+.alertLevel.support small{color:var(--lime)}
+.alertLevel.resistance small{color:var(--red)}
+.alertCardBase{color:var(--muted);font-size:8px}
+.alertCardActions{display:flex;gap:5px;margin-top:2px}
+.alertActionBtn{flex:1;padding:5px 0;border-radius:4px;font-size:8px;font-weight:900;letter-spacing:.06em;cursor:pointer;border:1px solid;transition:background .15s,border-color .15s,color .15s}
+.alertActionBtn.pause{background:#ffffff08;border-color:#46524d;color:var(--muted)}
+.alertActionBtn.pause:hover{background:#ffffff14;color:var(--paper)}
+.alertActionBtn.activate{background:#54b85a18;border-color:#54b85a55;color:var(--lime)}
+.alertActionBtn.activate:hover{background:#54b85a28}
+.alertRemoveBtn{width:26px;height:26px;display:grid;place-items:center;border-radius:4px;border:1px solid #46524d;background:transparent;color:var(--muted);font-size:15px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.alertRemoveBtn:hover{border-color:var(--red);color:var(--red);background:#ff5b6718}
+@media(max-width:650px){.alertCard{flex:0 0 170px}}
