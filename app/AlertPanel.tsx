@@ -1,16 +1,11 @@
 "use client";
 
 import { useGlobalAlerts } from "./GlobalAlertContext";
-import { displayAsset, staticAssets } from "../lib/config";
+import { displayAsset } from "../lib/config";
 
-function formatPrice(value: number, currency: string) {
+function formatNumber(value: number) {
   const digits = value >= 1 ? 2 : 6;
-  return `${currency} ${value.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
-}
-
-function getCurrency(symbol: string): string {
-  const base = symbol.replace(/(USDT|USD)$/, "");
-  return staticAssets[base]?.currency ?? "USDT";
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
 export function AlertPanel({ livePrices }: { livePrices: Record<string, number> }) {
@@ -39,10 +34,9 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
         {entries.map((config) => {
           const raw = config.symbol.replace(/(USDT|USD)$/, "");
           const displayName = displayAsset(raw);
-          const currency = getCurrency(config.symbol);
           const currentPrice = livePrices[raw];
           const base = currentPrice
-            ? formatPrice(currentPrice, currency)
+            ? `Base: ${formatNumber(currentPrice)}`
             : "Base: aguardando 1º preço";
 
           return (
@@ -57,8 +51,8 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
                 </div>
               </div>
               <div className="alertCardLevels">
-                <span className="alertLevel support">S {formatPrice(config.support, currency)}</span>
-                <span className="alertLevel resistance">R {formatPrice(config.resistance, currency)}</span>
+                <span className="alertLevel support">S {formatNumber(config.support)}</span>
+                <span className="alertLevel resistance">R {formatNumber(config.resistance)}</span>
               </div>
               <div className="alertCardBase">
                 <small>{base}</small>

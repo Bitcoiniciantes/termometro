@@ -501,8 +501,8 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .alertCardBadge.on{background:#54b85a20;color:var(--lime);border:1px solid #54b85a44}
 .alertCardBadge.off{background:#ffffff08;color:var(--muted);border:1px solid #46524d}
 .alertCardPeriod{padding:2px 6px;border-radius:4px;font-size:7px;font-weight:800;letter-spacing:.08em;color:var(--paper);border:1px solid #46524d;background:#ffffff08}
-.alertCardLevels{display:flex;gap:10px;align-items:baseline}
-.alertLevel{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.alertCardLevels{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.alertLevel{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15}
 .alertLevel.support{color:var(--lime)}
 .alertLevel.resistance{color:var(--red)}
 .alertCardBase{color:var(--muted);font-size:8px}
