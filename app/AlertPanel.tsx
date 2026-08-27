@@ -49,17 +49,16 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
             <div key={config.symbol} className={`alertCard ${config.enabled ? "active" : "paused"}`}>
               <div className="alertCardHead">
                 <span className="alertCardAsset">{displayName}</span>
-                <span className={`alertCardBadge ${config.enabled ? "on" : "off"}`}>
-                  {config.enabled ? "ATIVO" : "PAUSADO"}
-                </span>
+                <div className="alertCardBadges">
+                  <span className={`alertCardBadge ${config.enabled ? "on" : "off"}`}>
+                    {config.enabled ? "ATIVO" : "PAUSADO"}
+                  </span>
+                  {config.period && <span className="alertCardPeriod">{config.period}</span>}
+                </div>
               </div>
               <div className="alertCardLevels">
-                <span className="alertLevel support">
-                  <small>S</small> {formatPrice(config.support, currency)}
-                </span>
-                <span className="alertLevel resistance">
-                  <small>R</small> {formatPrice(config.resistance, currency)}
-                </span>
+                <span className="alertLevel support">S {formatPrice(config.support, currency)}</span>
+                <span className="alertLevel resistance">R {formatPrice(config.resistance, currency)}</span>
               </div>
               <div className="alertCardBase">
                 <small>{base}</small>
@@ -68,7 +67,7 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
                 <button
                   type="button"
                   className={`alertActionBtn ${config.enabled ? "pause" : "activate"}`}
-                  onClick={() => toggleAlert(config.symbol, config.support, config.resistance, config.source)}
+                  onClick={() => toggleAlert(config.symbol, config.support, config.resistance, config.source, config.period)}
                 >
                   {config.enabled ? "Pausar" : "Ativar"}
                 </button>

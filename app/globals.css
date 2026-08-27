@@ -244,7 +244,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   font-variant-numeric:tabular-nums;
   pointer-events:none;
 }
-.candlePlot { position:absolute; inset:57px 88px 30px 17px; z-index:3; }
+.candlePlot { position:absolute; inset:57px 88px 30px 17px; z-index:3; overflow:hidden; }
 .realCandle {
   position:absolute;
   top:0;
@@ -487,19 +487,20 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .alertPanelSub{color:var(--muted);font-size:11px;font-weight:600}
 .alertPanelEmpty{padding:14px 0;color:var(--muted);font-size:10px;text-align:center}
 .alertPanelGrid{display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#46524d transparent;padding-bottom:4px}
-.alertCard{flex:0 0 190px;background:#0b1310;border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:7px;transition:border-color .15s}
+.alertCard{flex:0 0 200px;background:#0b1310;border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s}
 .alertCard.active{border-color:#54b85a55}
 .alertCard.paused{border-color:#46524d}
 .alertCardHead{display:flex;align-items:center;justify-content:space-between}
-.alertCardAsset{font-size:13px;font-weight:900;color:var(--paper);letter-spacing:.04em}
+.alertCardAsset{font-size:15px;font-weight:900;color:var(--paper);letter-spacing:.04em}
+.alertCardBadges{display:flex;align-items:center;gap:5px}
 .alertCardBadge{padding:2px 6px;border-radius:4px;font-size:7px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
 .alertCardBadge.on{background:#54b85a20;color:var(--lime);border:1px solid #54b85a44}
 .alertCardBadge.off{background:#ffffff08;color:var(--muted);border:1px solid #46524d}
-.alertCardLevels{display:flex;gap:8px;align-items:baseline}
-.alertLevel{font-size:12px;font-weight:800;color:var(--paper);font-variant-numeric:tabular-nums}
-.alertLevel small{font-size:7px;font-weight:700;margin-right:2px;opacity:.6}
-.alertLevel.support small{color:var(--lime)}
-.alertLevel.resistance small{color:var(--red)}
+.alertCardPeriod{padding:2px 6px;border-radius:4px;font-size:7px;font-weight:800;letter-spacing:.08em;color:var(--paper);border:1px solid #46524d;background:#ffffff08}
+.alertCardLevels{display:flex;gap:10px;align-items:baseline}
+.alertLevel{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.alertLevel.support{color:var(--lime)}
+.alertLevel.resistance{color:var(--red)}
 .alertCardBase{color:var(--muted);font-size:8px}
 .alertCardActions{display:flex;gap:5px;margin-top:2px}
 .alertActionBtn{flex:1;padding:5px 0;border-radius:4px;font-size:8px;font-weight:900;letter-spacing:.06em;cursor:pointer;border:1px solid;transition:background .15s,border-color .15s,color .15s}

@@ -10,6 +10,7 @@ export type AssetAlertConfig = {
   resistance: number;
   enabled: boolean;
   source: AlertLevelSource;
+  period?: string;
 };
 
 export type TriggeredAlert = {
@@ -23,9 +24,9 @@ export type TriggeredAlert = {
 type GlobalAlertState = {
   configs: Record<string, AssetAlertConfig>;
   activeAlerts: TriggeredAlert[];
-  toggleAlert: (symbol: string, support: number, resistance: number, source?: AlertLevelSource) => void;
+  toggleAlert: (symbol: string, support: number, resistance: number, source?: AlertLevelSource, period?: string) => void;
   removeActiveAlert: (id: string) => void;
-  updateConfigLevels: (symbol: string, support: number, resistance: number, source?: AlertLevelSource) => void;
+  updateConfigLevels: (symbol: string, support: number, resistance: number, source?: AlertLevelSource, period?: string) => void;
   registerManualAlert: (symbol: string, support: number, resistance: number) => void;
   removeConfig: (symbol: string) => void;
 };
@@ -111,31 +112,31 @@ export function GlobalAlertProvider({
   }, [livePrices, configs, triggerAlert]);
 
   const toggleAlert = useCallback(
-    (symbol: string, support: number, resistance: number, source: AlertLevelSource = "GRAPH") => {
+    (symbol: string, support: number, resistance: number, source: AlertLevelSource = "GRAPH", period?: string) => {
       setConfigs((prev) => {
         const existing = prev[symbol];
         if (!existing) {
-          return { ...prev, [symbol]: { symbol, support, resistance, enabled: true, source } };
+          return { ...prev, [symbol]: { symbol, support, resistance, enabled: true, source, period } };
         }
         if (existing.enabled) {
           return { ...prev, [symbol]: { ...existing, enabled: false } };
         }
-        return { ...prev, [symbol]: { ...existing, support, resistance, source, enabled: true } };
+        return { ...prev, [symbol]: { ...existing, support, resistance, source, enabled: true, period: period ?? existing.period } };
       });
     },
     []
   );
 
   const updateConfigLevels = useCallback(
-    (symbol: string, support: number, resistance: number, source: AlertLevelSource = "GRAPH") => {
+    (symbol: string, support: number, resistance: number, source: AlertLevelSource = "GRAPH", period?: string) => {
       setConfigs((prev) => {
         const existing = prev[symbol];
         if (!existing) {
-          return { ...prev, [symbol]: { symbol, support, resistance, enabled: false, source } };
+          return { ...prev, [symbol]: { symbol, support, resistance, enabled: false, source, period } };
         }
         if (existing.enabled) return prev;
-        if (existing.support === support && existing.resistance === resistance) return prev;
-        return { ...prev, [symbol]: { ...existing, support, resistance, source } };
+        if (existing.support === support && existing.resistance === resistance && existing.period === period) return prev;
+        return { ...prev, [symbol]: { ...existing, support, resistance, source, period: period ?? existing.period } };
       });
     },
     []

@@ -42,9 +42,9 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
 
   useEffect(() => {
     if (support > 0 && resistance > 0) {
-      updateConfigLevels(symbol, support, resistance, "GRAPH");
+      updateConfigLevels(symbol, support, resistance, "GRAPH", period);
     }
-  }, [symbol, support, resistance, updateConfigLevels]);
+  }, [symbol, support, resistance, updateConfigLevels, period]);
 
   if (!geometry) {
     return <div className="priceChart priceChartEmpty" aria-busy={loading}>
@@ -62,7 +62,7 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
 
   return <div className="priceChart realPriceChart">
     <div className="chartIdentity" aria-hidden="true"><b>{asset}</b><span>{period} · OHLC REAL</span></div>
-    <button type="button" onClick={() => toggleAlert(symbol, support, resistance, "GRAPH")} className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`} aria-pressed={isAlertEnabled}>{isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}</button>
+    <button type="button" onClick={() => toggleAlert(symbol, support, resistance, "GRAPH", period)} className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`} aria-pressed={isAlertEnabled}>{isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}</button>
     <div className={`chartOhlc ${selectedTone}`} aria-live="polite">
       <span>{formatDate(selected.time, period)}</span>
       <dl>
