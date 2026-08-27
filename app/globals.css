@@ -505,8 +505,11 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .alertLevel{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
 .alertLevel.alertSupport{color:var(--lime)}
 .alertLevel.alertResistance{color:var(--red)}
-.alertCardBase{color:var(--muted);font-size:11px}
-.alertCardBase small{font-size:11px;color:var(--muted)}
+.alertCardBase{display:flex;align-items:baseline;gap:2px;color:var(--muted);font-size:14px}
+.alertCardBase small{font-size:14px;color:var(--muted)}
+.alertBaseLabel{color:var(--muted);font-weight:700}
+.alertBaseValue{color:var(--paper);font-weight:900;font-size:16px;font-variant-numeric:tabular-nums}
+.alertBaseWaiting{color:var(--muted);font-style:normal;font-weight:600}
 .alertCardActions{display:flex;gap:5px;margin-top:2px}
 .alertActionBtn{flex:1;padding:7px 0;border-radius:4px;font-size:10px;font-weight:900;letter-spacing:.06em;cursor:pointer;border:1px solid;transition:background .15s,border-color .15s,color .15s}
 .alertActionBtn.pause{background:#ffffff08;border-color:#46524d;color:var(--muted)}

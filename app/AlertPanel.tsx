@@ -36,8 +36,8 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
           const displayName = displayAsset(raw);
           const currentPrice = livePrices[raw];
           const base = currentPrice
-            ? `Base: ${formatNumber(currentPrice)}`
-            : "Base: aguardando cotação…";
+            ? <><span className="alertBaseLabel">Base: </span><b className="alertBaseValue">{formatNumber(currentPrice)}</b></>
+            : <><span className="alertBaseLabel">Base: </span><em className="alertBaseWaiting">aguardando cotação…</em></>;
 
           return (
             <div key={config.symbol} className={`alertCard ${config.enabled ? "active" : "paused"}`}>
