@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useGlobalAlerts } from "./GlobalAlertContext";
 import { displayAsset } from "../lib/config";
 
@@ -11,6 +12,17 @@ function formatNumber(value: number) {
 export function AlertPanel({ livePrices }: { livePrices: Record<string, number> }) {
   const { configs, activeAlerts, toggleAlert, removeConfig, removeActiveAlert } = useGlobalAlerts();
   const entries = Object.values(configs);
+
+  // No mobile, o estado "congelado" do card se limpa sozinho após alguns segundos,
+  // para não travar a tela esperando o OK.
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth > 768) return;
+    if (activeAlerts.length === 0) return;
+    const timer = window.setTimeout(() => {
+      activeAlerts.forEach((alert) => removeActiveAlert(alert.id));
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [activeAlerts, removeActiveAlert]);
 
   if (entries.length === 0) {
     return (
