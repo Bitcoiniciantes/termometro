@@ -78,8 +78,8 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
       <span>{formatPrice(geometry.min, currency)}</span>
     </div>
     <div className="candlePlot" onMouseLeave={() => setHoveredIndex(null)}>
-      {resistance > 0 && <div className="priceLevel resistanceLevel" style={{ top: level(resistance) }}><span>Resistência</span></div>}
-      {support > 0 && <div className="priceLevel supportLevel" style={{ top: level(support) }}><span>Suporte</span></div>}
+      {resistance > 0 && <div className="priceLevel resistanceLevel" style={{ top: level(resistance) }}><span>Resistência · {formatPriceNumber(resistance)}</span></div>}
+      {support > 0 && <div className="priceLevel supportLevel" style={{ top: level(support) }}><span>Suporte · {formatPriceNumber(support)}</span></div>}
       {currentPrice > 0 && <div className="priceLevel currentPriceLevel" style={{ top: level(currentPrice) }}><span>{formatPriceNumber(currentPrice)}</span></div>}
       {geometry.candles.map((candle, index) => <button
         type="button"

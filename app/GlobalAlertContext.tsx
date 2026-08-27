@@ -18,6 +18,8 @@ export type TriggeredAlert = {
   symbol: string;
   type: "SUPPORT" | "RESISTANCE";
   price: number;
+  support: number;
+  resistance: number;
   timestamp: number;
 };
 
@@ -79,12 +81,12 @@ export function GlobalAlertProvider({
   }, [configs]);
 
   const triggerAlert = useCallback(
-    (symbol: string, type: "SUPPORT" | "RESISTANCE", price: number) => {
+    (symbol: string, type: "SUPPORT" | "RESISTANCE", price: number, support: number, resistance: number) => {
       setActiveAlerts((prev) => {
         if (prev.some((a) => a.symbol === symbol && a.type === type)) return prev;
         return [
           ...prev,
-          { id: `${symbol}-${type}-${Date.now()}`, symbol, type, price, timestamp: Date.now() },
+          { id: `${symbol}-${type}-${Date.now()}`, symbol, type, price, support, resistance, timestamp: Date.now() },
         ];
       });
     },
@@ -102,11 +104,11 @@ export function GlobalAlertProvider({
       if (!config?.enabled || previousPrice === undefined) return;
 
       if (previousPrice < config.resistance && currentPrice >= config.resistance) {
-        triggerAlert(symbol, "RESISTANCE", currentPrice);
+        triggerAlert(symbol, "RESISTANCE", currentPrice, config.support, config.resistance);
       }
 
       if (previousPrice > config.support && currentPrice <= config.support) {
-        triggerAlert(symbol, "SUPPORT", currentPrice);
+        triggerAlert(symbol, "SUPPORT", currentPrice, config.support, config.resistance);
       }
     });
   }, [livePrices, configs, triggerAlert]);

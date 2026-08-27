@@ -29,6 +29,8 @@ export function GlobalAlertRenderer({ currency }: { currency: string }) {
           currency={currency}
           isVisible={true}
           price={alert.price}
+          support={alert.support}
+          resistance={alert.resistance}
           removeAlert={removeActiveAlert}
           type={alert.type}
         />

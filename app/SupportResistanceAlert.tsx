@@ -8,6 +8,8 @@ export function SupportResistanceAlert({
   asset,
   type,
   price,
+  support,
+  resistance,
   currency,
   isVisible,
   removeAlert,
@@ -16,6 +18,8 @@ export function SupportResistanceAlert({
   asset: string;
   type: "SUPPORT" | "RESISTANCE";
   price: number;
+  support: number;
+  resistance: number;
   currency: string;
   isVisible: boolean;
   removeAlert: (id: string) => void;
@@ -53,6 +57,16 @@ export function SupportResistanceAlert({
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}
+        </span>
+        <span className="priceAlertLevels">
+          <span className="levelTag support">S {currency} {support.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}</span>
+          <span className="levelTag resistance">R {currency} {resistance.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}</span>
         </span>
       </div>
       <button
