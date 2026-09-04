@@ -1,6 +1,6 @@
 # Checklist — Alterações nos projetos
 
-Última atualização: 07/08/2026
+Última atualização: 04/09/2026
 
 ## Projeto Termômetro (repo `Bitcoiniciantes/termometro`, Next.js, `app/`)
 
@@ -18,6 +18,11 @@
 | 10 | Simplificação da barra NUPL (removidos toggle e régua; cores equalizadas). | componente NUPL | `7468425`, `3d73971` |
 | 11 | Escala NUPL (1 a 0; 0 no centro do Medo; negativos no desespero; ajustes de -1..1). | componente NUPL | `3b8f4a`, `9fc9df6`, `d4786e6` |
 | 12 | Fonte preta nos segmentos NUPL + ponteiro na cor da fase. | componente NUPL | `8575b7b` |
+| 13 | Painel **NEXUS** clonado do preditivo (somente NEXUS, sem Confluência): `app/ConfluencePanel.tsx` + `lib/confluence.ts` + `app/nexus.css` idênticos; tipos `FlowReading`/`ConfluenceRow`/`ConfluenceReading` e `Candle.takerBuyVolume` em `lib/types.ts`; `parseCandles` lendo `row[9]` (sem isso o fluxo agressor cai em modo parcial); wiring mínimo em `app/page.tsx` + `import nexus.css` no layout. Sem daemon, sem `MarketStreamProvider`. | `app/ConfluencePanel.tsx`, `lib/confluence.ts`, `app/nexus.css`, `lib/types.ts`, `lib/api.ts`, `app/page.tsx`, `app/layout.tsx` | `2df1ca9` |
+| 14 | **Fita de ativos em pílula abaixo do gráfico** (modelo do preditivo): `AssetStrip` com os ativos dos cards + variação 24h (`quickChanges` via Binance `ticker/24hr`, fallback worker p/ PRATA/COBRE/URANIO via `marketSymbols`); clique abre o ativo no gráfico (`selectAsset`); CSS `chartRadar`/`quickAsset` (cores iguais, nada muda). | `app/page.tsx`, `lib/config.ts`, `app/globals.css` | `2df1ca9` |
+| 15 | Atalho do menu **Painel → Gráfico** (`#grafico`, igual ao preditivo) + `id="grafico"` no article do gráfico + `scroll-margin-top:34px` (valor exato do preditivo) + altura reservada nos comparadores de período (`.mobile/desktopPeriodComparison`) para o **gráfico ficar paradinho** na troca de ativo (sem rolagem forçada). | `app/page.tsx`, `app/globals.css` | `9e33784` |
+| 16 | **Período padrão em 15M** (antes 1H). Vale para gráfico + análise (mesmo estado, igual ao preditivo). | `app/page.tsx` | `b548e86` |
+| 17 | **NUPL voltou ao gráfico do BTC**: `NUPL_URL` apontada para `https://estudebitcoin.pages.dev/dados/nupl.json` (a antiga `bitcoiniciantes.github.io/...` retorna 404 e a barra vinha vazia). Componente, lib e CSS já eram idênticos ao preditivo. | `lib/api.ts` | `b548e86` |
 
 ### Próximos passos / pendências
 - Nenhuma pendência aberta neste repo.
