@@ -1,0 +1,130 @@
+"use client";
+
+import { useState } from "react";
+import type { ConfluenceReading } from "../lib/types";
+
+const metricSummaries: Record<string, string> = {
+  "Tendência": "Compara MM20 e MM50 para indicar a direção predominante do preço.",
+  "Padrão": "Avalia compressão e estrutura recente do preço para identificar formações técnicas.",
+  "Momentum": "Usa RSI de 14 períodos, ADX e divergências confirmadas para medir a força do movimento.",
+  "Volume": "Compara o volume do último candle fechado com a média dos 20 anteriores.",
+  "Risco": "Usa o ATR de 14 períodos para medir a volatilidade e o risco do movimento.",
+};
+
+export default function ConfluencePanel({
+  data,
+  loading,
+  asset,
+  period,
+}: {
+  data: ConfluenceReading | null;
+  loading: boolean;
+  asset: string;
+  period: string;
+}) {
+  const [openMetric, setOpenMetric] = useState<string | null>(null);
+
+  if (loading) {
+    return (
+      <article className="card nexus nexusEmpty">
+        <div className="cardTitle"><div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{"Cruzando métricas, RSI e fluxo"}</b></div></div>
+        <p>{"Processando candles concluídos."}</p>
+      </article>
+    );
+  }
+
+  if (!data) {
+    return (
+      <article className="card nexus nexusEmpty">
+        <div className="cardTitle"><div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{"Fluxo agressor indisponível"}</b></div></div>
+        <p>{"Este ativo não fornece a separação entre compras e vendas a mercado. Nenhuma estimativa foi criada."}</p>
+      </article>
+    );
+  }
+
+  const signed = (value: number) => (value > 0 ? "+" : "") + value;
+  const tone = data.state === "BUY" ? "buy" : data.state === "SELL" ? "sell" : "neutral";
+  const flowTone = !data.flow ? "neutral" : data.flow.deltaPercent >= 6 ? "buyer" : data.flow.deltaPercent <= -6 ? "seller" : "neutral";
+  const rsiTone = data.rsi >= 55 ? "buyer" : data.rsi <= 45 ? "seller" : "neutral";
+  const title = data.state === "BUY"
+    ? "PRESSÃO COMPRADORA"
+    : data.state === "SELL"
+      ? "PRESSÃO VENDEDORA"
+      : "FORÇAS EM DISPUTA";
+  const alignedCount = data.rows.filter((row) => row.status === "aligned").length;
+  const action = data.state === "BUY"
+    ? {
+        title: "AGORA: VIÉS DE COMPRA CONFIRMADO",
+        detail: `${alignedCount} de 5 indicadores concordam. Aguarde o candle atual fechar sem perder o suporte antes de executar sua estratégia.`,
+      }
+    : data.state === "SELL"
+      ? {
+          title: "AGORA: NÃO COMPRE",
+          detail: `${alignedCount} de 5 indicadores confirmam pressão vendedora. Espere o fluxo comprador superar 50% e o RSI recuperar 45 antes de reavaliar.`,
+        }
+      : {
+          title: "AGORA: ESPERE",
+          detail: "Os sinais não formam uma direção única. Não há vantagem técnica suficiente para uma nova entrada neste momento.",
+        };
+
+  return (
+    <article className={["card", "nexus", tone].join(" ")}>
+      <div className="cardTitle">
+        <div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{title}</b></div>
+        <span className="nexusScore">{signed(data.score)}</span>
+      </div>
+      <div className="nexusAction" role="status"><b>{action.title}</b><p>{action.detail}</p></div>
+      <div className="nexusPulse">
+        <div>
+          {data.flow ? <>
+            <span>{"FLUXO AGRESSOR • "}{data.flow.window} CANDLES</span>
+            <b className={flowTone}>{(data.flow.buyShare * 100).toFixed(1)}% compra</b>
+            <small className={flowTone}>Delta {data.flow.deltaPercent > 0 ? "+" : ""}{data.flow.deltaPercent.toFixed(1)}%</small>
+          </> : <>
+            <span>FLUXO AGRESSOR</span>
+            <b className="neutral">{"INDISPONÍVEL"}</b>
+            <small>{"RSI e métricas continuam ativos"}</small>
+          </>}
+        </div>
+        <div>
+          <span>RSI CRUZADO</span>
+          <b className={rsiTone}>{data.rsi.toFixed(1)}</b>
+          <small>{"Confiança "}{data.confidence}%</small>
+        </div>
+      </div>
+      {data.flow ? <>
+        <div className="nexusFlow" aria-label={"Compra " + (data.flow.buyShare * 100).toFixed(1) + " por cento"}>
+          <i style={{ width: (data.flow.buyShare * 100) + "%" }} />
+        </div>
+        <div className="nexusLegend">
+          <span>VENDA {(100 - data.flow.buyShare * 100).toFixed(1)}%</span>
+          <span>COMPRA {(data.flow.buyShare * 100).toFixed(1)}%</span>
+        </div>
+      </> : <div className="nexusFlowUnavailable">{"Fluxo comprador/vendedor não fornecido pela fonte."}</div>}
+      <div className="nexusMatrix">
+        {data.rows.map((row) => {
+          const ringTone = row.alignment > 0 ? "#70efaa" : row.alignment < 0 ? "#ff7885" : "#c9a64b";
+          const ringDegrees = Math.min(100, Math.abs(row.alignment)) * 3.6;
+          return <div key={row.metric} className={[row.status, row.baseScore > 0 ? "buyer" : row.baseScore < 0 ? "seller" : "neutral"].join(" ")}>
+            <div className="nexusMetricHead"><b>{row.metric}</b><span className="nexusMiniRing" style={{ background: `conic-gradient(${ringTone} 0deg ${ringDegrees}deg, #47534d ${ringDegrees}deg 360deg)` }} aria-label={`Força ${signed(row.alignment)}`}><i>{row.alignment === 0 ? "=" : signed(row.alignment)}</i></span></div>
+            <span>{row.status === "aligned" ? "CONFIRMA" : row.status === "conflict" ? "CONFLITA" : "NEUTRO"}</span>
+            <strong>{row.alignment === 0 ? "EMPATE" : signed(row.alignment)}</strong>
+            <small>{"NOTA BASE "}{signed(row.baseScore)}</small>
+            <button
+              type="button"
+              className="nexusInfoButton"
+              onClick={() => setOpenMetric((current) => current === row.metric ? null : row.metric)}
+              aria-expanded={openMetric === row.metric}
+              aria-label={`Explicar ${row.metric}`}
+              title={`Explicar ${row.metric}`}
+            >
+              i
+            </button>
+            {openMetric === row.metric && <div className="nexusInfoTip" role="status"><b>{row.metric}</b><p>{metricSummaries[row.metric] ?? "Indicador técnico do NEXUS."}</p></div>}
+          </div>;
+        })}
+      </div>
+      <p>{"Leitura atual de "}{asset}{" no período "}{period}{data.flow ? ". Cada métrica é confrontada com o RSI e o volume agressor real." : ". Leitura parcial: métricas e RSI ativos; fluxo agressor indisponível."}{" O NEXUS é contexto separado e não altera a nota principal."}</p>
+    </article>
+  );
+}
