@@ -287,7 +287,8 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .resistanceLevel { border-color:rgba(255,91,103,.55); color:var(--red); }
 .supportLevel { border-color:rgba(84,184,90,.6); color:var(--lime); }
 .currentPriceLevel { border-color:#4aa8ff; border-top-style:dashed; z-index:2; }
-.currentPriceLevel span { right:4px; left:auto; top:-12px; width:auto; min-width:64px; font-size:10px; padding:3px 4px; border-radius:2px; background:rgba(45,141,222,.28); color:#e6f5ff; text-align:right; letter-spacing:0; text-transform:none; font-weight:900; }
+.priceTagLayer { position:absolute; inset:57px 0 30px 0; pointer-events:none; z-index:5; }
+.priceTagCurrent { position:absolute; right:6px; transform:translateY(-50%); padding:3px 6px; border-radius:3px; background:#2d8dde; color:#eaf6ff; font-size:10px; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; box-shadow:0 2px 8px #0006; }
 .realPriceChart .chartAxis { z-index:2; }
 .chartDates {
   position:absolute;
@@ -318,7 +319,8 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   .candlePlot { inset:72px 12px 30px; }
   .chartDates { left:12px; right:12px; }
   .priceLevel span { font-size:6px; }
-  .currentPriceLevel span { right:0; top:-11px; width:auto; min-width:70px; font-size:10px; }
+  .priceTagLayer { inset:72px 0 30px 0; }
+  .priceTagCurrent { right:4px; font-size:9px; padding:2px 5px; }
   .chartFoot { gap:12px; }
 }
 .mobileChartPeriods { display:none; }

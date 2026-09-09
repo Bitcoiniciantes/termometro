@@ -80,7 +80,7 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
     <div className="candlePlot" onMouseLeave={() => setHoveredIndex(null)}>
       {resistance > 0 && <div className="priceLevel resistanceLevel" style={{ top: level(resistance) }}><span>Resistência · {formatPriceNumber(resistance)}</span></div>}
       {support > 0 && <div className="priceLevel supportLevel" style={{ top: level(support) }}><span>Suporte · {formatPriceNumber(support)}</span></div>}
-      {currentPrice > 0 && <div className="priceLevel currentPriceLevel" style={{ top: level(currentPrice) }}><span>{formatPriceNumber(currentPrice)}</span></div>}
+      {currentPrice > 0 && <div className="priceLevel currentPriceLevel" style={{ top: level(currentPrice) }} />}
       {geometry.candles.map((candle, index) => <button
         type="button"
         key={`${candle.time}-${index}`}
@@ -95,6 +95,9 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
         <b className="candleBody" style={{ top: `${candle.bodyTop}%`, height: `${candle.bodyHeight}%` }}/>
       </button>)}
     </div>
+    {currentPrice > 0 && <div className="priceTagLayer" aria-hidden="true">
+      <span className="priceTagCurrent" style={{ top: level(currentPrice) }}>{formatPriceNumber(currentPrice)}</span>
+    </div>}
     <div className="chartDates" aria-hidden="true"><span>{formatDate(first.time, period)}</span><span>{formatDate(middle.time, period)}</span><span>{formatDate(last.time, period)}</span></div>
   </div>;
 }
