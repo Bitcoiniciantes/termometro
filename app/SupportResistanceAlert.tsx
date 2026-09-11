@@ -44,7 +44,7 @@ export function SupportResistanceAlert({
       </div>
       <div className="priceAlertContent">
         <strong>{isSupport ? "SUPORTE ATINGIDO" : "RESISTÊNCIA ATINGIDA"}</strong>
-        <span>{asset}</span>
+        <span className="priceAlertAsset">{asset}</span>
         <span className="priceAlertPrice">
           {currency} {price.toLocaleString("pt-BR", {
             minimumFractionDigits: 2,
