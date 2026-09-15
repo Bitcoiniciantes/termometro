@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import "./nexus.css";
 
 const geistSans=Geist({variable:"--font-geist-sans",subsets:["latin"]});
 const geistMono=Geist_Mono({variable:"--font-geist-mono",subsets:["latin"]});
@@ -15,23 +16,42 @@ export const metadata:Metadata={
 export default function RootLayout({children}:{children:React.ReactNode}){
  return <html lang="pt-BR"><body className={`${geistSans.variable} ${geistMono.variable}`}>
   {children}
-  <Script data-goatcounter="https://termometro.goatcounter.com/count" src="https://gc.zgo.at/count.js" strategy="afterInteractive" />
-  <Script id="goatcounter-total" strategy="afterInteractive">{`
+  <Script id="worker-counter" strategy="afterInteractive">{`
    (() => {
-    const renderTotal = () => {
-     const target = document.querySelector("[data-goatcounter-total]");
-     if (!target) return;
-     fetch("https://termometro.goatcounter.com/counter/TOTAL.json")
-      .then(response => response.ok ? response.json() : null)
+    var WORKER_URL = 'https://floral-truth-af64.bitcoiniciantes.workers.dev';
+    var SITE_NAME = 'termometro';
+    var el = document.querySelector('[data-goatcounter-total]');
+    var today = new Date().toISOString().slice(0, 10);
+    var lastVisit = localStorage.getItem('btc_last_visit_' + SITE_NAME);
+    
+    if (lastVisit === today) {
+     fetch(WORKER_URL + '/total?site=' + SITE_NAME)
+      .then(r => r.json())
       .then(data => {
-       if (!data?.count) return;
-       target.textContent = " \u00b7 " + data.count + (data.count === "1" ? " Cerva" : " Cervas");
-       target.hidden = false;
+       if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
       })
       .catch(() => {});
-    };
-    window.setTimeout(renderTotal, 500);
+    } else {
+     localStorage.setItem('btc_last_visit_' + SITE_NAME, today);
+     fetch(WORKER_URL + '/count?site=' + SITE_NAME)
+      .then(r => r.json())
+      .then(data => {
+       if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
+      })
+      .catch(() => {
+       fetch(WORKER_URL + '/total?site=' + SITE_NAME)
+        .then(r => r.json())
+        .then(data => {
+         if (el && data.count !== undefined) el.textContent = ' · ' + data.count.toLocaleString('pt-BR') + (data.count === 1 ? ' acesso' : ' acessos');
+        })
+        .catch(() => {});
+      });
+    }
    })();
   `}</Script>
+  <Script src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "023b8944136f45f7852b6de1b1e2c662"}' strategy="afterInteractive" />
  </body></html>;
 }
+
+
+

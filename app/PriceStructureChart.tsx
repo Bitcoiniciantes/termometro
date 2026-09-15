@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildPriceGeometry } from "../lib/chart";
+import { useGlobalAlerts } from "./GlobalAlertContext";
 import type { Candle } from "../lib/types";
 
 type Props = {
   asset: string;
+  ticker: string;
   candles: Candle[];
   currentPrice: number;
   currency: string;
@@ -31,9 +33,18 @@ function formatDate(time: number, period: string) {
   return new Date(time).toLocaleString("pt-BR", { ...options, timeZone: "America/Sao_Paulo" });
 }
 
-export default function PriceStructureChart({ asset, candles, currentPrice, currency, loading, period, resistance, support }: Props) {
+export default function PriceStructureChart({ asset, ticker, candles, currentPrice, currency, loading, period, resistance, support }: Props) {
   const geometry = useMemo(() => buildPriceGeometry(candles, 48), [candles]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const { configs, toggleAlert, updateConfigLevels } = useGlobalAlerts();
+  const symbol = `${ticker}USDT`;
+  const isAlertEnabled = configs[symbol]?.enabled ?? false;
+
+  useEffect(() => {
+    if (support > 0 && resistance > 0) {
+      updateConfigLevels(symbol, support, resistance, "GRAPH", period);
+    }
+  }, [symbol, support, resistance, updateConfigLevels, period]);
 
   if (!geometry) {
     return <div className="priceChart priceChartEmpty" aria-busy={loading}>
@@ -51,6 +62,7 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
 
   return <div className="priceChart realPriceChart">
     <div className="chartIdentity" aria-hidden="true"><b>{asset}</b><span>{period} · OHLC REAL</span></div>
+    <button type="button" onClick={() => toggleAlert(symbol, support, resistance, "GRAPH", period)} className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`} aria-pressed={isAlertEnabled}>{isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}</button>
     <div className={`chartOhlc ${selectedTone}`} aria-live="polite">
       <span>{formatDate(selected.time, period)}</span>
       <dl>
@@ -66,9 +78,9 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
       <span>{formatPrice(geometry.min, currency)}</span>
     </div>
     <div className="candlePlot" onMouseLeave={() => setHoveredIndex(null)}>
-      {resistance > 0 && <div className="priceLevel resistanceLevel" style={{ top: level(resistance) }}><span>Resistência</span></div>}
-      {support > 0 && <div className="priceLevel supportLevel" style={{ top: level(support) }}><span>Suporte</span></div>}
-      {currentPrice > 0 && <div className="priceLevel currentPriceLevel" style={{ top: level(currentPrice) }}><span>{formatPriceNumber(currentPrice)}</span></div>}
+      {resistance > 0 && <div className="priceLevel resistanceLevel" style={{ top: level(resistance) }}><span>Resistência · {formatPriceNumber(resistance)}</span></div>}
+      {support > 0 && <div className="priceLevel supportLevel" style={{ top: level(support) }}><span>Suporte · {formatPriceNumber(support)}</span></div>}
+      {currentPrice > 0 && <div className="priceLevel currentPriceLevel" style={{ top: level(currentPrice) }} />}
       {geometry.candles.map((candle, index) => <button
         type="button"
         key={`${candle.time}-${index}`}
@@ -83,6 +95,9 @@ export default function PriceStructureChart({ asset, candles, currentPrice, curr
         <b className="candleBody" style={{ top: `${candle.bodyTop}%`, height: `${candle.bodyHeight}%` }}/>
       </button>)}
     </div>
+    {currentPrice > 0 && <div className="priceTagLayer" aria-hidden="true">
+      <span className="priceTagCurrent" style={{ top: level(currentPrice) }}>{formatPriceNumber(currentPrice)}</span>
+    </div>}
     <div className="chartDates" aria-hidden="true"><span>{formatDate(first.time, period)}</span><span>{formatDate(middle.time, period)}</span><span>{formatDate(last.time, period)}</span></div>
   </div>;
 }

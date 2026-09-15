@@ -36,6 +36,12 @@ const NEWS_REQUEST_TIMEOUT_MS = 12_000;
 const WORKER_BASE_URL = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev";
 const validScenarios = new Set<AiAnalysisResponse["scenario"]>(["ALTA", "BAIXA", "NEUTRO", "RISCO ELEVADO"]);
 
+function isPublishedPagesDomain(): boolean {
+  if (typeof window === "undefined") return false;
+  const { hostname } = window.location;
+  return hostname === "bitcoiniciantes.github.io" || hostname.endsWith(".pages.dev");
+}
+
 function abortableFetch(
   url: string,
   options: RequestInit = {},
@@ -158,10 +164,7 @@ export class AiAnalysisError extends Error {
 }
 
 export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: AbortSignal): Promise<AiAnalysisResponse> {
-  const endpoint =
-    typeof window !== "undefined" && (window.location.hostname === "bitcoiniciantes.github.io" || window.location.hostname.endsWith(".pages.dev"))
-      ? `${WORKER_BASE_URL}/api/ai-analysis`
-      : "/api/ai-analysis";
+  const endpoint = isPublishedPagesDomain() ? `${WORKER_BASE_URL}/api/ai-analysis` : "/api/ai-analysis";
   const response = await abortableFetch(
     endpoint,
     {
@@ -172,19 +175,27 @@ export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: Abort
     },
     AI_REQUEST_TIMEOUT_MS,
   );
-  const body = (await response.json().catch(() => null)) as
-    | AiAnalysisResponse
-    | { error?: string; retryAfterSeconds?: number }
-    | null;
+  const raw = await response.text().catch(() => "");
+  let body: unknown = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch {
+    body = null;
+  }
   if (!response.ok) {
     const retryAfterHeader = Number(response.headers.get("Retry-After"));
-    const retryAfterSeconds = body && "retryAfterSeconds" in body && Number.isFinite(body.retryAfterSeconds)
-      ? Number(body.retryAfterSeconds)
+    const retryAfterSeconds = body && typeof body === "object" && "retryAfterSeconds" in body && Number.isFinite((body as { retryAfterSeconds?: unknown }).retryAfterSeconds)
+      ? Number((body as { retryAfterSeconds?: unknown }).retryAfterSeconds)
       : Number.isFinite(retryAfterHeader)
         ? retryAfterHeader
         : 0;
+    const serverMessage = body && typeof body === "object" && "error" in body && typeof (body as { error?: unknown }).error === "string"
+      ? (body as { error: string }).error
+      : "";
     throw new AiAnalysisError(
-      body && "error" in body && body.error ? body.error : "Análise por IA indisponível.",
+      serverMessage
+        ? `${serverMessage} (HTTP ${response.status})`
+        : `Análise por IA indisponível (HTTP ${response.status}).`,
       response.status,
       retryAfterSeconds,
     );
@@ -210,16 +221,13 @@ const newsCache = new Map<string, { expiresAt: number; data: AssetNewsResponse }
 export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promise<AssetNewsResponse> {
   const cached = newsCache.get(asset);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
-  const base =
-    typeof window !== "undefined" && (window.location.hostname === "bitcoiniciantes.github.io" || window.location.hostname.endsWith(".pages.dev"))
-      ? WORKER_BASE_URL
-      : "";
+  const base = isPublishedPagesDomain() ? WORKER_BASE_URL : "";
   const response = await abortableFetch(
-    base + "/api/asset-news?asset=" + encodeURIComponent(asset),
+    `${base}/api/asset-news?asset=${encodeURIComponent(asset)}`,
     { signal },
     NEWS_REQUEST_TIMEOUT_MS,
   );
-  if (!response.ok) throw new Error("Notícias indisponíveis.");
+  if (!response.ok) throw new Error(`Notícias indisponíveis (HTTP ${response.status}).`);
   const body = (await response.json()) as AssetNewsResponse;
   const data: AssetNewsResponse = Array.isArray(body.items)
     ? body
@@ -227,5 +235,3 @@ export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promi
   newsCache.set(asset, { expiresAt: Date.now() + NEWS_CACHE_TTL_MS, data });
   return data;
 }
-
-
