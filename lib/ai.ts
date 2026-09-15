@@ -36,6 +36,12 @@ const NEWS_REQUEST_TIMEOUT_MS = 12_000;
 const WORKER_BASE_URL = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev";
 const validScenarios = new Set<AiAnalysisResponse["scenario"]>(["ALTA", "BAIXA", "NEUTRO", "RISCO ELEVADO"]);
 
+function isPublishedPagesDomain(): boolean {
+  if (typeof window === "undefined") return false;
+  const { hostname } = window.location;
+  return hostname === "bitcoiniciantes.github.io" || hostname.endsWith(".pages.dev");
+}
+
 function abortableFetch(
   url: string,
   options: RequestInit = {},
@@ -158,7 +164,7 @@ export class AiAnalysisError extends Error {
 }
 
 export async function fetchAiAnalysis(payload: AiAnalysisRequest, signal?: AbortSignal): Promise<AiAnalysisResponse> {
-  const endpoint = `${WORKER_BASE_URL}/api/ai-analysis`;
+  const endpoint = isPublishedPagesDomain() ? `${WORKER_BASE_URL}/api/ai-analysis` : "/api/ai-analysis";
   const response = await abortableFetch(
     endpoint,
     {
@@ -215,8 +221,9 @@ const newsCache = new Map<string, { expiresAt: number; data: AssetNewsResponse }
 export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promise<AssetNewsResponse> {
   const cached = newsCache.get(asset);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
+  const base = isPublishedPagesDomain() ? WORKER_BASE_URL : "";
   const response = await abortableFetch(
-    `${WORKER_BASE_URL}/api/asset-news?asset=${encodeURIComponent(asset)}`,
+    `${base}/api/asset-news?asset=${encodeURIComponent(asset)}`,
     { signal },
     NEWS_REQUEST_TIMEOUT_MS,
   );
@@ -228,4 +235,3 @@ export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promi
   newsCache.set(asset, { expiresAt: Date.now() + NEWS_CACHE_TTL_MS, data });
   return data;
 }
-
