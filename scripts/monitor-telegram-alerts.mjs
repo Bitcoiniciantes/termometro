@@ -482,7 +482,7 @@ async function flushRetryQueue(state) {
       } else {
         remaining.push({ ...entry, attempts: (entry.attempts ?? 1) + 1 });
         stats.failed += 1;
-        if (remaining.at(-1).attempts !== entry.attempts) stats.dirty = true;
+        stats.dirty = true;
       }
     }
   }
