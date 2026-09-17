@@ -126,7 +126,7 @@ function normalizeSubscribers(subscribers = {}) {
 }
 
 function emptyState() {
-  return { version: 5, updateOffset: 0, subscribers: {}, readings: {}, capitulationWatch: {} };
+  return { version: 5, updateOffset: 0, subscribers: {}, readings: {}, capitulationWatch: {}, retryQueue: [] };
 }
 
 async function readState() {
@@ -141,6 +141,7 @@ async function readState() {
           subscribers: normalizeSubscribers(parsed.subscribers),
           readings: parsed.readings ?? {},
           capitulationWatch: parsed.capitulationWatch ?? {},
+          retryQueue: Array.isArray(parsed.retryQueue) ? parsed.retryQueue : [],
         },
         migrated: parsed.version !== 5,
       };
@@ -162,7 +163,8 @@ async function readState() {
           updateOffset: 0,
           subscribers,
           readings: parsed.readings ?? {},
-          capitulationWatch: {}
+          capitulationWatch: {},
+          retryQueue: []
         },
         migrated: true,
       };
@@ -194,17 +196,32 @@ async function getUpdates(offset) {
   return Array.isArray(response?.result) ? response.result : [];
 }
 
-async function sendMessage(chatId, text) {
-  const result = await fetchJson(telegramUrl("sendMessage"), {
+async function telegramCall(method, payload) {
+  const response = await fetch(telegramUrl(method), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      disable_web_page_preview: true,
-    }),
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(12_000),
   });
-  if (!result?.ok) throw new Error("Telegram recusou a mensagem");
+  const body = await response.json().catch(() => null);
+  if (!response.ok || body?.ok === false) {
+    const code = body?.error_code ?? response.status;
+    const description = body?.description ?? response.statusText ?? "erro desconhecido";
+    throw new Error(`Telegram ${code}: ${description}`);
+  }
+  return body;
+}
+
+function isTerminalRecipientError(message) {
+  return /(\b403\b|bot was blocked|bot was kicked|user is deactivated|chat not found|peer_id_invalid|user not found)/i.test(message ?? "");
+}
+
+async function sendMessage(chatId, text) {
+  await telegramCall("sendMessage", {
+    chat_id: chatId,
+    text,
+    disable_web_page_preview: true,
+  });
 }
 
 function preferenceLabel(preference) {
@@ -294,7 +311,13 @@ function updatedSubscriber(existing, overrides = {}) {
 }
 
 async function processSubscriberUpdates(state) {
-  const updates = await getUpdates((state.updateOffset || 0) + 1);
+  let updates;
+  try {
+    updates = await getUpdates((state.updateOffset || 0) + 1);
+  } catch (error) {
+    console.warn(`Comandos Telegram indisponíveis neste ciclo: ${error instanceof Error ? error.message : "falha desconhecida"}`);
+    return { changed: false, commands: 0 };
+  }
   if (!updates.length) return { changed: false, commands: 0 };
 
   state.updateOffset = Math.max(...updates.map((update) => Number(update.update_id) || 0));
@@ -308,22 +331,39 @@ async function processSubscriberUpdates(state) {
     latestByChat.set(String(message.chat.id), command);
   }
 
+  const cmdErrors = [];
   for (const [chatId, command] of latestByChat) {
-    const existing = state.subscribers[chatId];
-    if (command === "START") {
-      state.subscribers[chatId] = updatedSubscriber(existing, { active: true });
-      await sendMessage(
-        chatId,
-        welcomeMessage(state.subscribers[chatId].preference, state.subscribers[chatId].movement4),
-      );
-    } else if (command === "STOP") {
-      await sendMessage(chatId, "⏸ Alertas pausados. Quando quiser voltar, envie /start.");
-      state.subscribers[chatId] = updatedSubscriber(existing, { active: false });
-    } else if (command === "STATUS") {
-      await sendMessage(chatId, statusMessage(existing));
-    } else if (command === "HELP") {
-      await sendMessage(chatId, helpMessage());
-    } else if (command === "MOVEMENT4_ON") {
+    try {
+      const existing = state.subscribers[chatId];
+      if (command === "START") {
+        if (existing?.active) {
+          state.subscribers[chatId] = updatedSubscriber(existing, { active: true });
+          await sendMessage(
+            chatId,
+            [
+              "ℹ️ VOCÊ JÁ ESTÁ INSCRITO",
+              "",
+              `Modo técnico: ${preferenceLabel(existing.preference ?? DEFAULT_PREFERENCE)}.`,
+              `Movimento de 4% do BTC: ${existing.movement4 ? "ativado" : "desativado"}.`,
+              "Nada mudou no seu cadastro.",
+              "Use /status para conferir, /todos, /fortes ou /capitulacao para trocar de modo, /parar para sair.",
+            ].join("\n"),
+          );
+        } else {
+          state.subscribers[chatId] = updatedSubscriber(existing, { active: true });
+          await sendMessage(
+            chatId,
+            welcomeMessage(state.subscribers[chatId].preference, state.subscribers[chatId].movement4),
+          );
+        }
+      } else if (command === "STOP") {
+        state.subscribers[chatId] = updatedSubscriber(existing, { active: false });
+        await sendMessage(chatId, "⏸ Alertas pausados. Quando quiser voltar, envie /start.");
+      } else if (command === "STATUS") {
+        await sendMessage(chatId, statusMessage(existing));
+      } else if (command === "HELP") {
+        await sendMessage(chatId, helpMessage());
+      } else if (command === "MOVEMENT4_ON") {
       state.subscribers[chatId] = updatedSubscriber(existing, {
         active: true,
         movement4: true,
@@ -336,14 +376,23 @@ async function processSubscriberUpdates(state) {
         btcMovementReference: null,
       });
       await sendMessage(chatId, movementPreferenceMessage(false));
-    } else {
-      state.subscribers[chatId] = updatedSubscriber(existing, {
-        active: true,
-        preference: command,
-      });
-      await sendMessage(chatId, preferenceMessage(command));
+      } else {
+        state.subscribers[chatId] = updatedSubscriber(existing, {
+          active: true,
+          preference: command,
+        });
+        await sendMessage(chatId, preferenceMessage(command));
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "falha desconhecida";
+      cmdErrors.push(`${chatId}: ${detail}`);
+      if (isTerminalRecipientError(detail)) {
+        state.subscribers[chatId] = updatedSubscriber(state.subscribers[chatId], { active: false });
+      }
     }
   }
+
+  for (const error of cmdErrors) console.warn(`Comando sem resposta (${error})`);
 
   return { changed: true, commands: latestByChat.size };
 }
@@ -359,6 +408,7 @@ async function broadcast(state, text, kind = null) {
   let delivered = 0;
   let disabled = 0;
   let failed = 0;
+  const transientChats = [];
 
   for (const chatId of activeSubscribers(state, kind)) {
     try {
@@ -366,16 +416,78 @@ async function broadcast(state, text, kind = null) {
       delivered += 1;
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (/HTTP (400|403)/.test(message)) {
+      if (isTerminalRecipientError(message)) {
         state.subscribers[chatId].active = false;
         disabled += 1;
       } else {
+        transientChats.push(chatId);
         failed += 1;
       }
     }
   }
 
-  return { delivered, disabled, failed };
+  return { delivered, disabled, failed, transientChats };
+}
+
+const MAX_RETRY_QUEUE = 200;
+const MAX_RETRY_ATTEMPTS = 5;
+
+function queueRetry(state, entries) {
+  let queued = 0;
+  for (const entry of entries) {
+    const duplicate = state.retryQueue.some(
+      (item) => item.chatId === entry.chatId && item.text === entry.text,
+    );
+    if (duplicate) continue;
+    state.retryQueue.push({
+      chatId: entry.chatId,
+      text: entry.text,
+      kind: entry.kind ?? null,
+      attempts: entry.attempts ?? 1,
+      queuedAt: Date.now(),
+    });
+    queued += 1;
+  }
+  while (state.retryQueue.length > MAX_RETRY_QUEUE) state.retryQueue.shift();
+  return queued;
+}
+
+async function flushRetryQueue(state) {
+  const stats = { delivered: 0, disabled: 0, failed: 0, dropped: 0, dirty: false };
+  if (!state.retryQueue.length) return stats;
+  const remaining = [];
+  for (const entry of state.retryQueue) {
+    const subscriber = state.subscribers[entry.chatId];
+    if (
+      !subscriber?.active ||
+      (entry.kind && !shouldDeliverAlert(subscriber.preference ?? DEFAULT_PREFERENCE, entry.kind))
+    ) {
+      stats.dropped += 1;
+      stats.dirty = true;
+      continue;
+    }
+    try {
+      await sendMessage(entry.chatId, entry.text);
+      stats.delivered += 1;
+      stats.dirty = true;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "";
+      if (isTerminalRecipientError(detail)) {
+        state.subscribers[entry.chatId].active = false;
+        stats.disabled += 1;
+        stats.dirty = true;
+      } else if ((entry.attempts ?? 1) >= MAX_RETRY_ATTEMPTS) {
+        stats.dropped += 1;
+        stats.dirty = true;
+      } else {
+        remaining.push({ ...entry, attempts: (entry.attempts ?? 1) + 1 });
+        stats.failed += 1;
+        if (remaining.at(-1).attempts !== entry.attempts) stats.dirty = true;
+      }
+    }
+  }
+  state.retryQueue = remaining;
+  return stats;
 }
 function localTime(timestamp) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -645,9 +757,24 @@ async function main() {
 
   const username = await botUsername();
   const { state, migrated } = await readState();
+  if (!Array.isArray(state.retryQueue)) state.retryQueue = [];
   let stateChanged = migrated;
-  const subscriberUpdates = await processSubscriberUpdates(state);
-  stateChanged ||= subscriberUpdates.changed;
+  // Disparo manual = teste seco: o scan roda sobre uma cópia descartável,
+  // sem enviar nada e sem avançar a baseline (readings/capitulationWatch).
+  const scanState = SETUP_TEST ? structuredClone(state) : state;
+
+  let subscriberUpdates = { changed: false, commands: 0, pendingUpdates: 0 };
+  if (SETUP_TEST) {
+    try {
+      const peeked = await getUpdates((state.updateOffset || 0) + 1);
+      subscriberUpdates = { changed: false, commands: 0, pendingUpdates: peeked.length };
+    } catch (error) {
+      console.warn(`Comandos Telegram indisponíveis no teste seco: ${error instanceof Error ? error.message : "falha desconhecida"}`);
+    }
+  } else {
+    subscriberUpdates = await processSubscriberUpdates(state);
+    stateChanged ||= subscriberUpdates.changed;
+  }
 
   let successful = 0;
   const errors = [];
@@ -668,22 +795,22 @@ async function main() {
       successful += 1;
       const key = `${config.marketAsset ?? config.asset}-${config.period}`;
       const currentBand = alertBand(reading.score);
-      const previous = state.readings[key];
+      const previous = scanState.readings[key];
       const watchChanged = config.primary
         ? await checkCapitulationWatch(
             config,
             key,
-            state,
+            scanState,
             pendingMessages,
             historyEvents,
           )
         : false;
-      stateChanged ||= watchChanged;
+      if (!SETUP_TEST) stateChanged ||= watchChanged;
 
       if (previous?.candleTime === lastClosed.time) continue;
 
       if (config.asset === "BTC" && config.primary) {
-        for (const [chatId, subscriber] of Object.entries(state.subscribers)) {
+        for (const [chatId, subscriber] of Object.entries(scanState.subscribers)) {
           if (!subscriber?.active || !subscriber?.movement4) continue;
           const reference = Number(subscriber.btcMovementReference);
           if (!Number.isFinite(reference) || reference <= 0) {
@@ -756,7 +883,7 @@ async function main() {
 
       if (capitulation && previous && !previous.capitulation) {
         if (config.source === "binance") {
-          state.capitulationWatch[key] = {
+          scanState.capitulationWatch[key] = {
             stage: "PENDING",
             sourceCandleTime: lastClosed.time,
             sourceClose: lastClosed.close,
@@ -805,7 +932,7 @@ async function main() {
         capitulation,
       });
 
-      state.readings[key] = {
+      scanState.readings[key] = {
         band: currentBand,
         score: reading.score,
         candleTime: lastClosed.time,
@@ -814,7 +941,7 @@ async function main() {
         capitulation,
         rsiOpportunity: opportunity,
       };
-      stateChanged = true;
+      if (!SETUP_TEST) stateChanged = true;
     } catch (error) {
       errors.push(`${config.asset}: ${error instanceof Error ? error.message : "falha desconhecida"}`);
     }
@@ -822,31 +949,43 @@ async function main() {
 
   if (!successful) throw new Error(`Nenhum ativo analisado. ${errors.join(" • ")}`);
 
-  let delivery = { delivered: 0, disabled: 0, failed: 0 };
+  let delivery = { delivered: 0, disabled: 0, failed: 0, retried: 0, dropped: 0 };
   if (SETUP_TEST) {
-    delivery = await broadcast(
-      state,
-      [
-        "✅ BOT PARA AMIGOS ATIVADO",
-        "",
-        `${successful} de ${assets.length} ativos verificados.`,
-        "",
-        "Modo padrão: Compra Forte + oportunidades de RSI + possível capitulação.",
-        "Cada pessoa pode mudar com /todos, /fortes ou /capitulacao.",
-        "Alerta opcional de ±4% do BTC: /movimento4.",
-        "",
-        "Compartilhe este link:",
-        `https://t.me/${username}`,
-        "",
-        "Cada amigo precisa tocar em Iniciar. Para sair, basta enviar /parar.",
-      ].join("\n"),
+    const byKind = new Map();
+    for (const message of pendingMessages) {
+      const eligible = activeSubscribers(scanState, message.kind).length;
+      const entry = byKind.get(message.kind ?? "DIRETA") ?? { events: 0, eligible: 0 };
+      entry.events += 1;
+      entry.eligible = Math.max(entry.eligible, eligible);
+      byKind.set(message.kind ?? "DIRETA", entry);
+    }
+    console.log(
+      `Teste seco @${username}: nenhum envio realizado • ${pendingMessages.length + directMessages.length} eventos detectados (${directMessages.length} diretos) • ${subscriberUpdates.pendingUpdates ?? 0} comandos pendentes para a próxima execução agendada`,
     );
+    for (const [kind, info] of byKind) {
+      console.log(`Teste seco: ${info.events} evento(s) ${kind} para até ${info.eligible} assinante(s) (não enviados)`);
+    }
   } else {
+    const retryFlush = await flushRetryQueue(state);
+    delivery.delivered += retryFlush.delivered;
+    delivery.disabled += retryFlush.disabled;
+    delivery.failed += retryFlush.failed;
+    delivery.dropped += retryFlush.dropped;
+    delivery.retried += retryFlush.delivered + retryFlush.failed;
+    stateChanged ||= retryFlush.dirty;
     for (const message of pendingMessages) {
       const result = await broadcast(state, message.text, message.kind);
       delivery.delivered += result.delivered;
       delivery.disabled += result.disabled;
       delivery.failed += result.failed;
+      if (result.transientChats.length) {
+        stateChanged ||= queueRetry(state, result.transientChats.map((chatId) => ({
+          chatId,
+          text: message.text,
+          kind: message.kind,
+          attempts: 1,
+        }))) > 0;
+      }
     }
     for (const message of directMessages) {
       try {
@@ -854,10 +993,16 @@ async function main() {
         delivery.delivered += 1;
       } catch (error) {
         const detail = error instanceof Error ? error.message : "";
-        if (/HTTP (400|403)/.test(detail)) {
+        if (isTerminalRecipientError(detail)) {
           state.subscribers[message.chatId].active = false;
           delivery.disabled += 1;
         } else {
+          stateChanged ||= queueRetry(state, [{
+            chatId: message.chatId,
+            text: message.text,
+            kind: null,
+            attempts: 1,
+          }]) > 0;
           delivery.failed += 1;
         }
       }
@@ -865,23 +1010,28 @@ async function main() {
   }
 
   let historyResult = { configured: firebaseHistoryConfigured(), readings: 0, events: 0 };
-  try {
-    historyResult = await saveFirebaseHistory(historyReadings, historyEvents);
-  } catch (error) {
-    console.warn(`Histórico Firebase indisponível: ${error instanceof Error ? error.message : "falha desconhecida"}`);
+  if (SETUP_TEST) {
+    console.log(`Teste seco: ${historyReadings.length} leituras e ${historyEvents.length} eventos NÃO gravados no histórico (nenhum alerta foi entregue)`);
+  } else {
+    try {
+      historyResult = await saveFirebaseHistory(historyReadings, historyEvents);
+    } catch (error) {
+      console.warn(`Histórico Firebase indisponível: ${error instanceof Error ? error.message : "falha desconhecida"}`);
+    }
   }
 
-  if (delivery.disabled) stateChanged = true;
+  if (!SETUP_TEST && delivery.disabled) stateChanged = true;
   if (stateChanged) await saveState(state);
   await setOutput("state_changed", stateChanged ? "true" : "false");
   await setOutput("assets_ok", String(successful));
   await setOutput("subscribers", String(activeSubscribers(state).length));
   await setOutput("history", historyResult.configured ? "configured" : "not_configured");
   console.log(
-    `Monitoramento concluído: ${successful}/${assets.length} ativos • ${activeSubscribers(state).length} assinantes ativos • ${pendingMessages.length + directMessages.length} eventos • ${subscriberUpdates.commands} comandos • histórico ${historyResult.readings}/${historyResult.events}`,
+    `Monitoramento concluído: ${successful}/${assets.length} ativos • ${activeSubscribers(state).length} assinantes ativos • ${pendingMessages.length + directMessages.length} eventos • ${subscriberUpdates.commands} comandos • histórico ${historyResult.readings}/${historyResult.events} • fila retry ${state.retryQueue.length}`,
   );
   if (!historyResult.configured) console.warn("Histórico Firebase aguardando credencial privada.");
-  if (delivery.failed) console.warn(`${delivery.failed} entregas temporariamente indisponíveis`);
+  if (delivery.failed) console.warn(`${delivery.failed} entregas em retry na próxima execução`);
+  if (delivery.dropped) console.warn(`${delivery.dropped} entregas descartadas (limite de tentativas ou filtro)`);
   for (const error of errors) console.warn(error);
 }
 
