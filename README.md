@@ -33,7 +33,7 @@ npm run lint
 npm run build
 ```
 
-O workflow `.github/workflows/telegram-alerts.yml` verifica o mercado a cada cinco minutos. O disparo manual desse workflow envia uma mensagem de configuração aos assinantes ativos; não o use apenas para teste rotineiro.
+O workflow `.github/workflows/telegram-alerts.yml` verifica o mercado a cada cinco minutos. O disparo manual desse workflow é um teste seco: nada é enviado ao Telegram, a baseline de alertas não avança e o histórico não é gravado — o log mostra apenas os eventos que seriam entregues.
 
 ## Desenvolvimento local
 
