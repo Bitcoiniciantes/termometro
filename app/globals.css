@@ -195,15 +195,24 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 
 /* Gráfico OHLC real */
 .realPriceChart {
+  --chart-bg: #f8fafc;
+  --chart-surface: #ffffff;
+  --chart-border: #cbd5e1;
+  --chart-text: #475569;
+  --chart-grid: #e2e8f0;
+  --up: #0f9d74;
+  --down: #dc2626;
+  --price-line: #2563eb;
   height: 360px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  border: 1px solid var(--chart-border);
+  border-radius: 12px;
   background:
-    linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
-    radial-gradient(circle at 50% 20%, rgba(46,232,194,.045), transparent 45%),
-    #0d1512;
-  background-size: 100% 20%, 12.5% 100%, auto, auto;
+    linear-gradient(var(--chart-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--chart-grid) 1px, transparent 1px),
+    var(--chart-bg);
+  background-size: 100% 20%, 12.5% 100%;
 }
 .priceChartEmpty { display:grid; place-items:center; color:var(--muted); font-size:11px; letter-spacing:.08em; }
 .chartOhlc {
@@ -309,15 +318,61 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .realPriceChart .chartIdentity b { font-size:42px; opacity:.09; }
 .realPriceChart .chartIdentity span { opacity:.32; }
 
-.candlePlot { touch-action:pan-y; cursor:grab; }
-.candlePlot:active { cursor:grabbing; }
-.chartPriceScaleInteraction { position:absolute; top:57px; right:0; bottom:30px; width:76px; z-index:6; cursor:ns-resize; touch-action:none; }
-.chartViewportControls { position:absolute; top:10px; right:8px; z-index:9; display:flex; gap:4px; }
-.chartViewportControls button { padding:4px 6px; border:1px solid #465750; border-radius:3px; background:#101815dd; color:#aeb9b4; font-size:7px; font-weight:900; letter-spacing:.04em; cursor:pointer; }
-.chartViewportControls button:hover,.chartViewportControls button:focus-visible { border-color:#70d77a; color:var(--paper); outline:none; }
-.priceLevel.outOfRange { border-top-style:dotted; opacity:.8; }
-.priceLevel.outOfRange span { color:#d0d8d3; }
-.priceLevel.outOfRange small { color:var(--muted); font-size:6px; letter-spacing:.04em; }
+/* Ajustes visuais exclusivos do gráfico claro */
+.realPriceChart .chartIdentity {
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+.realPriceChart .chartIdentity b {
+  color: #94a3b8;
+  opacity: .10;
+}
+.realPriceChart .chartIdentity span {
+  color: var(--chart-text);
+}
+.realPriceChart .realCandle.up { color: var(--up); }
+.realPriceChart .realCandle.down { color: var(--down); }
+.realPriceChart .chartAxis,
+.realPriceChart .chartDates {
+  color: var(--chart-text);
+  font-size: 11px;
+}
+.realPriceChart .priceLevel {
+  border-top-width: 1.5px;
+  opacity: .8;
+}
+.realPriceChart .resistanceLevel {
+  border-color: rgba(220, 38, 38, .8);
+  color: var(--down);
+}
+.realPriceChart .supportLevel {
+  border-color: rgba(15, 157, 116, .8);
+  color: var(--up);
+}
+.realPriceChart .currentPriceLevel {
+  border-color: var(--price-line);
+}
+.realPriceChart .priceTagCurrent {
+  background: #2563eb;
+  color: #ffffff;
+}
+.realPriceChart .alertToggleBtn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+.realPriceChart .alertToggleBtn:hover,
+.realPriceChart .alertToggleBtn:focus-visible {
+  background: #f8fafc;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+.realPriceChart .alertToggleBtn.active {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
+}
 
 @media(max-width:650px){
   .realPriceChart { height:330px; }
@@ -332,9 +387,6 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   .priceTagLayer { inset:72px 0 30px 0; }
   .priceTagCurrent { right:4px; font-size:9px; padding:2px 5px; }
   .chartFoot { gap:12px; }
-  .chartPriceScaleInteraction { width:44px; }
-  .chartViewportControls { top:10px; right:6px; gap:3px; }
-  .chartViewportControls button { padding:5px 5px; font-size:6px; }
 }
 .mobileChartPeriods { display:none; }
 
@@ -379,9 +431,6 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .quoteLive>span::before { content:""; display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; background:var(--cyan); box-shadow:0 0 10px var(--cyan); animation:liveQuotePulse 1.8s ease-in-out infinite; }
 @keyframes liveQuotePulse { 50% { opacity:.38; transform:scale(.72); } }
 @media(prefers-reduced-motion:reduce){.quoteLive>span::before{animation:none}}
-
-/* Controle recolhível do raio-x da nota. */
-.signalsTitle{height:75px}.signalsHeaderActions{display:flex;align-items:center;gap:10px}.signalsToggle{padding:5px 7px;border:1px solid var(--line);background:#121b18;color:var(--muted);font-size:8px;font-weight:800;letter-spacing:.04em;cursor:pointer;transition:color .2s ease,border-color .2s ease,background .2s ease}.signalsToggle:hover,.signalsToggle:focus-visible{border-color:#52635b;color:var(--paper);background:#1a2822;outline:none}.signalsBody{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s ease}.signalsBody.expanded{grid-template-rows:1fr}.signalsBody>.signalList{min-height:0;overflow:hidden}
 
 /* Análise opcional do Gemini: o motor técnico permanece determinístico. */
 .aiAnalysis{overflow:hidden;border-color:#365447}.aiAnalysis .cardTitle{height:58px}.aiBadge{display:grid;place-items:center;width:28px;height:28px;border:1px solid #54b85a88;color:var(--lime)!important;font-weight:900;letter-spacing:.08em!important;position:relative;overflow:visible;background:transparent}.aiBadge::before{content:"✦";position:absolute;font-size:18px;animation:geminiFloat 3s ease-in-out infinite;color:#54b85a;z-index:0;opacity:.8;filter:blur(.5px)}.aiBadge::after{content:"IA";position:absolute;font-size:11px;letter-spacing:.08em;z-index:2;color:inherit}@keyframes geminiFloat{0%{transform:translateX(-8px) translateY(-8px) scale(.9);opacity:.5}50%{transform:translateX(6px) translateY(6px) scale(1.1);opacity:.7}100%{transform:translateX(-8px) translateY(-8px) scale(.9);opacity:.5}}.aiIntro{padding:18px}.aiIntro>p{margin:0 0 14px;color:#a8b4af;font-size:10px;line-height:1.55}.aiIntro button,.aiActions button{border:1px solid #54b85a99;background:#54b85a18;color:var(--lime);padding:9px 12px;font-size:9px;font-weight:900;letter-spacing:.08em;cursor:pointer}.aiIntro button:disabled,.aiActions button:disabled{opacity:.5;cursor:wait}.aiResult{padding:15px 18px 8px}.aiSource{display:block;margin:0 0 8px;color:#74d99a;font-size:8px;letter-spacing:.1em}.aiSource.cache{color:#9ba8a2}.aiScenario{display:flex;align-items:center;justify-content:space-between;border-left:3px solid #8b9892;background:#0c1411;padding:10px 12px}.aiScenario span{color:var(--muted);font-size:8px;letter-spacing:.14em}.aiScenario b{font-size:11px}.aiScenario.alta{border-color:var(--lime)}.aiScenario.alta b{color:var(--lime)}.aiScenario.baixa,.aiScenario.risco-elevado{border-color:var(--red)}.aiScenario.baixa b,.aiScenario.risco-elevado b{color:var(--red)}.aiResult>h3{margin:13px 0 7px;font-size:14px}.aiResult>p{margin:0;color:#a8b4af;font-size:11px;line-height:1.55}.aiSection{margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}.aiSection>b,.aiInvalidation>span{color:var(--muted);font-size:8px;letter-spacing:.12em}.aiSection ol,.aiSection ul{margin:8px 0 0;padding-left:18px;color:#d2dad6;font-size:10px;line-height:1.55}.aiNews{margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}.aiNews>b{color:var(--muted);font-size:8px;letter-spacing:.12em;display:block;margin-bottom:8px}.aiNews p{margin:0;color:#9eaaa4;font-size:9px;line-height:1.45}.aiNews ul{list-style:none;padding-left:0;margin:8px 0 0}.aiNews li{margin:0 0 8px;color:#d2dad6;font-size:9px;line-height:1.45}.aiNews a{display:block;color:#d7e7dc;text-decoration:none;font-size:9px;line-height:1.35;font-weight:500}.aiNews a:hover{text-decoration:underline;color:var(--lime)}.aiNews small{display:inline;margin-left:4px;color:var(--muted);font-size:8px}
