@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs tests/chart.test.mjs tests/live-price.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
