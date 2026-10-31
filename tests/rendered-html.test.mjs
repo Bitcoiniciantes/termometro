@@ -31,6 +31,19 @@ test("expõe o painel e o motor transparente", async () => {
   assert.match(analysis, /Força da tendência \(ADX\)/);
 });
 
+test("preserva o ciclo de ponteiros do pinch e o scroll vertical", async () => {
+  const [chart, styles] = await Promise.all([
+    readFile(new URL("../app/PriceStructureChart.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(chart, /setPointerCapture\(event\.pointerId\)/);
+  assert.match(chart, /pointerIds\.forEach/);
+  assert.match(chart, /touchPointsRef\.current\.clear\(\)/);
+  assert.match(chart, /onPointerCancel=\{endInteraction\}/);
+  assert.match(chart, /onLostPointerCapture=\{finishInteraction\}/);
+  assert.match(styles, /\.candlePlot \{ touch-action:pan-y;/);
+});
+
 test("consulta a fonte pública diretamente no navegador", async () => {
   const [api, config] = await Promise.all([
     readFile(new URL("../lib/api.ts", import.meta.url), "utf8"),
