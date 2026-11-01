@@ -288,7 +288,9 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .priceTagLayer { position:absolute; inset:57px 0 30px 0; pointer-events:none; z-index:5; }
 .realPriceChart .priceTagCurrent { position:absolute; right:6px; transform:translateY(-50%); padding:3px 6px; border-radius:3px; background:#2563eb; color:#ffffff; font-size:11px; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; box-shadow:0 2px 8px #0003; }
 .realPriceChart .chartAxis { z-index:2; }
-.realPriceChart .chartAxis > span { position:absolute; right:0; transform:translateY(-50%); white-space:nowrap; }
+.realPriceChart .chartAxis > span { position:absolute; right:0; transform:translateY(-50%); text-align:right; white-space:nowrap; }
+.realPriceChart .chartAxis .chartAxisCurrency { top:-16px; transform:none; font-size:9px; opacity:.75; }
+.realPriceChart .chartAxis .axisMiddleHidden { opacity:0; }
 .realPriceChart .chartDates {
   position:absolute;
   left:17px;
@@ -304,9 +306,9 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 }
 .candleUpDot { background:var(--cyan); }
 .candleDownDot { background:var(--red); }
-.realPriceChart .chartIdentity { top:50%; z-index:1; transform:translate(-50%,-50%); }
-.realPriceChart .chartIdentity b { font-size:42px; color:#94a3b8; opacity:.10; pointer-events:none; z-index:1; }
-.realPriceChart .chartIdentity span { opacity:.32; }
+.realPriceChart .chartIdentity { top:50%; z-index:1; transform:translate(-50%,-50%); pointer-events:none; user-select:none; }
+.realPriceChart .chartIdentity b { font-size:clamp(48px,9vw,96px); font-weight:800; color:#94a3b8; opacity:.22; pointer-events:none; user-select:none; z-index:1; }
+.realPriceChart .chartIdentity span { color:#94a3b8; font-size:11px; opacity:.5; user-select:none; }
 
 .candlePlot { touch-action:pan-y; cursor:grab; }
 .candlePlot:active { cursor:grabbing; }
