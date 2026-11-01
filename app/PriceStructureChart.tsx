@@ -366,9 +366,11 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
       </dl>
     </div>
     <div className="chartAxis" aria-hidden="true">
-      <span>{formatPrice(geometry.max, currency)}</span>
-      <span>{formatPrice(geometry.mid, currency)}</span>
-      <span>{formatPrice(geometry.min, currency)}</span>
+      {Array.from({ length: 5 }, (_, index) => {
+        const position = index * 25;
+        const value = geometry.max - (geometry.max - geometry.min) * (position / 100);
+        return <span key={position} style={{ top: `${position}%` }}>{formatPrice(value, currency)}</span>;
+      })}
     </div>
     <div
       ref={plotRef}
