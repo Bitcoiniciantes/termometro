@@ -358,12 +358,12 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
     </div>
     <button type="button" onClick={() => toggleAlert(symbol, support, resistance, "GRAPH", period)} className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`} aria-pressed={isAlertEnabled}>{isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}</button>
     <div className={`chartOhlc ${selectedTone}`} aria-live="polite">
-      <span>{formatDate(selected.time, period)}</span>
+      <div className="chartOhlcMeta"><span>{formatDate(selected.time, period)}</span><small>{currency}</small></div>
       <dl>
-        <div><dt>A</dt><dd>{formatPrice(selected.open, currency)}</dd></div>
-        <div><dt>Máx</dt><dd>{formatPrice(selected.high, currency)}</dd></div>
-        <div><dt>Mín</dt><dd>{formatPrice(selected.low, currency)}</dd></div>
-        <div><dt>F</dt><dd>{formatPrice(selected.close, currency)}</dd></div>
+        <div><dt>A</dt><dd>{formatPriceNumber(selected.open)}</dd></div>
+        <div><dt>Máx</dt><dd>{formatPriceNumber(selected.high)}</dd></div>
+        <div><dt>Mín</dt><dd>{formatPriceNumber(selected.low)}</dd></div>
+        <div><dt>F</dt><dd>{formatPriceNumber(selected.close)}</dd></div>
       </dl>
     </div>
     <div className="chartAxis" aria-hidden="true">
