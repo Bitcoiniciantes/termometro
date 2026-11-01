@@ -32,7 +32,7 @@ type Props = {
 
 function formatPriceNumber(value: number) {
   const maximumFractionDigits = value >= 1 ? 2 : 6;
-  return value.toLocaleString("pt-BR", { maximumFractionDigits });
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: maximumFractionDigits, maximumFractionDigits });
 }
 
 function formatPrice(value: number, currency: string) {

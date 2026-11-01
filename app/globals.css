@@ -228,7 +228,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .realPriceChart .chartOhlc dl { display:flex; align-items:center; gap:11px; margin:0; }
 .realPriceChart .chartOhlc dl div { display:flex; gap:4px; }
 .realPriceChart .chartOhlc dt { color:#475569; text-transform:uppercase; }
-.realPriceChart .chartOhlc dd { margin:0; font-weight:800; }
+.realPriceChart .chartOhlc dd { margin:0; min-width:16ch; font-weight:800; font-variant-numeric:tabular-nums; }
 .realPriceChart .chartOhlc.up dd,.realPriceChart .chartOhlc.down dd { color:#475569; }
 .realPriceChart .chartAxis {
   position:absolute;
