@@ -217,12 +217,12 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   align-items:baseline;
   flex-wrap:nowrap;
   white-space:nowrap;
-  gap:14px;
+  justify-content:flex-start;
+  gap:16px;
   width:max-content;
-  min-width:560px;
   max-width:calc(100% - 16px);
   min-height:0;
-  padding:6px 10px;
+  padding:6px 12px;
   overflow:visible;
   border:1px solid #cbd5e1;
   background:#ffffff;
@@ -230,12 +230,12 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   color:#475569;
   font-variant-numeric:tabular-nums;
 }
-.realPriceChart .chartOhlcMeta { flex:0 0 14ch; min-width:14ch; color:#475569; font-size:10px; white-space:nowrap; }
+.realPriceChart .chartOhlcMeta { flex:0 0 11ch; min-width:11ch; color:#475569; font-size:10px; white-space:nowrap; }
 .realPriceChart .chartOhlcMeta span { display:block; overflow:hidden; text-overflow:ellipsis; }
-.realPriceChart .chartOhlc dl { display:flex; flex:1 1 auto; align-items:baseline; gap:14px; width:auto; margin:0; min-width:0; }
-.realPriceChart .chartOhlc dl div { display:flex; align-items:baseline; gap:5px; flex:0 0 15ch; min-width:15ch; text-align:left; white-space:nowrap; }
+.realPriceChart .chartOhlc dl { display:flex; flex:0 0 auto; align-items:baseline; gap:16px; width:auto; margin:0; min-width:0; }
+.realPriceChart .chartOhlc dl div { display:flex; align-items:baseline; gap:5px; flex:0 0 auto; min-width:0; text-align:left; white-space:nowrap; }
 .realPriceChart .chartOhlc dt { color:#475569; font-size:10px; text-transform:uppercase; }
-.realPriceChart .chartOhlc dd { margin:0; min-width:0; font-size:11px; font-weight:800; font-variant-numeric:tabular-nums; }
+.realPriceChart .chartOhlc dd { margin:0; min-width:10ch; font-size:11px; font-weight:800; font-variant-numeric:tabular-nums; }
 .realPriceChart .chartOhlc.up dd { color:#0f9d74; }
 .realPriceChart .chartOhlc.down dd { color:#dc2626; }
 .realPriceChart .chartAxis {
