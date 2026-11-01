@@ -197,16 +197,17 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .realPriceChart {
   height: 360px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  border: 1px solid #cbd5e1;
+  border-radius: 0;
   background:
-    linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
-    radial-gradient(circle at 50% 20%, rgba(46,232,194,.045), transparent 45%),
-    #0d1512;
+    linear-gradient(#e2e8f0 1px, transparent 1px),
+    linear-gradient(90deg, #e2e8f0 1px, transparent 1px),
+    #f8fafc;
   background-size: 100% 20%, 12.5% 100%, auto, auto;
 }
 .priceChartEmpty { display:grid; place-items:center; color:var(--muted); font-size:11px; letter-spacing:.08em; }
-.chartOhlc {
+.realPriceChart .chartOhlc {
   position:absolute;
   top:12px;
   left:16px;
@@ -216,21 +217,20 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   gap:13px;
   min-height:31px;
   padding:6px 9px;
-  border:1px solid rgba(255,255,255,.08);
-  background:rgba(9,16,14,.82);
+  border:1px solid #cbd5e1;
+  background:#ffffff;
   backdrop-filter:blur(8px);
-  color:#b9c4bf;
-  font-size:9px;
+  color:#475569;
+  font-size:11px;
   font-variant-numeric:tabular-nums;
 }
-.chartOhlc>span { color:#7f8c86; white-space:nowrap; }
-.chartOhlc dl { display:flex; align-items:center; gap:11px; margin:0; }
-.chartOhlc dl div { display:flex; gap:4px; }
-.chartOhlc dt { color:#718079; text-transform:uppercase; }
-.chartOhlc dd { margin:0; font-weight:800; }
-.chartOhlc.up dd { color:var(--cyan); }
-.chartOhlc.down dd { color:var(--red); }
-.chartAxis {
+.realPriceChart .chartOhlc>span { color:#475569; white-space:nowrap; }
+.realPriceChart .chartOhlc dl { display:flex; align-items:center; gap:11px; margin:0; }
+.realPriceChart .chartOhlc dl div { display:flex; gap:4px; }
+.realPriceChart .chartOhlc dt { color:#475569; text-transform:uppercase; }
+.realPriceChart .chartOhlc dd { margin:0; font-weight:800; }
+.realPriceChart .chartOhlc.up dd,.realPriceChart .chartOhlc.down dd { color:#475569; }
+.realPriceChart .chartAxis {
   position:absolute;
   top:57px;
   right:11px;
@@ -239,8 +239,8 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   display:flex;
   flex-direction:column;
   justify-content:space-between;
-  color:#64716b;
-  font-size:8px;
+  color:#475569;
+  font-size:11px;
   font-variant-numeric:tabular-nums;
   pointer-events:none;
 }
@@ -267,8 +267,8 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .candleWick,.candleBody { position:absolute; display:block; left:50%; transform:translateX(-50%); pointer-events:none; }
 .candleWick { width:1px; min-height:1px; background:currentColor; opacity:.9; }
 .candleBody { width:clamp(2px,58%,9px); min-height:2px; background:currentColor; border-radius:1px; }
-.realCandle.up { color:var(--cyan); }
-.realCandle.down { color:var(--red); }
+.realPriceChart .realCandle.up { color:#0f9d74; }
+.realPriceChart .realCandle.down { color:#dc2626; }
 .realCandle.forming .candleBody { box-shadow:0 0 0 1px rgba(255,255,255,.3),0 0 10px currentColor; }
 .realCandle.forming::after {
   content:"";
@@ -282,15 +282,15 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   transform:translateX(-50%);
   box-shadow:0 0 8px currentColor;
 }
-.priceLevel { position:absolute; left:0; right:0; border-top:1px dashed; pointer-events:none; z-index:1; }
-.priceLevel span { position:absolute; right:auto; left:4px; top:-17px; padding:2px 4px; background:#0d1512; font-size:7px; letter-spacing:.1em; text-transform:uppercase; }
-.resistanceLevel { border-color:rgba(255,91,103,.55); color:var(--red); }
-.supportLevel { border-color:rgba(84,184,90,.6); color:var(--lime); }
-.currentPriceLevel { border-color:#4aa8ff; border-top-style:dashed; z-index:2; }
+.realPriceChart .priceLevel { position:absolute; left:0; right:0; border-top:1.5px dashed; opacity:.85; pointer-events:none; z-index:1; }
+.realPriceChart .priceLevel span { position:absolute; right:auto; left:4px; top:-19px; padding:2px 4px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; font-size:11px; line-height:1.2; letter-spacing:.04em; text-transform:uppercase; }
+.realPriceChart .resistanceLevel { border-color:#dc2626; color:#dc2626; }
+.realPriceChart .supportLevel { border-color:#0f9d74; color:#0f9d74; }
+.realPriceChart .currentPriceLevel { border-color:#2563eb; border-top-style:dashed; opacity:1; z-index:2; }
 .priceTagLayer { position:absolute; inset:57px 0 30px 0; pointer-events:none; z-index:5; }
-.priceTagCurrent { position:absolute; right:6px; transform:translateY(-50%); padding:3px 6px; border-radius:3px; background:#2d8dde; color:#eaf6ff; font-size:10px; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; box-shadow:0 2px 8px #0006; }
+.realPriceChart .priceTagCurrent { position:absolute; right:6px; transform:translateY(-50%); padding:3px 6px; border-radius:3px; background:#2563eb; color:#ffffff; font-size:11px; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; box-shadow:0 2px 8px #0003; }
 .realPriceChart .chartAxis { z-index:2; }
-.chartDates {
+.realPriceChart .chartDates {
   position:absolute;
   left:17px;
   right:88px;
@@ -298,26 +298,28 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   z-index:4;
   display:flex;
   justify-content:space-between;
-  color:#5f6c66;
-  font-size:8px;
+  color:#475569;
+  font-size:11px;
   font-variant-numeric:tabular-nums;
   pointer-events:none;
 }
 .candleUpDot { background:var(--cyan); }
 .candleDownDot { background:var(--red); }
 .realPriceChart .chartIdentity { top:50%; z-index:1; transform:translate(-50%,-50%); }
-.realPriceChart .chartIdentity b { font-size:42px; opacity:.09; }
+.realPriceChart .chartIdentity b { font-size:42px; color:#94a3b8; opacity:.10; pointer-events:none; z-index:1; }
 .realPriceChart .chartIdentity span { opacity:.32; }
 
 .candlePlot { touch-action:pan-y; cursor:grab; }
 .candlePlot:active { cursor:grabbing; }
 .chartPriceScaleInteraction { position:absolute; top:57px; right:0; bottom:30px; width:76px; z-index:6; cursor:ns-resize; touch-action:none; }
-.chartViewportControls { position:absolute; top:10px; right:8px; z-index:9; display:flex; gap:4px; }
-.chartViewportControls button { padding:4px 6px; border:1px solid #465750; border-radius:3px; background:#101815dd; color:#aeb9b4; font-size:7px; font-weight:900; letter-spacing:.04em; cursor:pointer; }
-.chartViewportControls button:hover,.chartViewportControls button:focus-visible { border-color:#70d77a; color:var(--paper); outline:none; }
+.realPriceChart .chartViewportControls { position:absolute; top:10px; right:8px; z-index:9; display:flex; gap:4px; }
+.realPriceChart .chartViewportControls button { padding:4px 6px; border:1px solid #cbd5e1; border-radius:3px; background:#ffffff; color:#334155; font-size:11px; font-weight:900; letter-spacing:.04em; cursor:pointer; }
+.realPriceChart .chartViewportControls button:hover,.realPriceChart .chartViewportControls button:focus-visible { border-color:#2563eb; color:#2563eb; outline:none; }
+.realPriceChart .alertToggleBtn { background:#ffffff; border-color:#cbd5e1; color:#334155; font-size:11px; }
+.realPriceChart .alertToggleBtn:hover,.realPriceChart .alertToggleBtn.active { background:#ffffff; border-color:#2563eb; color:#2563eb; }
 .priceLevel.outOfRange { border-top-style:dotted; opacity:.8; }
-.priceLevel.outOfRange span { color:#d0d8d3; }
-.priceLevel.outOfRange small { color:var(--muted); font-size:6px; letter-spacing:.04em; }
+.realPriceChart .priceLevel.outOfRange span { color:#475569; }
+.realPriceChart .priceLevel.outOfRange small { color:#475569; font-size:11px; letter-spacing:.04em; }
 
 @media(max-width:650px){
   .realPriceChart { height:330px; }
