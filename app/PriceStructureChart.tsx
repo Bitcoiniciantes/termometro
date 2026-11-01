@@ -346,6 +346,7 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
   };
   const resistancePosition = resistance > 0 ? levelPosition(resistance) : null;
   const supportPosition = support > 0 ? levelPosition(support) : null;
+  const middleAxisCovered = currentPrice > 0 && Math.abs(geometry.scale(currentPrice) - 50) < 7;
 
   return <div className="priceChart realPriceChart">
     <div className="chartIdentity" aria-hidden="true"><b>{asset}</b><span>{period} · OHLC REAL</span></div>
@@ -366,10 +367,11 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
       </dl>
     </div>
     <div className="chartAxis" aria-hidden="true">
+      <span className="chartAxisCurrency">{currency}</span>
       {Array.from({ length: 5 }, (_, index) => {
         const position = index * 25;
         const value = geometry.max - (geometry.max - geometry.min) * (position / 100);
-        return <span key={position} style={{ top: `${position}%` }}>{formatPrice(value, currency)}</span>;
+        return <span key={position} className={position === 50 && middleAxisCovered ? "axisMiddleHidden" : undefined} style={{ top: `${position}%` }}>{formatPriceNumber(value)}</span>;
       })}
     </div>
     <div
