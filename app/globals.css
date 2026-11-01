@@ -218,11 +218,12 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   flex-wrap:nowrap;
   white-space:nowrap;
   gap:14px;
-  width:500px;
+  width:max-content;
+  min-width:560px;
   max-width:calc(100% - 16px);
   min-height:0;
   padding:6px 10px;
-  overflow:hidden;
+  overflow:visible;
   border:1px solid #cbd5e1;
   background:#ffffff;
   backdrop-filter:blur(8px);
@@ -331,7 +332,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 
 @media(max-width:650px){
   .realPriceChart { height:330px; }
-  .realPriceChart .chartOhlc { left:8px; right:auto; width:500px; max-width:calc(100% - 16px); display:grid; grid-template-rows:auto auto; gap:6px; align-items:baseline; white-space:nowrap; }
+  .realPriceChart .chartOhlc { left:8px; right:auto; width:max-content; min-width:0; max-width:calc(100% - 16px); display:grid; grid-template-rows:auto auto; gap:6px; align-items:baseline; white-space:nowrap; }
   .realPriceChart .chartOhlcMeta { min-width:0; }
   .realPriceChart .chartOhlc dl { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; width:100%; }
   .realPriceChart .chartOhlc dl div { min-width:0; flex:initial; gap:3px; font-size:10px; }
