@@ -32,7 +32,7 @@ type Props = {
 
 function formatPriceNumber(value: number) {
   const maximumFractionDigits = value >= 1 ? 2 : 6;
-  return value.toLocaleString("pt-BR", { maximumFractionDigits });
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: maximumFractionDigits, maximumFractionDigits });
 }
 
 function formatPrice(value: number, currency: string) {
@@ -44,6 +44,18 @@ function formatDate(time: number, period: string) {
     ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
     : { day: "2-digit", month: "short", year: "2-digit" };
   return new Date(time).toLocaleString("pt-BR", { ...options, timeZone: "America/Sao_Paulo" });
+}
+
+function formatOhlcDate(time: number, period: string) {
+  const intraday = period === "15M" || period === "1H" || period === "4H";
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    ...(intraday ? { hour: "2-digit", minute: "2-digit" } : { year: "2-digit" }),
+    timeZone: "America/Sao_Paulo",
+  }).formatToParts(new Date(time));
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return intraday ? `${value("day")}/${value("month")} ${value("hour")}:${value("minute")}` : `${value("day")}/${value("month")}/${value("year")}`;
 }
 
 type VerticalViewport = { mode: "auto" | "manual"; range: PriceRange | null };
@@ -358,12 +370,12 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
     </div>
     <button type="button" onClick={() => toggleAlert(symbol, support, resistance, "GRAPH", period)} className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`} aria-pressed={isAlertEnabled}>{isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}</button>
     <div className={`chartOhlc ${selectedTone}`} aria-live="polite">
-      <span>{formatDate(selected.time, period)}</span>
+      <div className="chartOhlcMeta"><span>{formatOhlcDate(selected.time, period)}</span></div>
       <dl>
-        <div><dt>A</dt><dd>{formatPrice(selected.open, currency)}</dd></div>
-        <div><dt>Máx</dt><dd>{formatPrice(selected.high, currency)}</dd></div>
-        <div><dt>Mín</dt><dd>{formatPrice(selected.low, currency)}</dd></div>
-        <div><dt>F</dt><dd>{formatPrice(selected.close, currency)}</dd></div>
+        <div><dt>A</dt><dd>{formatPriceNumber(selected.open)}</dd></div>
+        <div><dt>Máx</dt><dd>{formatPriceNumber(selected.high)}</dd></div>
+        <div><dt>Mín</dt><dd>{formatPriceNumber(selected.low)}</dd></div>
+        <div><dt>F</dt><dd>{formatPriceNumber(selected.close)}</dd></div>
       </dl>
     </div>
     <div className="chartAxis" aria-hidden="true">

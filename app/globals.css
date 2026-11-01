@@ -213,23 +213,31 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   left:16px;
   z-index:7;
   display:flex;
-  align-items:center;
-  gap:13px;
-  min-height:31px;
-  padding:6px 9px;
+  flex-direction:row;
+  align-items:baseline;
+  flex-wrap:nowrap;
+  white-space:nowrap;
+  justify-content:flex-start;
+  gap:16px;
+  width:max-content;
+  max-width:calc(100% - 16px);
+  min-height:0;
+  padding:6px 12px;
+  overflow:visible;
   border:1px solid #cbd5e1;
   background:#ffffff;
   backdrop-filter:blur(8px);
   color:#475569;
-  font-size:11px;
   font-variant-numeric:tabular-nums;
 }
-.realPriceChart .chartOhlc>span { color:#475569; white-space:nowrap; }
-.realPriceChart .chartOhlc dl { display:flex; align-items:center; gap:11px; margin:0; }
-.realPriceChart .chartOhlc dl div { display:flex; gap:4px; }
-.realPriceChart .chartOhlc dt { color:#475569; text-transform:uppercase; }
-.realPriceChart .chartOhlc dd { margin:0; font-weight:800; }
-.realPriceChart .chartOhlc.up dd,.realPriceChart .chartOhlc.down dd { color:#475569; }
+.realPriceChart .chartOhlcMeta { flex:0 0 11ch; min-width:11ch; color:#475569; font-size:10px; white-space:nowrap; }
+.realPriceChart .chartOhlcMeta span { display:block; overflow:hidden; text-overflow:ellipsis; }
+.realPriceChart .chartOhlc dl { display:flex; flex:0 0 auto; align-items:baseline; gap:16px; width:auto; margin:0; min-width:0; }
+.realPriceChart .chartOhlc dl div { display:flex; align-items:baseline; gap:5px; flex:0 0 auto; min-width:0; text-align:left; white-space:nowrap; }
+.realPriceChart .chartOhlc dt { color:#475569; font-size:10px; text-transform:uppercase; }
+.realPriceChart .chartOhlc dd { margin:0; min-width:10ch; font-size:11px; font-weight:800; font-variant-numeric:tabular-nums; }
+.realPriceChart .chartOhlc.up dd { color:#0f9d74; }
+.realPriceChart .chartOhlc.down dd { color:#dc2626; }
 .realPriceChart .chartAxis {
   position:absolute;
   top:57px;
@@ -324,10 +332,11 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 
 @media(max-width:650px){
   .realPriceChart { height:330px; }
-  .chartOhlc { right:10px; left:10px; align-items:flex-start; gap:6px; padding:6px 7px; }
-  .chartOhlc>span { display:none; }
-  .chartOhlc dl { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; width:100%; }
-  .chartOhlc dl div { justify-content:space-between; }
+  .realPriceChart .chartOhlc { left:8px; right:auto; width:max-content; min-width:0; max-width:calc(100% - 16px); display:grid; grid-template-rows:auto auto; gap:6px; align-items:baseline; white-space:nowrap; }
+  .realPriceChart .chartOhlcMeta { min-width:0; }
+  .realPriceChart .chartOhlc dl { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; width:100%; }
+  .realPriceChart .chartOhlc dl div { min-width:0; flex:initial; gap:3px; font-size:10px; }
+  .realPriceChart .chartOhlc dd { font-size:10px; }
   .chartAxis { display:none; }
   .candlePlot { inset:72px 12px 30px; }
   .chartDates { left:12px; right:12px; }
