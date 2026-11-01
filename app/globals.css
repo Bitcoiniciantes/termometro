@@ -236,9 +236,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   right:11px;
   bottom:30px;
   z-index:5;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
+  display:block;
   color:#475569;
   font-size:11px;
   font-variant-numeric:tabular-nums;
@@ -290,6 +288,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .priceTagLayer { position:absolute; inset:57px 0 30px 0; pointer-events:none; z-index:5; }
 .realPriceChart .priceTagCurrent { position:absolute; right:6px; transform:translateY(-50%); padding:3px 6px; border-radius:3px; background:#2563eb; color:#ffffff; font-size:11px; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; box-shadow:0 2px 8px #0003; }
 .realPriceChart .chartAxis { z-index:2; }
+.realPriceChart .chartAxis > span { position:absolute; right:0; transform:translateY(-50%); white-space:nowrap; }
 .realPriceChart .chartDates {
   position:absolute;
   left:17px;
