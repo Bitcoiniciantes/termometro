@@ -46,6 +46,18 @@ function formatDate(time: number, period: string) {
   return new Date(time).toLocaleString("pt-BR", { ...options, timeZone: "America/Sao_Paulo" });
 }
 
+function formatOhlcDate(time: number, period: string) {
+  const intraday = period === "15M" || period === "1H" || period === "4H";
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    ...(intraday ? { hour: "2-digit", minute: "2-digit" } : { year: "2-digit" }),
+    timeZone: "America/Sao_Paulo",
+  }).formatToParts(new Date(time));
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return intraday ? `${value("day")}/${value("month")} ${value("hour")}:${value("minute")}` : `${value("day")}/${value("month")}/${value("year")}`;
+}
+
 type VerticalViewport = { mode: "auto" | "manual"; range: PriceRange | null };
 type ChartViewport = { horizontal: HorizontalViewport; vertical: VerticalViewport };
 type Interaction = {
@@ -358,7 +370,7 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
     </div>
     <button type="button" onClick={() => toggleAlert(symbol, support, resistance, "GRAPH", period)} className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`} aria-pressed={isAlertEnabled}>{isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}</button>
     <div className={`chartOhlc ${selectedTone}`} aria-live="polite">
-      <div className="chartOhlcMeta"><span>{formatDate(selected.time, period)}</span><small>{currency}</small></div>
+      <div className="chartOhlcMeta"><span>{formatOhlcDate(selected.time, period)}</span></div>
       <dl>
         <div><dt>A</dt><dd>{formatPriceNumber(selected.open)}</dd></div>
         <div><dt>Máx</dt><dd>{formatPriceNumber(selected.high)}</dd></div>
