@@ -1,4 +1,5 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 
 import {
   alertBand,
@@ -17,6 +18,8 @@ import { firebaseHistoryConfigured, saveFirebaseHistory } from "../lib/firebase-
 
 const SITE_URL = "https://bitcoiniciantes.github.io/termometro/";
 const STATE_PATH = new URL("../.alert-state/state.json", import.meta.url);
+const B3_TARGETS_PATH = new URL("../config/b3-price-targets.json", import.meta.url);
+const B3_QUOTES_URL = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/quotes";
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SETUP_TEST = process.env.TELEGRAM_SETUP_TEST === "true";
 
@@ -126,49 +129,59 @@ function normalizeSubscribers(subscribers = {}) {
 }
 
 function emptyState() {
-  return { version: 5, updateOffset: 0, subscribers: {}, readings: {}, capitulationWatch: {}, retryQueue: [] };
+  return {
+    version: 6,
+    updateOffset: 0,
+    subscribers: {},
+    readings: {},
+    capitulationWatch: {},
+    priceTargets: {},
+    retryQueue: [],
+  };
+}
+
+function migrateState(parsed) {
+  if ([5, 4, 3, 2].includes(parsed?.version)) {
+    return {
+      version: 6,
+      updateOffset: Number(parsed.updateOffset) || 0,
+      subscribers: normalizeSubscribers(parsed.subscribers),
+      readings: parsed.readings ?? {},
+      capitulationWatch: parsed.capitulationWatch ?? {},
+      priceTargets: parsed.priceTargets ?? {},
+      retryQueue: Array.isArray(parsed.retryQueue) ? parsed.retryQueue : [],
+    };
+  }
+  if (parsed?.version === 1) {
+    const subscribers = {};
+    if (parsed.chatId) {
+      subscribers[String(parsed.chatId)] = {
+        active: true,
+        joinedAt: Date.now(),
+        preference: DEFAULT_PREFERENCE,
+        movement4: false,
+        btcMovementReference: null,
+      };
+    }
+    return {
+      version: 6,
+      updateOffset: 0,
+      subscribers,
+      readings: parsed.readings ?? {},
+      capitulationWatch: {},
+      priceTargets: {},
+      retryQueue: [],
+    };
+  }
+  return null;
 }
 
 async function readState() {
   try {
     const content = await readFile(STATE_PATH, "utf8");
     const parsed = JSON.parse(content);
-    if ([5, 4, 3, 2].includes(parsed?.version)) {
-      return {
-        state: {
-          version: 5,
-          updateOffset: Number(parsed.updateOffset) || 0,
-          subscribers: normalizeSubscribers(parsed.subscribers),
-          readings: parsed.readings ?? {},
-          capitulationWatch: parsed.capitulationWatch ?? {},
-          retryQueue: Array.isArray(parsed.retryQueue) ? parsed.retryQueue : [],
-        },
-        migrated: parsed.version !== 5,
-      };
-    }
-    if (parsed?.version === 1) {
-      const subscribers = {};
-      if (parsed.chatId) {
-        subscribers[String(parsed.chatId)] = {
-          active: true,
-          joinedAt: Date.now(),
-          preference: DEFAULT_PREFERENCE,
-          movement4: false,
-          btcMovementReference: null,
-        };
-      }
-      return {
-        state: {
-          version: 5,
-          updateOffset: 0,
-          subscribers,
-          readings: parsed.readings ?? {},
-          capitulationWatch: {},
-          retryQueue: []
-        },
-        migrated: true,
-      };
-    }
+    const state = migrateState(parsed);
+    if (state) return { state, migrated: parsed.version !== 6 };
   } catch {
     // Primeira execução: o estado será criado depois do primeiro /start.
   }
@@ -177,6 +190,160 @@ async function readState() {
 async function saveState(state) {
   await mkdir(new URL("../.alert-state/", import.meta.url), { recursive: true });
   await writeFile(STATE_PATH, `${JSON.stringify(state, null, 2)}\n`);
+}
+
+function validB3TargetRule(rule) {
+  return Boolean(
+    rule &&
+    typeof rule.id === "string" &&
+    rule.id &&
+    typeof rule.symbol === "string" &&
+    /\.SA$/i.test(rule.symbol) &&
+    typeof rule.label === "string" &&
+    rule.label &&
+    Number.isFinite(Number(rule.target)) &&
+    Number(rule.target) > 0 &&
+    (rule.direction === "UP" || rule.direction === "DOWN") &&
+    typeof rule.active === "boolean",
+  );
+}
+
+async function readB3TargetConfig() {
+  try {
+    const parsed = JSON.parse(await readFile(B3_TARGETS_PATH, "utf8"));
+    if (!Array.isArray(parsed)) return { valid: false, rules: [] };
+    return {
+      valid: true,
+      rules: parsed
+        .filter(validB3TargetRule)
+        .map((rule) => ({
+          ...rule,
+          symbol: rule.symbol.toUpperCase(),
+          target: Number(rule.target),
+        })),
+    };
+  } catch {
+    return { valid: false, rules: [] };
+  }
+}
+
+function b3SessionOpen(timestamp = Date.now()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  if (values.weekday === "Sat" || values.weekday === "Sun") return false;
+  const minutes = Number(values.hour) * 60 + Number(values.minute);
+  return minutes >= 10 * 60 + 5 && minutes <= 17 * 60 + 55;
+}
+
+function validB3Price(value) {
+  return Number.isFinite(Number(value)) && Number(value) > 0;
+}
+
+function formatBrl(value) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function b3PriceTargetMessage(rule, price) {
+  const up = rule.direction === "UP";
+  return [
+    up ? "📈 ALERTA DE PREÇO" : "📉 ALERTA DE PREÇO",
+    "",
+    `Ativo: ${rule.label}`,
+    `Cotação atual: ${formatBrl(price)}`,
+    `Alvo: ${formatBrl(rule.target)}`,
+    `Movimento: ${up ? "subiu até o alvo" : "caiu até o alvo"}`,
+    "",
+    "Alerta técnico educacional. Não representa garantia de resultado ou recomendação personalizada.",
+  ].join("\n");
+}
+
+async function fetchB3Prices(rules) {
+  const symbols = [...new Set(rules.map((rule) => rule.symbol))];
+  if (!symbols.length) return new Map();
+  const body = await fetchJson(
+    `${B3_QUOTES_URL}?assets=${encodeURIComponent(symbols.join(","))}&window=24h`,
+  );
+  const prices = new Map();
+  for (const quote of Array.isArray(body?.quotes) ? body.quotes : []) {
+    if (typeof quote?.symbol !== "string" || !validB3Price(quote.price)) continue;
+    prices.set(quote.symbol.toUpperCase(), Number(quote.price));
+  }
+  return prices;
+}
+
+async function processB3PriceTargets(
+  state,
+  pendingMessages,
+  timestamp = Date.now(),
+  configOverride = null,
+  priceFetcher = fetchB3Prices,
+) {
+  const config = configOverride ?? await readB3TargetConfig();
+  if (!config.valid) return false;
+  if (!state.priceTargets || typeof state.priceTargets !== "object") state.priceTargets = {};
+
+  const activeRules = config.rules.filter((rule) => rule.active);
+  const activeIds = new Set(activeRules.map((rule) => rule.id));
+  let changed = false;
+  for (const id of Object.keys(state.priceTargets)) {
+    if (!activeIds.has(id)) {
+      delete state.priceTargets[id];
+      changed = true;
+    }
+  }
+  if (!activeRules.length || !b3SessionOpen(timestamp)) return changed;
+
+  let prices;
+  try {
+    prices = await priceFetcher(activeRules);
+  } catch {
+    return changed;
+  }
+
+  for (const rule of activeRules) {
+    const price = prices.get(rule.symbol);
+    if (!validB3Price(price)) continue;
+    const previous = state.priceTargets[rule.id];
+    if (!previous) {
+      state.priceTargets[rule.id] = {
+        armed: rule.direction === "UP" ? price < rule.target : price > rule.target,
+        lastPrice: price,
+        triggeredAt: 0,
+      };
+      changed = true;
+      continue;
+    }
+
+    const next = {
+      armed: Boolean(previous.armed),
+      lastPrice: price,
+      triggeredAt: Number(previous.triggeredAt) || 0,
+    };
+    if (!next.armed) {
+      next.armed = rule.direction === "UP" ? price < rule.target : price > rule.target;
+    } else {
+      const crossed = rule.direction === "UP" ? price >= rule.target : price <= rule.target;
+      if (crossed) {
+        next.armed = false;
+        next.triggeredAt = timestamp;
+        pendingMessages.push({ kind: null, text: b3PriceTargetMessage(rule, price) });
+      }
+    }
+    state.priceTargets[rule.id] = next;
+    changed = true;
+  }
+  return changed;
 }
 
 function telegramUrl(method) {
@@ -404,7 +571,7 @@ function activeSubscribers(state, kind = null) {
     .map(([chatId]) => chatId);
 }
 
-async function broadcast(state, text, kind = null) {
+async function broadcast(state, text, kind = null, deliver = sendMessage) {
   let delivered = 0;
   let disabled = 0;
   let failed = 0;
@@ -412,7 +579,7 @@ async function broadcast(state, text, kind = null) {
 
   for (const chatId of activeSubscribers(state, kind)) {
     try {
-      await sendMessage(chatId, text);
+      await deliver(chatId, text);
       delivered += 1;
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
@@ -452,7 +619,7 @@ function queueRetry(state, entries) {
   return queued;
 }
 
-async function flushRetryQueue(state) {
+async function flushRetryQueue(state, deliver = sendMessage) {
   const stats = { delivered: 0, disabled: 0, failed: 0, dropped: 0, dirty: false };
   if (!state.retryQueue.length) return stats;
   const remaining = [];
@@ -467,7 +634,7 @@ async function flushRetryQueue(state) {
       continue;
     }
     try {
-      await sendMessage(entry.chatId, entry.text);
+      await deliver(entry.chatId, entry.text);
       stats.delivered += 1;
       stats.dirty = true;
     } catch (error) {
@@ -784,6 +951,9 @@ async function main() {
   const historyReadings = [];
   const historyEvents = [];
 
+  const b3TargetsChanged = await processB3PriceTargets(scanState, pendingMessages);
+  if (!SETUP_TEST) stateChanged ||= b3TargetsChanged;
+
   for (const config of assets) {
     try {
       const market = await marketData(config);
@@ -1035,4 +1205,17 @@ async function main() {
   for (const error of errors) console.warn(error);
 }
 
-await main();
+export {
+  b3PriceTargetMessage,
+  b3SessionOpen,
+  broadcast,
+  fetchB3Prices,
+  flushRetryQueue,
+  isTerminalRecipientError,
+  migrateState,
+  processB3PriceTargets,
+  queueRetry,
+  validB3Price,
+};
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();
