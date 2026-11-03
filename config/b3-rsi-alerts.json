@@ -1,0 +1,10 @@
+[
+  { "symbol": "VALE3.SA", "label": "VALE3", "active": true },
+  { "symbol": "PETR4.SA", "label": "PETR4", "active": true },
+  { "symbol": "ITUB4.SA", "label": "ITUB4", "active": true },
+  { "symbol": "BBDC4.SA", "label": "BBDC4", "active": true },
+  { "symbol": "BPAC11.SA", "label": "BPAC11", "active": true },
+  { "symbol": "BBAS3.SA", "label": "BBAS3", "active": true },
+  { "symbol": "WEGE3.SA", "label": "WEGE3", "active": true },
+  { "symbol": "USIM5.SA", "label": "USIM5", "active": true }
+]

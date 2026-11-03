@@ -148,7 +148,7 @@ test("14. múltiplas regras mantêm estados independentes", async () => {
   assert.equal(Object.keys(current.priceTargets).length, 2);
 });
 
-test("15. versão 5 migra para 6 sem perder estado", async () => {
+test("15. versão 5 migra para 7 sem perder estado", async () => {
   const old = {
     version: 5,
     updateOffset: 17,
@@ -175,7 +175,7 @@ test("15. versão 5 migra para 6 sem perder estado", async () => {
   });
   const legacyLoaded = await legacyApi.readState();
   const migrated = migrateState(old);
-  assert.equal(migrated.version, 6);
+  assert.equal(migrated.version, 7);
   assert.equal(migrated.priceTargets && typeof migrated.priceTargets, "object");
   for (const key of ["updateOffset", "subscribers", "readings", "capitulationWatch", "retryQueue"]) {
     assert.deepEqual(

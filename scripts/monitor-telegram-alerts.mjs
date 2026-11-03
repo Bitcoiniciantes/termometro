@@ -13,13 +13,15 @@ import {
   shouldDeliverAlert,
   subscriberCommand,
 } from "../lib/alerts.ts";
-import { analyze, completedCandles, scoreLabel } from "../lib/analysis.ts";
+import { analyze, completedCandles, scoreLabel, wilderRsi } from "../lib/analysis.ts";
 import { firebaseHistoryConfigured, saveFirebaseHistory } from "../lib/firebase-history.ts";
 
 const SITE_URL = "https://bitcoiniciantes.github.io/termometro/";
 const STATE_PATH = new URL("../.alert-state/state.json", import.meta.url);
 const B3_TARGETS_PATH = new URL("../config/b3-price-targets.json", import.meta.url);
 const B3_QUOTES_URL = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/quotes";
+const B3_CANDLES_URL = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/candles";
+const B3_RSI_CONFIG_PATH = new URL("../config/b3-rsi-alerts.json", import.meta.url);
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SETUP_TEST = process.env.TELEGRAM_SETUP_TEST === "true";
 
@@ -130,25 +132,39 @@ function normalizeSubscribers(subscribers = {}) {
 
 function emptyState() {
   return {
-    version: 6,
+    version: 7,
     updateOffset: 0,
     subscribers: {},
     readings: {},
     capitulationWatch: {},
     priceTargets: {},
+    rsiAlerts: {},
     retryQueue: [],
   };
 }
 
 function migrateState(parsed) {
-  if ([5, 4, 3, 2].includes(parsed?.version)) {
+  if (parsed?.version === 6) {
     return {
-      version: 6,
+      version: 7,
       updateOffset: Number(parsed.updateOffset) || 0,
       subscribers: normalizeSubscribers(parsed.subscribers),
       readings: parsed.readings ?? {},
       capitulationWatch: parsed.capitulationWatch ?? {},
       priceTargets: parsed.priceTargets ?? {},
+      rsiAlerts: {},
+      retryQueue: Array.isArray(parsed.retryQueue) ? parsed.retryQueue : [],
+    };
+  }
+  if ([5, 4, 3, 2].includes(parsed?.version)) {
+    return {
+      version: 7,
+      updateOffset: Number(parsed.updateOffset) || 0,
+      subscribers: normalizeSubscribers(parsed.subscribers),
+      readings: parsed.readings ?? {},
+      capitulationWatch: parsed.capitulationWatch ?? {},
+      priceTargets: parsed.priceTargets ?? {},
+      rsiAlerts: {},
       retryQueue: Array.isArray(parsed.retryQueue) ? parsed.retryQueue : [],
     };
   }
@@ -164,12 +180,13 @@ function migrateState(parsed) {
       };
     }
     return {
-      version: 6,
+      version: 7,
       updateOffset: 0,
       subscribers,
       readings: parsed.readings ?? {},
       capitulationWatch: {},
       priceTargets: {},
+      rsiAlerts: {},
       retryQueue: [],
     };
   }
@@ -181,7 +198,7 @@ async function readState() {
     const content = await readFile(STATE_PATH, "utf8");
     const parsed = JSON.parse(content);
     const state = migrateState(parsed);
-    if (state) return { state, migrated: parsed.version !== 6 };
+    if (state) return { state, migrated: parsed.version !== 7 };
   } catch {
     // Primeira execução: o estado será criado depois do primeiro /start.
   }
@@ -224,6 +241,35 @@ async function readB3TargetConfig() {
     };
   } catch {
     return { valid: false, rules: [] };
+  }
+}
+
+function validB3RsiSymbol(entry) {
+  return (
+    entry &&
+    typeof entry.symbol === "string" &&
+    /\.SA$/i.test(entry.symbol) &&
+    typeof entry.label === "string" &&
+    entry.label &&
+    typeof entry.active === "boolean"
+  );
+}
+
+async function readB3RsiAlertsConfig() {
+  try {
+    const parsed = JSON.parse(await readFile(B3_RSI_CONFIG_PATH, "utf8"));
+    if (!Array.isArray(parsed)) return { valid: false, symbols: [] };
+    return {
+      valid: true,
+      symbols: parsed
+        .filter(validB3RsiSymbol)
+        .map((entry) => ({
+          ...entry,
+          symbol: entry.symbol.toUpperCase(),
+        })),
+    };
+  } catch {
+    return { valid: false, symbols: [] };
   }
 }
 
@@ -343,6 +389,110 @@ async function processB3PriceTargets(
     state.priceTargets[rule.id] = next;
     changed = true;
   }
+  return changed;
+}
+
+async function fetchB3WeeklyRsi(symbol) {
+  const body = await fetchJson(
+    `${B3_CANDLES_URL}?asset=${encodeURIComponent(symbol)}&period=1S`,
+    { headers: { "User-Agent": "TermometroTelegramAlerts/1.0" } },
+  );
+  const candles = Array.isArray(body?.candles) ? body.candles : [];
+  const closes = candles.map((c) => Number(c.close)).filter(Number.isFinite);
+  const reading = wilderRsi(closes);
+  return reading?.value ?? null;
+}
+
+function b3RsiCrossingMessage(symbol, rsi, level, direction, timestamp) {
+  const up = direction === "UP";
+  return [
+    up ? "📈 ALERTA DE RSI SEMANAL" : "📉 ALERTA DE RSI SEMANAL",
+    "",
+    `Ativo: ${symbol.label}`,
+    `RSI semanal: ${rsi.toFixed(1).replace(".", ",")}`,
+    `Nível: ${level}`,
+    `Direção: ${up ? "cruzou para cima" : "cruzou para baixo"}`,
+    "",
+    `Leitura: ${localTime(timestamp)}`,
+    "",
+    "Semana em formação. Alerta técnico educacional. Não representa garantia de resultado ou recomendação personalizada.",
+  ].join("\n");
+}
+
+async function processB3RsiAlerts(
+  state,
+  pendingMessages,
+  timestamp = Date.now(),
+  configOverride = null,
+  rsiOverride = null,
+) {
+  const config = configOverride ?? await readB3RsiAlertsConfig();
+  if (!config.valid) return false;
+  if (!state.rsiAlerts || typeof state.rsiAlerts !== "object") state.rsiAlerts = {};
+
+  const activeSymbols = config.symbols.filter((s) => s.active);
+  const activeKeys = new Set(activeSymbols.map((s) => s.symbol));
+  let changed = false;
+
+  for (const key of Object.keys(state.rsiAlerts)) {
+    if (!activeKeys.has(key)) {
+      delete state.rsiAlerts[key];
+      changed = true;
+    }
+  }
+
+  if (!activeSymbols.length || !b3SessionOpen(timestamp)) return changed;
+
+  for (const symbol of activeSymbols) {
+    let rsi;
+    try {
+      rsi = rsiOverride ? await rsiOverride(symbol.symbol) : await fetchB3WeeklyRsi(symbol.symbol);
+    } catch {
+      continue;
+    }
+
+    if (rsi == null || !Number.isFinite(rsi)) continue;
+
+    const previous = state.rsiAlerts[symbol.symbol];
+
+    if (!previous) {
+      // Primeira leitura: inicializar sem disparar alerta
+      state.rsiAlerts[symbol.symbol] = {
+        above40: rsi >= 40,
+        above70: rsi >= 70,
+        lastRsi: rsi,
+        lastChecked: timestamp,
+      };
+      changed = true;
+      continue;
+    }
+
+    // Cruzamento descendente de 40
+    if (previous.above40 && rsi < 40) {
+      pendingMessages.push({
+        kind: "OPORTUNIDADE",
+        text: b3RsiCrossingMessage(symbol, rsi, 40, "DOWN", timestamp),
+      });
+    }
+
+    // Cruzamento ascendente de 70
+    if (!previous.above70 && rsi > 70) {
+      pendingMessages.push({
+        kind: "OPORTUNIDADE",
+        text: b3RsiCrossingMessage(symbol, rsi, 70, "UP", timestamp),
+      });
+    }
+
+    // Atualizar estado (rearme automático)
+    state.rsiAlerts[symbol.symbol] = {
+      above40: rsi >= 40,
+      above70: rsi >= 70,
+      lastRsi: rsi,
+      lastChecked: timestamp,
+    };
+    changed = true;
+  }
+
   return changed;
 }
 
@@ -954,6 +1104,9 @@ async function main() {
   const b3TargetsChanged = await processB3PriceTargets(scanState, pendingMessages);
   if (!SETUP_TEST) stateChanged ||= b3TargetsChanged;
 
+  const b3RsiChanged = await processB3RsiAlerts(scanState, pendingMessages);
+  if (!SETUP_TEST) stateChanged ||= b3RsiChanged;
+
   for (const config of assets) {
     try {
       const market = await marketData(config);
@@ -1207,14 +1360,18 @@ async function main() {
 
 export {
   b3PriceTargetMessage,
+  b3RsiCrossingMessage,
   b3SessionOpen,
   broadcast,
   fetchB3Prices,
+  fetchB3WeeklyRsi,
   flushRetryQueue,
   isTerminalRecipientError,
   migrateState,
   processB3PriceTargets,
+  processB3RsiAlerts,
   queueRetry,
+  readB3RsiAlertsConfig,
   validB3Price,
 };
 
