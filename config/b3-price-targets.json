@@ -1,0 +1,10 @@
+[
+  {
+    "id": "VALE3.SA:UP:70",
+    "symbol": "VALE3.SA",
+    "label": "VALE3",
+    "target": 70,
+    "direction": "UP",
+    "active": false
+  }
+]

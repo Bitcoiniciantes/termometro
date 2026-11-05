@@ -114,6 +114,13 @@ export function bitcoinMovement(reference: number, current: number, threshold = 
   if (changePercent <= -threshold) return { direction: "QUEDA" as const, changePercent };
   return null;
 }
+export type B3RsiAlertState = {
+  above40: boolean;
+  above70: boolean;
+  lastRsi: number;
+  lastChecked: number;
+};
+
 export function subscriberCommand(text: unknown): SubscriberCommand {
   if (typeof text !== "string") return null;
   const parts = text.trim().toLocaleLowerCase("pt-BR").split(/\s+/);
