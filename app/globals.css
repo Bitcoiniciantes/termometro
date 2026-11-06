@@ -61,6 +61,26 @@
  .periodFeedback{grid-column:1}
 }
 
+/* Refinamento mobile 2: remove alturas herdadas e reduz o espaço vertical. */
+@media(max-width:480px){
+  .analysisDesk .desktopSearchRow>.assetSearch{height:44px!important;padding:0 4px 0 12px!important}
+  .analysisDesk .desktopSearchRow>.assetSearch>div{height:36px!important;padding:0!important}
+  .analysisDesk .desktopSearchRow>.assetSearch .assetInputWrap{height:36px!important}
+  .analysisDesk .desktopSearchRow>.assetSearch input{height:36px!important;min-height:36px!important;padding:0 80px 0 12px!important;font-size:14px!important;line-height:36px!important;border-radius:999px!important}
+  .analysisDesk .desktopSearchRow>.assetSearch button[type=submit]{height:36px!important;min-height:36px!important;width:72px!important;min-width:72px!important;max-width:72px!important;font-size:11px!important;line-height:1!important;border-radius:999px!important}
+  .analysisDesk .desktopSearchRow>.assetSearch .includeButton{height:36px!important;min-height:36px!important}
+  header{position:static!important;min-height:0!important;padding:8px 12px!important;gap:8px!important}
+  header .brand{gap:9px}header .brand>b{width:30px!important;height:30px!important;font-size:16px!important}header .brand span{font-size:11px!important}header .brand small{font-size:7px!important;margin-top:2px!important}
+  header nav{padding:3px!important;gap:2px!important}header nav a{min-height:44px!important;display:inline-flex;align-items:center;padding:6px 11px!important;font-size:9px!important}
+  .analysisDesk.workspace{padding-top:6px!important}.analysisDesk .workspaceMain{padding-top:6px!important}.deskTop{padding-bottom:6px!important;gap:6px 10px!important}
+  .analysisDesk .quickScale{padding-top:2px!important}.analysisDesk .quickScaleHead{margin-bottom:2px!important}.mobileTopPeriods{padding-top:8px!important}
+  .analysisDesk .mobilePeriodComparison{min-height:0!important;padding:6px 0 0!important}.analysisDesk .periodComparison{min-height:26px!important}.analysisDesk .periodState{padding:4px 8px!important}
+  .analysisDesk .desktopSearchRow{margin-top:8px!important}.analysisDesk .desktopSearchRow>.rsiMirror{height:32px!important;margin-top:6px!important}.analysisDesk .stockTickerBar{margin-top:6px!important}
+  .analysisDesk .biasBoard{margin-top:8px!important;padding-top:8px!important}.analysisDesk .biasHead{gap:8px!important;margin-bottom:6px!important;flex-wrap:wrap}.analysisDesk .biasAiButton{min-height:44px!important;padding:3px 10px!important;font-size:9px!important}
+  .analysisDesk .biasItem,.analysisDesk .biasItem.selected,.analysisDesk .biasSelect{min-height:64px!important;height:64px!important}.analysisDesk .workspaceMain .biasList{gap:6px!important}
+  .analysisDesk .biasGauge{top:7px!important;width:48px!important;height:48px!important}.analysisDesk .biasGauge b{top:10px!important}.analysisDesk .biasSide{top:34px!important}
+}
+
 /* Busca única e radar ampliado de compra e venda */
 .assetSearch{margin-top:12px}.workspace .assetSearch>div{display:grid;grid-template-columns:minmax(0,1fr) auto auto;width:100%;padding:4px}.workspace .assetSearch input{min-width:0}.workspace .assetSearch .includeButton{background:#101815;color:var(--lime);border-left:1px solid #4b5a53}
 .biasBoard{margin-top:14px;padding-top:13px}.biasHead{margin-bottom:10px}.biasHead>span{font-size:10px}.biasHead small{font-size:9px}.biasList{grid-template-columns:repeat(3,1fr);gap:10px}.biasItem{display:block;position:relative;padding:0;background:#0a110f;border:1px solid var(--line);cursor:default}.biasItem:hover,.biasItem.selected{border-color:#66736d}.biasSelect{position:relative;width:100%;min-height:66px;display:grid;grid-template-columns:24px 1fr auto auto;align-items:center;gap:9px;padding:12px 38px 16px 12px;border:0;background:transparent;cursor:pointer;text-align:left}.biasRank{width:22px;height:22px;font-size:9px}.biasSelect>b{font-size:14px}.biasSide{font-size:9px}.biasSelect>strong{font-size:15px}.biasSelect>i{position:absolute;left:12px;right:12px;bottom:7px;height:3px;background:#26312d}.biasSelect>i>em{display:block;height:100%;background:var(--muted)}.biasItem.compra .biasSide,.biasItem.compra .biasSelect>strong{color:var(--lime)}.biasItem.compra .biasSelect>i>em{background:var(--lime)}.biasItem.venda .biasSide,.biasItem.venda .biasSelect>strong{color:var(--red)}.biasItem.venda .biasSelect>i>em{background:var(--red)}.biasItem.neutro .biasSide,.biasItem.neutro .biasSelect>strong{color:#b7c0bc}.biasItem.sem-dados .biasSide,.biasItem.sem-dados .biasSelect>strong{color:#718079}.biasRemove{position:absolute;right:7px;top:7px;width:24px;height:24px;display:grid;place-items:center;padding:0;border:1px solid #46524d;background:#0b110f;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;z-index:2}.biasRemove:hover{border-color:var(--red);color:var(--red);background:#251214}.biasBoard>p{margin-top:8px;font-size:8px}
@@ -1049,4 +1069,24 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   .biasSide{grid-column:2;grid-row:1;justify-self:start;align-self:end;margin-bottom:7px;font-size:8px!important}.biasSide em{font-size:16px}
   .heroThermo .scoreRing{width:132px;height:132px;margin:10px auto 5px}.heroThermo .scoreRing:after{inset:9px}.heroThermo .scoreRing b{font-size:38px;font-weight:700}.heroAsset{font-weight:700}
   .biasRsi,.heroRsi,.periodScoreStrip span,.stockTickerItem b,.stockTickerItem em{font-weight:700}
+}
+
+/* Refinamento mobile 2: última camada absoluta. */
+@media(max-width:480px){
+  .analysisDesk .desktopSearchRow>.assetSearch{height:44px!important;padding:0 4px 0 12px!important}
+  .analysisDesk .desktopSearchRow>.assetSearch>div{height:36px!important;padding:0!important}
+  .analysisDesk .desktopSearchRow>.assetSearch .assetInputWrap{height:36px!important}
+  .analysisDesk .desktopSearchRow>.assetSearch input{height:36px!important;min-height:36px!important;padding:0 80px 0 12px!important;font-size:14px!important;line-height:36px!important;border-radius:999px!important}
+  .analysisDesk .desktopSearchRow>.assetSearch button[type=submit]{height:36px!important;min-height:36px!important;width:72px!important;min-width:72px!important;max-width:72px!important;font-size:11px!important;line-height:1!important;border-radius:999px!important}
+  .analysisDesk .desktopSearchRow>.assetSearch .includeButton{height:36px!important;min-height:36px!important}
+  header{position:static!important;min-height:0!important;padding:8px 12px!important;gap:8px!important}
+  header .brand{gap:9px}header .brand>b{width:30px!important;height:30px!important;font-size:16px!important}header .brand span{font-size:11px!important}header .brand small{font-size:7px!important;margin-top:2px!important}
+  header nav{padding:3px!important;gap:2px!important}header nav a{min-height:44px!important;display:inline-flex;align-items:center;padding:6px 11px!important;font-size:9px!important}
+  .analysisDesk.workspace{padding-top:6px!important}.analysisDesk .workspaceMain{padding-top:6px!important}.deskTop{padding-bottom:6px!important;gap:6px 10px!important}
+  .analysisDesk .quickScale{padding-top:2px!important}.analysisDesk .quickScaleHead{margin-bottom:2px!important}.mobileTopPeriods{padding-top:8px!important}
+  .analysisDesk .mobilePeriodComparison{min-height:0!important;padding:6px 0 0!important}.analysisDesk .periodComparison{min-height:26px!important}.analysisDesk .periodState{padding:4px 8px!important}
+  .analysisDesk .desktopSearchRow{margin-top:8px!important}.analysisDesk .desktopSearchRow>.rsiMirror{height:32px!important;margin-top:6px!important}.analysisDesk .stockTickerBar{margin-top:6px!important}
+  .analysisDesk .biasBoard{margin-top:8px!important;padding-top:8px!important}.analysisDesk .biasHead{gap:8px!important;margin-bottom:6px!important;flex-wrap:wrap}.analysisDesk .biasAiButton{min-height:44px!important;padding:3px 10px!important;font-size:9px!important}
+  .analysisDesk .biasItem,.analysisDesk .biasItem.selected,.analysisDesk .biasSelect{min-height:64px!important;height:64px!important}.analysisDesk .workspaceMain .biasList{gap:6px!important}
+  .analysisDesk .biasGauge{top:7px!important;width:48px!important;height:48px!important}.analysisDesk .biasGauge b{top:10px!important}.analysisDesk .biasSide{top:34px!important}
 }
