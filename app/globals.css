@@ -31,6 +31,33 @@
   .scale { padding-block: 10px; }
   .confidence { margin-bottom: 16px; }
 }
+
+/* Refinamento mobile 3: camada final absoluta. */
+@media(max-width:480px){
+  header{flex-wrap:nowrap!important;align-items:center!important;justify-content:space-between!important;height:auto!important;min-height:0!important;padding:6px 12px!important;gap:8px!important}
+  header .brand{flex:0 0 auto!important;gap:7px!important}header .brand>b{width:28px!important;height:28px!important;font-size:15px!important}header .brand span{font-size:10px!important;letter-spacing:.06em!important}header .brand small{display:none!important}
+  header nav{order:0!important;width:auto!important;flex:0 1 auto!important;min-width:0!important;margin:0!important;padding:2px!important;gap:2px!important;overflow-x:auto!important;scrollbar-width:none}
+  header nav::-webkit-scrollbar{display:none}
+  header nav a{position:relative!important;display:inline-flex!important;align-items:center!important;min-height:30px!important;padding:0 8px!important;font-size:9px!important}
+  header nav a::after{content:"";position:absolute;inset:-7px -2px;pointer-events:none}
+  header nav .externalNav{padding-inline:10px!important}
+  .analysisDesk .biasAiButton{position:relative!important;min-height:30px!important;padding:3px 10px!important}.analysisDesk .biasAiButton::after{content:"";position:absolute;inset:-7px 0;pointer-events:none}
+  .analysisDesk .quickScaleTrack{height:10px!important}.analysisDesk .quickScaleTrack i{height:16px!important;top:-3px!important}
+}
+
+/* Refinamento mobile 3: cabeçalho e escala compactos, sem remover informação. */
+@media(max-width:480px){
+  header{flex-wrap:nowrap!important;align-items:center!important;justify-content:space-between!important;height:auto!important;min-height:0!important;padding:6px 12px!important;gap:8px!important}
+  header .brand{flex:0 0 auto!important;gap:7px!important}.brand>b{width:28px!important;height:28px!important;font-size:15px!important}.brand span{font-size:10px!important;letter-spacing:.06em!important}.brand small{display:none!important}
+  header nav{order:0!important;width:auto!important;flex:0 1 auto!important;min-width:0!important;margin:0!important;padding:2px!important;gap:2px!important;overflow-x:auto!important;scrollbar-width:none}
+  header nav::-webkit-scrollbar{display:none}
+  header nav a{position:relative!important;display:inline-flex!important;align-items:center!important;min-height:30px!important;padding:0 8px!important;font-size:9px!important}
+  header nav a::after{content:"";position:absolute;inset:-7px -2px;pointer-events:none}
+  header nav .externalNav{padding-inline:10px!important}
+  .analysisDesk .biasAiButton{position:relative!important;min-height:30px!important;padding:3px 10px!important}
+  .analysisDesk .biasAiButton::after{content:"";position:absolute;inset:-7px 0;pointer-events:none}
+  .analysisDesk .quickScaleTrack{height:10px!important}.analysisDesk .quickScaleTrack i{height:16px!important;top:-3px!important}
+}
 /* Mesa de leitura: conteúdo útil no primeiro viewport */
 .workspace{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:12px;padding:18px var(--pad-x);background:radial-gradient(circle at 70% 10%,#183329 0,transparent 30%),#09100e;align-items:stretch}.workspaceMain{border:1px solid var(--line);background:#0d1512;padding:16px;min-width:0}.deskTop{display:flex;align-items:center;gap:22px;padding-bottom:13px;border-bottom:1px solid var(--line)}.deskAsset{display:flex;align-items:center;gap:11px}.deskAsset h1{font-size:25px!important;line-height:1!important;letter-spacing:-.03em!important;margin:5px 0 0!important}.deskAsset h1 small{color:var(--muted);font-size:11px;letter-spacing:.05em;margin-left:4px}.deskQuote{display:flex;flex-direction:column;padding-left:20px;border-left:1px solid var(--line)}.deskQuote>span{font-size:8px;color:var(--muted);letter-spacing:.14em}.deskQuote>b{font-size:17px;margin:4px 0}.deskQuote>small{font-size:9px;color:var(--lime);font-weight:800}.down{color:var(--red)!important}.deskTop .periods{margin-left:auto}.compactControls{display:grid;grid-template-columns:1fr .8fr;gap:8px;margin-top:12px}.workspace form{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px;background:transparent;border:1px solid var(--line);padding:6px 6px 6px 11px}.workspace form label{margin:0;white-space:nowrap}.workspace form>div{min-width:0}.workspace form input{padding:7px}.workspace form button{padding:8px 13px}.workspace .addAsset{min-width:0}.workspace .addAsset input{width:100%;min-width:0}.workspace .watchDesk{margin-top:12px;padding-top:10px}.workspace .watchTop{align-items:center}.deskSource{font-size:8px;color:var(--muted)}.workspace .assetChips{grid-template-columns:repeat(6,1fr);margin-top:8px}.workspace .assetChips>button{min-height:49px;padding:7px;grid-template-columns:27px 1fr;column-gap:7px}.workspace .coin{width:26px;height:26px}.heroThermo{min-width:0}.heroThermo .cardTitle{height:58px}.heroThermo .scoreRing{width:132px;height:132px;margin:14px auto 5px}.heroThermo .scoreRing b{font-size:44px}.heroThermo .scale{padding:8px 22px}.heroThermo .confidence{margin:0 22px 12px;padding-top:10px}.dashboard{padding-top:0}.dashboard>.grid{margin-top:0}.dashboard .chart{grid-column:1;grid-row:1}.dashboard .levels{grid-column:2;grid-row:1}.dashboard .signals{grid-column:1/3;grid-row:2}.dashboard .levels .disclaimer{margin-bottom:12px}
 @media(max-width:1099px){.workspace{grid-template-columns:1fr;padding:18px 5vw}.heroThermo{order:2}.workspace .assetChips{grid-template-columns:repeat(3,1fr)}.dashboard .chart,.dashboard .levels,.dashboard .signals{grid-column:auto;grid-row:auto}}
@@ -79,6 +106,19 @@
   .analysisDesk .biasBoard{margin-top:8px!important;padding-top:8px!important}.analysisDesk .biasHead{gap:8px!important;margin-bottom:6px!important;flex-wrap:wrap}.analysisDesk .biasAiButton{min-height:44px!important;padding:3px 10px!important;font-size:9px!important}
   .analysisDesk .biasItem,.analysisDesk .biasItem.selected,.analysisDesk .biasSelect{min-height:64px!important;height:64px!important}.analysisDesk .workspaceMain .biasList{gap:6px!important}
   .analysisDesk .biasGauge{top:7px!important;width:48px!important;height:48px!important}.analysisDesk .biasGauge b{top:10px!important}.analysisDesk .biasSide{top:34px!important}
+}
+
+/* Refinamento mobile 3: camada final absoluta. */
+@media(max-width:480px){
+  header{flex-wrap:nowrap!important;align-items:center!important;justify-content:space-between!important;height:auto!important;min-height:0!important;padding:6px 12px!important;gap:8px!important}
+  header .brand{flex:0 0 auto!important;gap:7px!important}header .brand>b{width:28px!important;height:28px!important;font-size:15px!important}header .brand span{font-size:10px!important;letter-spacing:.06em!important}header .brand small{display:none!important}
+  header nav{order:0!important;width:auto!important;flex:0 1 auto!important;min-width:0!important;margin:0!important;padding:2px!important;gap:2px!important;overflow-x:auto!important;scrollbar-width:none}
+  header nav::-webkit-scrollbar{display:none}
+  header nav a{position:relative!important;display:inline-flex!important;align-items:center!important;min-height:30px!important;padding:0 8px!important;font-size:9px!important}
+  header nav a::after{content:"";position:absolute;inset:-7px -2px;pointer-events:none}
+  header nav .externalNav{padding-inline:10px!important}
+  .analysisDesk .biasAiButton{position:relative!important;min-height:30px!important;padding:3px 10px!important}.analysisDesk .biasAiButton::after{content:"";position:absolute;inset:-7px 0;pointer-events:none}
+  .analysisDesk .quickScaleTrack{height:10px!important}.analysisDesk .quickScaleTrack i{height:16px!important;top:-3px!important}
 }
 
 /* Busca única e radar ampliado de compra e venda */
@@ -1073,6 +1113,16 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 
 /* Refinamento mobile 2: última camada absoluta. */
 @media(max-width:480px){
+  /* Refinamento mobile 3: cabeçalho e escala compactos, sem remover informação. */
+  header{flex-wrap:nowrap!important;align-items:center!important;justify-content:space-between!important;height:auto!important;min-height:0!important;padding:6px 12px!important;gap:8px!important}
+  header .brand{flex:0 0 auto!important;gap:7px!important}header .brand>b{width:28px!important;height:28px!important;font-size:15px!important}header .brand span{font-size:10px!important;letter-spacing:.06em!important}header .brand small{display:none!important}
+  header nav{order:0!important;width:auto!important;flex:0 1 auto!important;min-width:0!important;margin:0!important;padding:2px!important;gap:2px!important;overflow-x:auto!important;scrollbar-width:none}
+  header nav::-webkit-scrollbar{display:none}
+  header nav a{position:relative!important;display:inline-flex!important;align-items:center!important;min-height:30px!important;padding:0 8px!important;font-size:9px!important}
+  header nav a::after{content:"";position:absolute;inset:-7px -2px;pointer-events:none}
+  header nav .externalNav{padding-inline:10px!important}
+  .analysisDesk .biasAiButton{position:relative!important;min-height:30px!important;padding:3px 10px!important}.analysisDesk .biasAiButton::after{content:"";position:absolute;inset:-7px 0;pointer-events:none}
+  .analysisDesk .quickScaleTrack{height:10px!important}.analysisDesk .quickScaleTrack i{height:16px!important;top:-3px!important}
   .analysisDesk .desktopSearchRow>.assetSearch{height:44px!important;padding:0 4px 0 12px!important}
   .analysisDesk .desktopSearchRow>.assetSearch>div{height:36px!important;padding:0!important}
   .analysisDesk .desktopSearchRow>.assetSearch .assetInputWrap{height:36px!important}
