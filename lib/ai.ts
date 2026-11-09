@@ -218,6 +218,10 @@ export type AssetNewsResponse = {
 
 const newsCache = new Map<string, { expiresAt: number; data: AssetNewsResponse }>();
 
+export function newsCacheRemainingMs(asset: string): number {
+  return Math.max(0, (newsCache.get(asset)?.expiresAt ?? 0) - Date.now());
+}
+
 export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promise<AssetNewsResponse> {
   const cached = newsCache.get(asset);
   if (cached && cached.expiresAt > Date.now()) return cached.data;

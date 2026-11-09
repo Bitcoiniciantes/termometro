@@ -6,6 +6,7 @@ import {
   buildLocalAiPreview,
   fetchAiAnalysis,
   fetchAssetNews,
+  newsCacheRemainingMs,
   type AssetNewsResponse,
   readCachedAiAnalysis,
   writeCachedAiAnalysis,
@@ -96,20 +97,39 @@ export default function AiAnalysisCard({
 
   useEffect(() => {
     let controller: AbortController | null = null;
+    let timer: number | undefined;
+    let active = true;
+    let pending = false;
+    const schedule = () => {
+      if (!active || document.hidden) return;
+      if (timer !== undefined) window.clearTimeout(timer);
+      const remaining = newsCacheRemainingMs(payload.asset);
+      timer = window.setTimeout(loadNews, remaining || NEWS_REFRESH_MS);
+    };
     const loadNews = () => {
-      controller?.abort();
+      if (!active || document.hidden || pending) return;
+      pending = true;
       controller = new AbortController();
+      const current = controller;
       setNewsLoading(true);
       setNewsError(false);
-      fetchAssetNews(payload.asset, controller.signal)
-        .then(result => { if (!controller?.signal.aborted) setNews(result); })
-        .catch(() => { if (!controller?.signal.aborted) setNewsError(true); })
-        .finally(() => { if (!controller?.signal.aborted) setNewsLoading(false); });
+      fetchAssetNews(payload.asset, current.signal)
+        .then(result => { if (!current.signal.aborted) setNews(result); })
+        .catch(() => { if (!current.signal.aborted) setNewsError(true); })
+        .finally(() => { pending = false; if (!current.signal.aborted) setNewsLoading(false); schedule(); });
     };
-    loadNews();
-    const timer = window.setInterval(loadNews, NEWS_REFRESH_MS);
+    const visibility = () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = undefined;
+      if (document.hidden) return;
+      if (!pending) loadNews();
+    };
+    visibility();
+    document.addEventListener("visibilitychange", visibility);
     return () => {
-      window.clearInterval(timer);
+      active = false;
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", visibility);
       controller?.abort();
     };
   }, [payload.asset]);
