@@ -32,6 +32,9 @@
   .confidence { margin-bottom: 16px; }
 }
 
+/* Identidade do ativo: visual do texto sem alterar o botão IA nem a lógica do ticker. */
+.deskAsset>div{min-width:0}.deskAsset .assetEyebrow{display:flex;align-items:center;gap:7px;color:var(--lime);font-size:10px!important;font-weight:600!important;letter-spacing:.16em!important;line-height:1.1}.deskAsset .assetEyebrow::before{content:"";width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:var(--lime)}.deskAsset .assetName{display:flex;align-items:baseline;gap:4px;min-width:0;max-width:100%;overflow:hidden}.deskAsset .assetTicker{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:30px;font-weight:800;line-height:1;letter-spacing:-.01em;background:linear-gradient(90deg,#fff,#cfd8d3);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}.deskAsset .assetName small{flex:0 0 auto;margin-left:0;color:#8a948e;font-size:13px;font-weight:500;line-height:1;letter-spacing:0}.deskAsset .assetEyebrow+ .assetName{margin-top:4px!important}@supports not (-webkit-background-clip:text){.deskAsset .assetTicker{color:#fff;background:none;-webkit-text-fill-color:initial}}@media(max-width:650px){.deskAsset .assetEyebrow{font-size:9px!important}.deskAsset .assetTicker{font-size:22px}.deskAsset .assetName small{font-size:10px}}
+
 /* Refinamento mobile 3: camada final absoluta. */
 @media(max-width:480px){
   header{flex-wrap:nowrap!important;align-items:center!important;justify-content:space-between!important;height:auto!important;min-height:0!important;padding:6px 12px!important;gap:8px!important}
@@ -1107,6 +1110,24 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 @media(max-width:1099px){.analysisDesk .fearGreedCard{order:9;width:100%;margin-top:0}}
 @media(max-width:520px){.fearGreedCard{padding:14px 14px 11px}.fngSvg{max-width:none}.fngHeader b{font-size:10px}.fngHeader span{font-size:8px}.fngHistoryItem{padding-inline:1px}.fngHistoryItem>span{font-size:6px;letter-spacing:.04em}.fngHistoryItem em{font-size:7px}.fngFooter{font-size:7px}}
 .fngTipBullet{width:7px;height:1.4em;flex:0 0 7px;margin-top:0;border-radius:0;background:none!important}.fngTipBullet::before{content:"•";display:block;font:900 16px/1 var(--font-geist-sans),Arial,sans-serif}.fngTipFear::before{color:#E65100}.fngTipGreed::before{color:#4CAF50}
+
+/* Cabeçalho do ativo: camada final do visual da referência, sem alterar o botão IA. */
+.deskAsset>div{display:flex;flex-direction:column;min-width:0;max-width:100%}
+.deskAsset .assetEyebrow{display:inline-flex;align-items:center;align-self:flex-start;gap:7px;max-width:100%;padding:4px 8px;border:1px solid rgba(84,184,90,.28);border-radius:999px;background:#13251b;color:var(--lime)!important;font-size:10px!important;font-weight:600!important;letter-spacing:.16em!important;line-height:1.1;white-space:nowrap}
+.deskAsset .assetEyebrow::before{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:var(--lime);box-shadow:none}
+.deskAsset .assetName{display:flex;align-items:baseline;gap:4px;width:100%;min-width:0;max-width:100%;margin:4px 0 0!important;overflow:hidden}
+.deskAsset .assetTicker{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:30px!important;font-weight:800;line-height:1;letter-spacing:-.01em;background:linear-gradient(90deg,#fff,#cfd8d3);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.deskAsset .assetName small{flex:0 0 auto;margin-left:0;color:#8a948e;font-size:13px!important;font-weight:500;line-height:1;letter-spacing:0}
+@supports not (-webkit-background-clip:text){.deskAsset .assetTicker{color:#fff;background:none;-webkit-text-fill-color:initial}}
+@media(max-width:650px){.deskAsset .assetEyebrow{font-size:9px!important;padding:3px 7px}.deskAsset .assetTicker{font-size:22px!important}.deskAsset .assetName small{font-size:10px!important}}
+
+/* Cotação: exibe apenas o valor e usa a variação já calculada para a cor. */
+.deskQuote> b{font-size:25px!important;line-height:1.05;letter-spacing:-.02em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.deskQuote.quoteLive> b{color:#f2f6f3;text-shadow:none}
+.deskQuote.quoteLive> b.quoteUp{color:#4CAF50}
+.deskQuote.quoteLive> b.quoteDown{color:#ff5b67}
+@media(min-width:1100px) and (max-width:1240px){.deskQuote> b{font-size:22px!important}}
+@media(max-width:650px){.deskQuote> b{font-size:24px!important}}
 
 /* Última camada mobile: vence as regras legadas declaradas depois dos estilos base. */
 @media(max-width:480px){
