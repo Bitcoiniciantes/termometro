@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const TICKERS = [
   "QUBT","QBTS","NVDA","AMD","GOOGL","META","AAPL","SNDK",
@@ -13,8 +13,11 @@ type Quote = { symbol: string; price: number; changePct: number };
 
 export default function StockTickerBar({ onSelect }: { onSelect?: (asset: string) => void }) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const pending = useRef(false);
 
   const fetchQuotes = () => {
+    if (pending.current) return;
+    pending.current = true;
     fetch(`${WORKER}?assets=${encodeURIComponent(TICKERS.join(","))}&window=${WINDOW}`, { cache: "no-store" })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -25,13 +28,25 @@ export default function StockTickerBar({ onSelect }: { onSelect?: (asset: string
           changePct: q.changePct,
         })));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { pending.current = false; });
   };
 
   useEffect(() => {
-    fetchQuotes();
-    const timer = window.setInterval(fetchQuotes, 5000);
-    return () => window.clearInterval(timer);
+    let timer: number | undefined;
+    const updateVisibility = () => {
+      if (timer !== undefined) window.clearInterval(timer);
+      timer = undefined;
+      if (document.hidden) return;
+      fetchQuotes();
+      timer = window.setInterval(fetchQuotes, 15000);
+    };
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => {
+      if (timer !== undefined) window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", updateVisibility);
+    };
   }, []);
 
   if (!quotes.length) return null;
