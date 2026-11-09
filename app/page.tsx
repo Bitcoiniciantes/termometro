@@ -5,6 +5,7 @@ import AiAnalysisCard from "./AiAnalysisCard";
 import NuplBar from "./NuplBar";
 import StockTickerBar from "./StockTickerBar";
 import ConfluencePanel from "./ConfluencePanel";
+import FearGreedCard from "./FearGreedCard";
 import { GlobalAlertProvider } from "./GlobalAlertContext";
 import { GlobalAlertRenderer } from "./GlobalAlertRenderer";
 import { AlertPanel } from "./AlertPanel";
@@ -154,9 +155,10 @@ export function Termometro(){
       }}
     />
     <article className="card levels"><Title kicker="PLANO TÉCNICO" title="Cenário condicional"/><div className={`planStatus ${planTone}`}><span>STATUS DO CENÁRIO</span><b>{planStatus}</b><p>{planMessage}</p></div>{showPlan?<><div className="level target"><span>ALVO PROJETADO</span><b>{fmt(target)}</b><small>{pct(target)}</small></div><div className="level entry"><span>ROMPIMENTO / ENTRADA CONDICIONAL</span><b>{fmt(entry)}</b><small>{entryDistance.toFixed(2)}% do preço atual</small></div><div className="level stop"><span>INVALIDAÇÃO / STOP APÓS ENTRADA</span><b>{fmt(stop)}</b><small>{pct(stop)}</small></div><div className="risk"><span>RISCO : RETORNO</span><b>{entry&&stop?"1 : 2,5":"—"}</b></div></>:<><div className="level currentLevel"><span>PREÇO ATUAL</span><b>{fmt(currentPrice)}</b><small>referência</small></div><div className={`level ${score<=-20?"stop":"entry"}`}><span>{score<=-20?"SUPORTE DE REFERÊNCIA":"RESISTÊNCIA DE REFERÊNCIA"}</span><b>{fmt(score<=-20?support:resistance)}</b><small>{score<=-20?pct(support):pct(resistance)}</small></div><div className="distanceNote"><span>{score<=-20?"DISTÂNCIA ATÉ O SUPORTE":"DISTÂNCIA ATÉ O ROMPIMENTO"}</span><b>{score<=-20?`${supportDistance.toFixed(2)}%`:`${entryDistance.toFixed(2)}%`}</b></div></>}<p className="disclaimer">Níveis usam candles concluídos, estrutura e ATR. Conteúdo educacional, não é recomendação.</p></article>
+    <FearGreedCard />
   </div>
 </section>
-  <footer><span><b>T°</b> TERMÔMETRO</span><p>Motor determinístico • Interpretação opcional assistida por IA</p><span data-goatcounter-total aria-label="Total de acessos">· visitas: —</span><small>PILOTO v0.2</small></footer>
+  <footer><span><b>T°</b> TERMÔMETRO</span><p>Motor determinístico • Interpretação opcional assistida por IA - NÃO É RECOMENDAÇÃO DE INVESTIMENTO.</p><span data-goatcounter-total aria-label="Total de acessos">· visitas: —</span><small>PILOTO v0.2</small></footer>
   <GlobalAlertRenderer currency={currency}/>
  </main>
  </GlobalAlertProvider>

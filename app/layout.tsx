@@ -15,6 +15,20 @@ export const metadata:Metadata={
 
 export default function RootLayout({children}:{children:React.ReactNode}){
  return <html lang="pt-BR"><body className={`${geistSans.variable} ${geistMono.variable}`}>
+  <Script src='/assets/js/bi-runtime.js' strategy="beforeInteractive" />
+  <Script src='/assets/js/widgets/fear-greed.js' strategy="beforeInteractive" />
+  <Script id="fear-greed-init" strategy="beforeInteractive">{`
+   (() => {
+    const initFearGreed = () => {
+     if (document.getElementById('fng-root') && window.BIWidgets && window.BIWidgets.fearGreed && !window.__fngInitialized) {
+      window.__fngInitialized = true;
+      window.BIWidgets.fearGreed();
+     }
+    };
+    if (document.readyState === 'complete') initFearGreed();
+    else window.addEventListener('load', initFearGreed, { once: true });
+   })();
+  `}</Script>
   {children}
   <Script id="worker-counter" strategy="afterInteractive">{`
    (() => {
