@@ -7,6 +7,7 @@ import {
   fetchAiAnalysis,
   fetchAssetNews,
   newsCacheRemainingMs,
+  newsAttemptRemainingMs,
   type AssetNewsResponse,
   readCachedAiAnalysis,
   writeCachedAiAnalysis,
@@ -103,11 +104,16 @@ export default function AiAnalysisCard({
     const schedule = () => {
       if (!active || document.hidden) return;
       if (timer !== undefined) window.clearTimeout(timer);
-      const remaining = newsCacheRemainingMs(payload.asset);
+      const remaining = Math.max(newsCacheRemainingMs(payload.asset), newsAttemptRemainingMs());
       timer = window.setTimeout(loadNews, remaining || NEWS_REFRESH_MS);
     };
     const loadNews = () => {
       if (!active || document.hidden || pending) return;
+      if (newsCacheRemainingMs(payload.asset) === 0 && newsAttemptRemainingMs() > 0) {
+        setNewsLoading(false);
+        schedule();
+        return;
+      }
       pending = true;
       controller = new AbortController();
       const current = controller;

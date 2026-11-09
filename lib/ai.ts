@@ -217,6 +217,13 @@ export type AssetNewsResponse = {
 };
 
 const newsCache = new Map<string, { expiresAt: number; data: AssetNewsResponse }>();
+const NEWS_ATTEMPT_INTERVAL_MS = 10 * 60_000;
+let lastNewsAttempt: number | null = null;
+let newsRequestPending = false;
+
+export function newsAttemptRemainingMs(): number {
+  return Math.max(newsRequestPending ? 1_000 : 0, lastNewsAttempt === null ? 0 : lastNewsAttempt + NEWS_ATTEMPT_INTERVAL_MS - Date.now());
+}
 
 export function newsCacheRemainingMs(asset: string): number {
   return Math.max(0, (newsCache.get(asset)?.expiresAt ?? 0) - Date.now());
@@ -225,6 +232,10 @@ export function newsCacheRemainingMs(asset: string): number {
 export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promise<AssetNewsResponse> {
   const cached = newsCache.get(asset);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
+  if (signal?.aborted || newsAttemptRemainingMs() > 0) throw new Error("Consulta de notícias aguardando intervalo.");
+  newsRequestPending = true;
+  lastNewsAttempt = Date.now();
+  try {
   const base = isPublishedPagesDomain() ? WORKER_BASE_URL : "";
   const response = await abortableFetch(
     `${base}/api/asset-news?asset=${encodeURIComponent(asset)}`,
@@ -238,4 +249,7 @@ export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promi
     : { asset, updatedAt: new Date().toISOString(), items: [] };
   newsCache.set(asset, { expiresAt: Date.now() + NEWS_CACHE_TTL_MS, data });
   return data;
+  } finally {
+    newsRequestPending = false;
+  }
 }
