@@ -104,12 +104,12 @@ export default function AiAnalysisCard({
     const schedule = () => {
       if (!active || document.hidden) return;
       if (timer !== undefined) window.clearTimeout(timer);
-      const remaining = Math.max(newsCacheRemainingMs(payload.asset), newsAttemptRemainingMs());
+      const remaining = Math.max(newsCacheRemainingMs(payload.asset), newsAttemptRemainingMs(payload.asset));
       timer = window.setTimeout(loadNews, remaining || NEWS_REFRESH_MS);
     };
     const loadNews = () => {
       if (!active || document.hidden || pending) return;
-      if (newsCacheRemainingMs(payload.asset) === 0 && newsAttemptRemainingMs() > 0) {
+      if (newsCacheRemainingMs(payload.asset) === 0 && newsAttemptRemainingMs(payload.asset) > 0) {
         setNewsLoading(false);
         schedule();
         return;

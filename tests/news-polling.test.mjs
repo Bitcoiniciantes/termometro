@@ -18,3 +18,15 @@ test("falha não permite nova tentativa de notícias antes de cinco minutos", as
   await assert.rejects(fetchAssetNews("TEST"));
   assert.equal(calls, 2);
 });
+
+test("consultar outro ativo não fica sujeito ao intervalo do primeiro", async (t) => {
+  let calls = 0;
+  t.mock.method(Date, "now", () => 2_000_000);
+  t.mock.method(globalThis, "fetch", async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ items: [] }), { status: 200 });
+  });
+  await fetchAssetNews("ASSET_A");
+  await fetchAssetNews("ASSET_B");
+  assert.equal(calls, 2);
+});

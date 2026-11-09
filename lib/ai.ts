@@ -218,11 +218,12 @@ export type AssetNewsResponse = {
 
 const newsCache = new Map<string, { expiresAt: number; data: AssetNewsResponse }>();
 const NEWS_ATTEMPT_INTERVAL_MS = 10 * 60_000;
-let lastNewsAttempt: number | null = null;
+const lastNewsAttempt = new Map<string, number>();
 let newsRequestPending = false;
 
-export function newsAttemptRemainingMs(): number {
-  return Math.max(newsRequestPending ? 1_000 : 0, lastNewsAttempt === null ? 0 : lastNewsAttempt + NEWS_ATTEMPT_INTERVAL_MS - Date.now());
+export function newsAttemptRemainingMs(asset: string): number {
+  const lastAttempt = lastNewsAttempt.get(asset);
+  return Math.max(newsRequestPending ? 1_000 : 0, lastAttempt === undefined ? 0 : lastAttempt + NEWS_ATTEMPT_INTERVAL_MS - Date.now());
 }
 
 export function newsCacheRemainingMs(asset: string): number {
@@ -232,9 +233,9 @@ export function newsCacheRemainingMs(asset: string): number {
 export async function fetchAssetNews(asset: string, signal?: AbortSignal): Promise<AssetNewsResponse> {
   const cached = newsCache.get(asset);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
-  if (signal?.aborted || newsAttemptRemainingMs() > 0) throw new Error("Consulta de notícias aguardando intervalo.");
+  if (signal?.aborted || newsAttemptRemainingMs(asset) > 0) throw new Error("Consulta de notícias aguardando intervalo.");
   newsRequestPending = true;
-  lastNewsAttempt = Date.now();
+  lastNewsAttempt.set(asset, Date.now());
   try {
   const base = isPublishedPagesDomain() ? WORKER_BASE_URL : "";
   const response = await abortableFetch(
