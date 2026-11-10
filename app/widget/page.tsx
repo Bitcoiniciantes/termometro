@@ -1,4 +1,4 @@
-import { Termometro } from "../page";
+import Termometro from "../page";
 
 export const metadata = {
   title: "Radar Compra × Venda | Termômetro",

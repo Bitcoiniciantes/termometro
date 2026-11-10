@@ -12,7 +12,7 @@
     "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs tests/chart.test.mjs tests/live-price.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "audit:scores": "node scripts/audit-score-distribution.mjs",
-    "build:pages": "next build"
+    "build:pages": "npm run build"
   },
   "dependencies": {
     "next": "^16.3.1",
