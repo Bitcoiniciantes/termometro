@@ -15,6 +15,12 @@ export const metadata:Metadata={
 
 export default function RootLayout({children}:{children:React.ReactNode}){
  return <html lang="pt-BR"><body className={`${geistSans.variable} ${geistMono.variable}`}>
+  <Script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WR6LKP97" strategy="afterInteractive" />
+  <Script id="google-tag-manager-init" strategy="afterInteractive">{`
+   window.dataLayer = window.dataLayer || [];
+   function gtag(){dataLayer.push(arguments);}
+   gtag('js', new Date());
+  `}</Script>
   <Script src='/assets/js/bi-runtime.js' strategy="beforeInteractive" />
   <Script src='/assets/js/widgets/fear-greed.js' strategy="beforeInteractive" />
   <Script id="fear-greed-init" strategy="beforeInteractive">{`
