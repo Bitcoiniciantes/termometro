@@ -5,11 +5,28 @@ import { useGlobalAlerts } from "./GlobalAlertContext";
 import { displayAsset } from "../lib/config";
 
 function formatNumber(value: number) {
-  const digits = value >= 1 ? 2 : 6;
-  return value.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export function AlertPanel({ livePrices }: { livePrices: Record<string, number> }) {
+type AlertPanelProps = {
+  livePrices: Record<string, number>;
+  currentSymbol?: string;
+  currentSupport?: number;
+  currentResistance?: number;
+  currentPeriod?: string;
+  currentPrice?: number;
+  currentAtr?: number;
+};
+
+export function AlertPanel({
+  livePrices,
+  currentSymbol,
+  currentSupport,
+  currentResistance,
+  currentPeriod,
+  currentPrice: selectedPrice,
+  currentAtr,
+}: AlertPanelProps) {
   const { configs, activeAlerts, toggleAlert, removeConfig, removeActiveAlert } = useGlobalAlerts();
   const entries = Object.values(configs);
 
@@ -47,10 +64,12 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
           const raw = config.symbol.replace(/(USDT|USD)$/, "");
           const displayName = displayAsset(raw);
           const currentPrice = livePrices[raw];
+          const usesCurrentChart = config.symbol === currentSymbol && config.period === currentPeriod;
+          const activationPrice = usesCurrentChart ? selectedPrice : currentPrice;
           const triggeredAlert = activeAlerts.find(a => a.symbol === config.symbol);
-          const base = currentPrice
-            ? <><span className="alertBaseLabel">Base: </span><b className="alertBaseValue">{formatNumber(currentPrice)}</b></>
-            : <><span className="alertBaseLabel">Base: </span><em className="alertBaseWaiting">aguardando cotação…</em></>;
+          const today = Number.isFinite(config.today) && config.today > 0
+            ? <><span className="alertBaseLabel">Hoje: </span><b className="alertBaseValue">{formatNumber(config.today)}</b></>
+            : <><span className="alertBaseLabel">Hoje: </span><em className="alertBaseWaiting">aguardando cotação…</em></>;
 
           return (
             <div key={config.symbol} className={`alertCard ${config.enabled ? "active" : "paused"}`}>
@@ -60,6 +79,7 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
                   <span className={`alertCardBadge ${config.enabled ? "on" : "off"}`}>
                     {config.enabled ? "ATIVO" : "PAUSADO"}
                   </span>
+                  <span className="alertCardPeriod">{config.period}</span>
                 </div>
               </div>
               <div className="alertCardLevels">
@@ -67,7 +87,7 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
                 <span className="alertLevel alertResistance">R {formatNumber(config.resistance)}</span>
               </div>
               <div className="alertCardBase">
-                <small>{base}</small>
+                <small>{today}</small>
               </div>
               {triggeredAlert && (
                 <div className="alertCardTriggeredState">
@@ -97,7 +117,19 @@ export function AlertPanel({ livePrices }: { livePrices: Record<string, number> 
                 <button
                   type="button"
                   className={`alertActionBtn ${config.enabled ? "pause" : "activate"}`}
-                  onClick={() => toggleAlert(config.symbol, config.support, config.resistance, config.source, config.period)}
+                  onClick={() => config.enabled
+                    ? toggleAlert(config.symbol)
+                    : toggleAlert(
+                      config.symbol,
+                      usesCurrentChart ? currentSupport : undefined,
+                      usesCurrentChart ? currentResistance : undefined,
+                      config.source,
+                      config.period,
+                      activationPrice,
+                      usesCurrentChart ? currentAtr : undefined,
+                    )}
+                  disabled={!config.enabled && !(activationPrice && activationPrice > 0)}
+                  title={!config.enabled && !(activationPrice && activationPrice > 0) ? "Aguardando cotação atual para ativar" : undefined}
                 >
                   {config.enabled ? "Pausar" : "Ativar"}
                 </button>

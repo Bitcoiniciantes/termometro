@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { calculateAlertLevels } from "../lib/alert-levels";
 
 export type AlertLevelSource = "GRAPH" | "PREDEFINED" | "MANUAL";
 
@@ -8,9 +9,10 @@ export type AssetAlertConfig = {
   symbol: string;
   support: number;
   resistance: number;
+  today: number;
   enabled: boolean;
   source: AlertLevelSource;
-  period?: string;
+  period: string;
 };
 
 export type TriggeredAlert = {
@@ -26,9 +28,8 @@ export type TriggeredAlert = {
 type GlobalAlertState = {
   configs: Record<string, AssetAlertConfig>;
   activeAlerts: TriggeredAlert[];
-  toggleAlert: (symbol: string, support: number, resistance: number, source?: AlertLevelSource, period?: string) => void;
+  toggleAlert: (symbol: string, support?: number, resistance?: number, source?: AlertLevelSource, period?: string, currentPrice?: number, atr?: number) => void;
   removeActiveAlert: (id: string) => void;
-  updateConfigLevels: (symbol: string, support: number, resistance: number, source?: AlertLevelSource, period?: string) => void;
   registerManualAlert: (symbol: string, support: number, resistance: number) => void;
   removeConfig: (symbol: string) => void;
 };
@@ -38,9 +39,17 @@ export const AlertContext = createContext<GlobalAlertState | null>(null);
 const STORAGE_KEY = "termometro-global-alert-configs";
 
 const PREDEFINED_ALERTS: Record<string, AssetAlertConfig> = {
-  BTCUSDT: { symbol: "BTCUSDT", support: 110000, resistance: 115000, enabled: false, source: "PREDEFINED" },
-  ETHUSDT: { symbol: "ETHUSDT", support: 4400, resistance: 4800, enabled: false, source: "PREDEFINED" },
+  BTCUSDT: { symbol: "BTCUSDT", support: 110000, resistance: 115000, today: 112500, enabled: false, source: "PREDEFINED", period: "1H" },
+  ETHUSDT: { symbol: "ETHUSDT", support: 4400, resistance: 4800, today: 4600, enabled: false, source: "PREDEFINED", period: "1H" },
 };
+
+function migrateConfig(config: AssetAlertConfig): AssetAlertConfig {
+  const midpoint = (config.support + config.resistance) / 2;
+  const today = Number.isFinite(config.today) && config.today > config.support && config.today < config.resistance
+    ? config.today
+    : midpoint;
+  return { ...config, today, period: config.period ?? "1H" };
+}
 
 function loadPersistedConfigs(): Record<string, AssetAlertConfig> | null {
   if (typeof window === "undefined") return null;
@@ -49,7 +58,9 @@ function loadPersistedConfigs(): Record<string, AssetAlertConfig> | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Record<string, AssetAlertConfig>;
     delete parsed.SOLUSDT;
-    return { ...PREDEFINED_ALERTS, ...parsed };
+    return Object.fromEntries(
+      Object.entries({ ...PREDEFINED_ALERTS, ...parsed }).map(([symbol, config]) => [symbol, migrateConfig(config)]),
+    );
   } catch {
     return null;
   }
@@ -116,32 +127,45 @@ export function GlobalAlertProvider({
   }, [livePrices, configs, triggerAlert]);
 
   const toggleAlert = useCallback(
-    (symbol: string, support: number, resistance: number, source: AlertLevelSource = "GRAPH", period?: string) => {
+    (
+      symbol: string,
+      support?: number,
+      resistance?: number,
+      source: AlertLevelSource = "GRAPH",
+      period = "1H",
+      currentPrice?: number,
+      atr?: number,
+    ) => {
       setConfigs((prev) => {
         const existing = prev[symbol];
-        if (!existing) {
-          return { ...prev, [symbol]: { symbol, support, resistance, enabled: true, source, period } };
-        }
-        if (existing.enabled) {
+        if (existing?.enabled) {
           return { ...prev, [symbol]: { ...existing, enabled: false } };
         }
-        return { ...prev, [symbol]: { ...existing, support, resistance, source, enabled: true, period: period ?? existing.period } };
-      });
-    },
-    []
-  );
 
-  const updateConfigLevels = useCallback(
-    (symbol: string, support: number, resistance: number, source: AlertLevelSource = "GRAPH", period?: string) => {
-      setConfigs((prev) => {
-        const existing = prev[symbol];
-        if (!existing) {
-          return { ...prev, [symbol]: { symbol, support, resistance, enabled: false, source, period } };
-        }
-        if (existing.enabled) return prev;
-        if (existing.support === support && existing.resistance === resistance && existing.period === period) return prev;
-        return { ...prev, [symbol]: { ...existing, support, resistance, source, period: period ?? existing.period } };
+        const activationPrice = currentPrice && Number.isFinite(currentPrice) && currentPrice > 0
+          ? currentPrice
+          : existing?.today;
+        if (!activationPrice) return prev;
+
+        const levels = calculateAlertLevels({
+          currentPrice: activationPrice,
+          supportCandidate: support,
+          resistanceCandidate: resistance,
+          atr,
+          period: period ?? existing?.period,
+        });
+        return {
+          ...prev,
+          [symbol]: {
+            symbol,
+            ...levels,
+            source,
+            enabled: true,
+            period: period ?? existing?.period ?? "1H",
+          },
+        };
       });
+      setActiveAlerts((prev) => prev.filter((alert) => alert.symbol !== symbol));
     },
     []
   );
@@ -150,7 +174,15 @@ export function GlobalAlertProvider({
     (symbol: string, support: number, resistance: number) => {
       setConfigs((prev) => ({
         ...prev,
-        [symbol]: { symbol, support, resistance, enabled: true, source: "MANUAL" },
+        [symbol]: {
+          symbol,
+          support,
+          resistance,
+          today: (support + resistance) / 2,
+          enabled: true,
+          source: "MANUAL",
+          period: "1H",
+        },
       }));
     },
     []
@@ -175,11 +207,10 @@ export function GlobalAlertProvider({
       activeAlerts,
       toggleAlert,
       removeActiveAlert,
-      updateConfigLevels,
       registerManualAlert,
       removeConfig,
     }),
-    [configs, activeAlerts, toggleAlert, removeActiveAlert, updateConfigLevels, registerManualAlert, removeConfig]
+    [configs, activeAlerts, toggleAlert, removeActiveAlert, registerManualAlert, removeConfig]
   );
 
   return (
