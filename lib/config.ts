@@ -19,6 +19,10 @@ export const staticAssets: Record<string, { file: string; currency: string }> = 
 
 export const marketSymbols: Record<string, string> = { PRATA: "SI=F", COBRE: "HG=F", URANIO: "URNM" };
 
+// Apenas ativos fora do catálogo estático são pares negociáveis na Binance.
+// MSTR, prata, cobre e urânio vêm do Worker/Yahoo e nunca devem receber sufixo USDT.
+export const isCryptoAsset = (asset: string) => !staticAssets[asset];
+
 const displayNames: Record<string, string> = {
   PRATA: "PRATA",
   COBRE: "COBRE",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { isCryptoAsset } from "../lib/config.ts";
 
 test("expõe o painel e o motor transparente", async () => {
   const [page, analysis] = await Promise.all([
@@ -75,4 +76,20 @@ test("inclui ativos pré-cadastrados com fonte gratuita separada", async () => {
       assert.ok(data.periods[period].length >= 55, `${file} sem dados em ${period}`);
     }
   }
+});
+
+test("não envia ativos não cripto para a API da Binance", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  for (const asset of ["MSTR", "PRATA", "COBRE", "URANIO"]) {
+    assert.equal(isCryptoAsset(asset), false, `${asset} não é par negociado na Binance`);
+  }
+  for (const asset of ["BTC", "ETH", "LINK", "AVAX", "PAXG"]) {
+    assert.equal(isCryptoAsset(asset), true, `${asset} é par negociado na Binance`);
+  }
+  // A consulta de 24h só pode ser montada para os ativos aprovados pelo filtro.
+  const tickerCall = page.match(/[^\n]*ticker\/24hr[^\n]*/)?.[0] ?? "";
+  assert.match(tickerCall, /assets\.filter\(isCryptoAsset\)\.map/);
+  assert.doesNotMatch(tickerCall, /assets\.map/);
+  // O fallback dos ativos estáticos continua usando o símbolo do Worker.
+  assert.match(page, /marketSymbols\[asset\]\?\?asset/);
 });
