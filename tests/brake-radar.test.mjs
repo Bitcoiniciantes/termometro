@@ -456,6 +456,235 @@ test("filtro 1H: recuperação após falha restaura a liberação original", () 
   assert.equal(recovered.badge, "DCA 1 LIBERADO");
 });
 
+// ── Regressão: recuo moderado, filtro 1H e apresentação ─────────────────────
+
+// Reprodução determinística do cenário reportado: queda de 2,4% (100 → 97,6),
+// bloco anterior de +0,05% (freio não aplicável), recuo de −0,3% nos 3h,
+// recuperação de 49% da amplitude, fundo preservado por 8h30 (34 candles de
+// 15m) e fechamento abaixo da EMA(9) exibida.
+function observedScenario({ lastH1Close = 98.776, lastM15Close = 98.776, approveH1 = false } = {}) {
+  const closes = [
+    ...Array(18).fill(99.8),
+    99.6, 99.9, 99.2, 98.2, 98.9, 99.0237,
+    99.2, 99.15, 99.0732, 99.0, 98.88, lastH1Close,
+  ];
+  const highs = [
+    ...Array(18).fill(100.2),
+    99.9, 100.0, 99.9, 99.25, 99.0, 99.1,
+    99.3, 99.25, 99.2, 99.1, 99.05, 98.9,
+  ];
+  const lows = [
+    ...Array(18).fill(99.4),
+    99.2, 99.5, 99.0, 97.6, 98.0, 98.7,
+    99.0, 99.0, 99.0, 98.85, 98.7, 98.65,
+  ];
+  // Aprovação do filtro 1H sem tocar nos insumos dos cinco critérios: apenas o
+  // trecho anterior à janela de 12h (fora da queda e dos retornos) é rebaixado.
+  if (approveH1) {
+    for (let index = 0; index < 12; index++) {
+      closes[index] = 96;
+      highs[index] = 96.4;
+      lows[index] = 95.6;
+    }
+  }
+  const points = [
+    99.50, 99.60, 99.70, 99.80, 99.90, 99.95, 99.90, 99.85,
+    99.75, 99.60, 99.30, 98.80, 98.10, 97.75,
+    97.85, 98.10, 98.40, 98.70, 98.90, 99.00, 99.05, 99.10, 99.12, 99.13,
+    99.12, 99.10, 99.08, 99.06, 99.04, 99.02, 99.00, 98.98, 98.96, 98.94, 98.92, 98.90,
+    99.10, 99.09, 99.08, 99.07, 99.05, 99.03, 99.02, 99.00, 98.97, 98.93, 98.87, lastM15Close,
+  ];
+  const lowAt = { 13: 97.6 };
+  for (let index = 14; index < 48; index++) {
+    lowAt[index] = Math.min(points[index - 1], points[index]) - 0.05;
+  }
+  return { h1: hourly(closes, highs, lows), m15: m15Series(points, lowAt) };
+}
+
+// Cinco critérios originais aprovados; somente a estrutura 1H é rebaixada
+// (a alteração fica fora da janela de 24h usada pelos cálculos originais).
+function blockedByH1Scenario() {
+  const scenario = baseScenario();
+  makeLastHourBelowEma20(scenario);
+  return scenario;
+}
+
+test("cenário reportado: 49% de recuperação, −0,3% em 3h e filtro 1H reprovado", () => {
+  const reading = readingOf(observedScenario());
+  assert.ok(Math.abs(reading.dropPct + 2.4) < 1e-6, "queda acumulada de 2,4%");
+  assert.ok(Math.abs(reading.recentReturnPct + 0.3) < 1e-4, "movimento 3H de −0,3%");
+  assert.ok(Math.abs(reading.retracementPct - 49) < 1e-6, "recuperação de 49%");
+  assert.equal(reading.preservedMinutes, 8 * 60 + 30, "fundo preservado por 8h30");
+  assert.ok(reading.lastClose15m < reading.ema9, "fechamento abaixo da EMA9 exibida");
+
+  // Cinco critérios originais: queda ✅, freio ❌, fundo ✅, retração ✅, EMA9 ❌.
+  assert.equal(reading.hasDrop, true);
+  assert.equal(reading.brakeApplicable, false);
+  assert.equal(reading.brakePct, null);
+  assert.ok(reading.candlesWithoutNewLow >= 4);
+  assert.ok(reading.retracementPct >= 20);
+  assert.equal(reading.recovery, true);
+
+  // Filtro 1H disponível e reprovado.
+  assert.equal(reading.structure1hAvailable, true);
+  assert.equal(reading.structure1hApproved, false);
+  assert.equal(reading.structure1hBelowEma20, true);
+
+  // Repique preservado; DCA bloqueado pelos critérios originais, não pelo 1H.
+  assert.equal(reading.state, "REBOUND");
+  assert.equal(reading.label, "REPIQUE EM OBSERVAÇÃO");
+  assert.equal(reading.tone, "cyan");
+  assert.equal(reading.badge, "AGUARDAR");
+  assert.equal(reading.barMetric, "recovery");
+  assert.match(reading.action, /AGUARDAR/);
+  assert.doesNotMatch(reading.action, /DCA 1 LIBERADO/);
+  assert.match(reading.reason, /recuo recente de −0,3% é moderado/);
+  assert.match(reading.reason, /não caracteriza retomada da queda/);
+  assert.match(reading.reason, /freio aplicável de pelo menos 25%/);
+});
+
+test("repique com filtro 1H reprovado preserva o estado original", () => {
+  const reading = readingOf(observedScenario());
+  assert.equal(reading.state, "REBOUND");
+  assert.equal(reading.badge, "AGUARDAR");
+  assert.match(reading.reason, /Confirmação exige fechamento acima da EMA\(9\)/);
+});
+
+test("queda sem estabilização com filtro 1H reprovado mantém o risco", () => {
+  const reading = readingOf(observedScenario({ lastH1Close: 98.18, lastM15Close: 98.18 }));
+  assert.ok(reading.recentReturnPct <= -0.9, "recuo forte derruba o repique");
+  assert.equal(reading.structure1hAvailable, true);
+  assert.equal(reading.structure1hApproved, false);
+  assert.equal(reading.state, "UNSTABLE");
+  assert.equal(reading.label, "QUEDA SEM ESTABILIZAÇÃO");
+  assert.equal(reading.tone, "red");
+  assert.equal(reading.badge, "NÃO INICIAR");
+  assert.equal(reading.barMetric, "none");
+  assert.match(reading.action, /NÃO INICIAR DCA/);
+  assert.match(reading.reason, /sem freio mensurável/);
+  assert.match(reading.reason, /movimento recente de −0,9%/);
+});
+
+test("repique com filtro 1H aprovado mantém o DCA bloqueado pelos critérios originais", () => {
+  const reading = readingOf(observedScenario({ approveH1: true }));
+  assert.equal(reading.structure1hAvailable, true);
+  assert.equal(reading.structure1hApproved, true);
+  assert.equal(reading.structure1hBelowEma20, false);
+  assert.equal(reading.state, "REBOUND");
+  assert.equal(reading.badge, "AGUARDAR");
+  assert.equal(reading.barMetric, "recovery");
+  assert.equal(reading.brakeApplicable, false);
+  assert.ok(reading.lastClose15m < reading.ema9);
+  assert.doesNotMatch(reading.action, /DCA 1 LIBERADO/);
+});
+
+test("cinco critérios aprovados com filtro 1H aprovado liberam DCA 1", () => {
+  const reading = readingOf(baseScenario());
+  assert.equal(reading.hasDrop, true);
+  assert.equal(reading.brakeApplicable, true);
+  assert.ok(reading.brakePct >= 25);
+  assert.ok(reading.candlesWithoutNewLow >= 4);
+  assert.ok(reading.retracementPct >= 20);
+  assert.ok(reading.lastClose15m > reading.ema9);
+  assert.equal(reading.structure1hApproved, true);
+  assert.equal(reading.state, "REACTION");
+  assert.equal(reading.badge, "DCA 1 LIBERADO");
+  assert.equal(reading.barMetric, "recovery");
+  assert.match(reading.action, /DCA 1 LIBERADO/);
+});
+
+test("cinco critérios aprovados com filtro 1H reprovado bloqueiam somente o DCA", () => {
+  const baseline = readingOf(baseScenario());
+  const reading = readingOf(blockedByH1Scenario());
+
+  // O filtro não altera os cálculos originais.
+  assert.equal(reading.hasDrop, baseline.hasDrop);
+  assert.equal(reading.dropPct, baseline.dropPct);
+  assert.equal(reading.previousReturnPct, baseline.previousReturnPct);
+  assert.equal(reading.recentReturnPct, baseline.recentReturnPct);
+  assert.equal(reading.brakePct, baseline.brakePct);
+  assert.equal(reading.retracementPct, baseline.retracementPct);
+  assert.equal(reading.preservedMinutes, baseline.preservedMinutes);
+
+  assert.equal(reading.structure1hAvailable, true);
+  assert.equal(reading.structure1hApproved, false);
+  assert.equal(reading.state, "REBOUND");
+  assert.equal(reading.badge, "DCA BLOQUEADO — ESTRUTURA 1H");
+  assert.match(reading.reason, /renovação da mínima horária/);
+  assert.match(reading.action, /AGUARDAR/);
+  assert.doesNotMatch(reading.action, /DCA 1 LIBERADO/);
+});
+
+test("recuperação próxima de 50% com movimento 3H negativo não é autorização de compra", () => {
+  const reading = readingOf(observedScenario());
+  assert.ok(reading.retracementPct >= 45 && reading.retracementPct < 50);
+  assert.ok(reading.recentReturnPct < 0);
+  assert.equal(reading.state, "REBOUND");
+  assert.equal(reading.badge, "AGUARDAR");
+  assert.equal(reading.barMetric, "recovery");
+  assert.doesNotMatch(reading.action, /DCA 1 LIBERADO/);
+});
+
+test("fundo preservado por 8h30 com fechamento abaixo da EMA9 não confirma reação", () => {
+  const reading = readingOf(observedScenario());
+  assert.equal(reading.candlesWithoutNewLow, 34);
+  assert.equal(reading.preservedMinutes, 510);
+  assert.ok(reading.lastClose15m < reading.ema9);
+  assert.notEqual(reading.state, "REACTION");
+  assert.equal(reading.badge, "AGUARDAR");
+});
+
+test("consistência entre estado, badge, diagnóstico e decisão final", () => {
+  const cases = [
+    {
+      name: "reação",
+      reading: readingOf(baseScenario()),
+      state: "REACTION",
+      badge: "DCA 1 LIBERADO",
+      action: /DCA 1 LIBERADO/,
+      metric: "recovery",
+    },
+    {
+      name: "repique",
+      reading: readingOf(observedScenario()),
+      state: "REBOUND",
+      badge: "AGUARDAR",
+      action: /AGUARDAR/,
+      metric: "recovery",
+    },
+    {
+      name: "bloqueio 1H",
+      reading: readingOf(blockedByH1Scenario()),
+      state: "REBOUND",
+      badge: "DCA BLOQUEADO — ESTRUTURA 1H",
+      action: /AGUARDAR/,
+      metric: "recovery",
+    },
+    {
+      name: "queda",
+      reading: readingOf(observedScenario({ lastH1Close: 98.18, lastM15Close: 98.18 })),
+      state: "UNSTABLE",
+      badge: "NÃO INICIAR",
+      action: /NÃO INICIAR DCA/,
+      metric: "none",
+    },
+  ];
+
+  for (const item of cases) {
+    assert.equal(item.reading.state, item.state, item.name);
+    assert.equal(item.reading.badge, item.badge, item.name);
+    assert.match(item.reading.action, item.action, item.name);
+    assert.equal(item.reading.barMetric, item.metric, item.name);
+    assert.ok(item.reading.reason.length > 20, `${item.name}: diagnóstico presente`);
+    assert.equal(
+      item.reading.badge === "DCA 1 LIBERADO",
+      item.reading.state === "REACTION",
+      `${item.name}: somente REACTION libera DCA`,
+    );
+    assert.doesNotMatch(item.reading.reason, /SEM MÉTRICA|INATIVO/, item.name);
+  }
+});
+
 test("integração: card renderizado abaixo do NEXUS na home", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /import \{ BtcBrakeRadar \} from "\.\/BtcBrakeRadar"/);
@@ -476,6 +705,10 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.match(component, /Nível 20%/);
   assert.match(component, /RECUPERAÇÃO DA AMPLITUDE \(%\)/);
   assert.match(component, /FREIO DA QUEDA \(%\)/);
+  assert.match(component, /FREIO NÃO APLICÁVEL/);
+  assert.doesNotMatch(component, /SEM MÉTRICA/);
+  assert.doesNotMatch(component, /INATIVO/);
+  assert.match(component, /brBarAreaEmpty/);
   assert.match(component, /brPreserveTrack/);
 
   const css = await readFile(new URL("../app/brake-radar.css", import.meta.url), "utf8");
@@ -485,6 +718,7 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.match(css, /--radar-bg/);
   assert.match(css, /#251116/);
   assert.match(css, /#10291f/);
+  assert.match(css, /brBarAreaEmpty/);
   assert.match(css, /brLiveQuoteValues/);
 });
 
