@@ -28,6 +28,7 @@ type Props = {
   period: string;
   resistance: number;
   support: number;
+  atr: number;
 };
 
 function formatPriceNumber(value: number) {
@@ -37,6 +38,10 @@ function formatPriceNumber(value: number) {
 
 function formatPrice(value: number, currency: string) {
   return `${currency} ${formatPriceNumber(value)}`;
+}
+
+function formatAlertLevel(value: number) {
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatDate(time: number, period: string) {
@@ -82,7 +87,7 @@ type PinchInteraction = {
   pointerIds: [number, number];
 };
 
-export default function PriceStructureChart({ asset, ticker, candles, currentPrice, currency, loading, period, resistance, support }: Props) {
+export default function PriceStructureChart({ asset, ticker, candles, currentPrice, currency, loading, period, resistance, support, atr }: Props) {
   const [viewport, setViewport] = useState<ChartViewport>({
     horizontal: { start: 0, visibleCount: DEFAULT_VISIBLE_CANDLES, followLatest: true },
     vertical: { mode: "auto", range: null },
@@ -93,9 +98,13 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
   const pinchRef = useRef<PinchInteraction | null>(null);
   const touchPointsRef = useRef(new Map<number, { x: number; y: number }>());
   const frameRef = useRef<number | null>(null);
-  const { configs, toggleAlert, updateConfigLevels } = useGlobalAlerts();
+  const { configs, toggleAlert } = useGlobalAlerts();
   const symbol = `${ticker}USDT`;
-  const isAlertEnabled = configs[symbol]?.enabled ?? false;
+  const alertConfig = configs[symbol];
+  const isAlertEnabled = alertConfig?.enabled ?? false;
+  const showStoredLevels = alertConfig?.source !== "PREDEFINED" && alertConfig?.period === period;
+  const displayedSupport = showStoredLevels && alertConfig ? alertConfig.support : support;
+  const displayedResistance = showStoredLevels && alertConfig ? alertConfig.resistance : resistance;
 
   useEffect(() => {
     setViewport({
@@ -104,12 +113,6 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
     });
     setHoveredIndex(null);
   }, [ticker, period]);
-
-  useEffect(() => {
-    if (support > 0 && resistance > 0) {
-      updateConfigLevels(symbol, support, resistance, "GRAPH", period);
-    }
-  }, [symbol, support, resistance, updateConfigLevels, period]);
 
   const totalCandles = candles.length;
   const horizontal = useMemo(() => {
@@ -356,8 +359,8 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
     const outside = value > geometry.max ? "above" : value < geometry.min ? "below" : null;
     return { top: `${Math.max(0, Math.min(100, geometry.scale(value)))}%`, outside };
   };
-  const resistancePosition = resistance > 0 ? levelPosition(resistance) : null;
-  const supportPosition = support > 0 ? levelPosition(support) : null;
+  const resistancePosition = displayedResistance > 0 ? levelPosition(displayedResistance) : null;
+  const supportPosition = displayedSupport > 0 ? levelPosition(displayedSupport) : null;
   const middleAxisCovered = currentPrice > 0 && Math.abs(geometry.scale(currentPrice) - 50) < 7;
 
   return <div className="priceChart realPriceChart">
@@ -368,7 +371,7 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
       <button type="button" onClick={resetVerticalScale} aria-label="Autoescala vertical" title="Autoescala vertical">AUTO</button>
       <button type="button" onClick={goToLatest} aria-label="Ir para o candle mais recente" title="Ir para o candle mais recente">ÚLTIMO</button>
     </div>
-    <button type="button" onClick={() => toggleAlert(symbol, support, resistance, "GRAPH", period)} className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`} aria-pressed={isAlertEnabled}>{isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}</button>
+    <button type="button" onClick={() => toggleAlert(symbol, support, resistance, "GRAPH", period, currentPrice, atr)} className={`alertToggleBtn ${isAlertEnabled ? "active" : ""}`} aria-pressed={isAlertEnabled}>{isAlertEnabled ? "🔔 Alertas Ativos" : "🔕 Ativar Alertas"}</button>
     <div className={`chartOhlc ${selectedTone}`} aria-live="polite">
       <div className="chartOhlcMeta"><span>{formatOhlcDate(selected.time, period)}</span></div>
       <dl>
@@ -397,8 +400,8 @@ export default function PriceStructureChart({ asset, ticker, candles, currentPri
       onWheel={zoomHorizontal}
       onMouseLeave={() => setHoveredIndex(null)}
     >
-      {resistancePosition && <div className={`priceLevel resistanceLevel${resistancePosition.outside ? " outOfRange" : ""}`} data-out-of-range={resistancePosition.outside ?? undefined} style={{ top: resistancePosition.top }}><span>Resistência · {formatPriceNumber(resistance)}{resistancePosition.outside && <small> · fora da escala</small>}</span></div>}
-      {supportPosition && <div className={`priceLevel supportLevel${supportPosition.outside ? " outOfRange" : ""}`} data-out-of-range={supportPosition.outside ?? undefined} style={{ top: supportPosition.top }}><span>Suporte · {formatPriceNumber(support)}{supportPosition.outside && <small> · fora da escala</small>}</span></div>}
+      {resistancePosition && <div className={`priceLevel resistanceLevel${resistancePosition.outside ? " outOfRange" : ""}`} data-out-of-range={resistancePosition.outside ?? undefined} style={{ top: resistancePosition.top }}><span>Resistência · {formatAlertLevel(displayedResistance)}{resistancePosition.outside && <small> · fora da escala</small>}</span></div>}
+      {supportPosition && <div className={`priceLevel supportLevel${supportPosition.outside ? " outOfRange" : ""}`} data-out-of-range={supportPosition.outside ?? undefined} style={{ top: supportPosition.top }}><span>Suporte · {formatAlertLevel(displayedSupport)}{supportPosition.outside && <small> · fora da escala</small>}</span></div>}
       {currentPrice > 0 && <div className="priceLevel currentPriceLevel" style={{ top: level(currentPrice) }} />}
       {geometry.candles.map((candle, index) => <button
         type="button"
