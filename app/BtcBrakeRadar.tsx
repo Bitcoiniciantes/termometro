@@ -144,6 +144,14 @@ function preservedTone(reading: BrakeRadarReading): string {
   return "brNegative";
 }
 
+function diagnosticStatus(value: boolean | null): string {
+  return value === null ? "Dados insuficientes" : value ? "Atendida" : "Bloqueou";
+}
+
+function diagnosticClass(value: boolean | null): string {
+  return value === null ? "brDiagUnknown" : value ? "brDiagPass" : "brDiagFail";
+}
+
 export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: externalSnapshot, now: externalNow }: Props) {
   const [internalSnapshot, setInternalSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [internalNow, setInternalNow] = useState(0);
@@ -152,6 +160,26 @@ export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: external
   const now = externalNow ?? internalNow;
   const previousPrice = useRef<number | null>(null);
   const [liveMove, setLiveMove] = useState<"up" | "down" | "neutral">("neutral");
+  const [isStructureInfoOpen, setStructureInfoOpen] = useState(false);
+  const structureInfoRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isStructureInfoOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setStructureInfoOpen(false);
+    };
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (structureInfoRef.current && !structureInfoRef.current.contains(event.target as Node)) {
+        setStructureInfoOpen(false);
+      }
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+    };
+  }, [isStructureInfoOpen]);
 
   useEffect(() => {
     const valid = currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0 ? currentPrice : null;
@@ -233,6 +261,14 @@ export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: external
       ? "up"
       : "down";
   const validLivePrice = currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0 ? currentPrice : null;
+  const showStructureInfo = reading.badge.startsWith("DCA BLOQUEADO — ESTRUTURA 1H")
+    || reading.badge.startsWith("DCA BLOQUEADO — DADOS 1H");
+  const structureFilterStatus = !reading.structure1hAvailable
+    ? "Indisponível"
+    : reading.structure1hApproved ? "Aprovado" : "Bloqueado";
+  const criteriaText = reading.updatedAt === null
+    ? "Dados insuficientes"
+    : `${reading.originalCriteriaMet}/5 atendidos`;
 
   return (
     <article
@@ -247,7 +283,42 @@ export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: external
           <p className="brState">{reading.label}</p>
         </div>
         <div className="brHeadSide">
-          <span className="brBadge">{reading.badge}</span>
+          <div className="brBadgeRow">
+            <span className="brBadge">{reading.badge}</span>
+            {showStructureInfo && (
+              <div
+                className="brStructureInfo"
+                ref={structureInfoRef}
+                onMouseEnter={() => setStructureInfoOpen(true)}
+                onMouseLeave={() => setStructureInfoOpen(false)}
+              >
+                <button
+                  type="button"
+                  className="brInfoButton"
+                  aria-label="Explicar bloqueio estrutural 1H"
+                  aria-expanded={isStructureInfoOpen}
+                  aria-controls="br-structure-info-panel"
+                  onFocus={() => setStructureInfoOpen(true)}
+                  onClick={() => setStructureInfoOpen((open) => !open)}
+                >ⓘ</button>
+                {isStructureInfoOpen && (
+                  <div className="brInfoPanel" id="br-structure-info-panel" role="dialog" aria-label="Diagnóstico do bloqueio estrutural 1H">
+                    <button type="button" className="brInfoClose" aria-label="Fechar explicação" onClick={() => setStructureInfoOpen(false)}>×</button>
+                    <strong>Por que o DCA está bloqueado?</strong>
+                    <p><b>Critérios originais:</b> {criteriaText}. São cinco critérios de curto prazo; o filtro 1H é um veto adicional.</p>
+                    <p><b>Filtro 1H:</b> <span className={reading.structure1hAvailable ? (reading.structure1hApproved ? "brDiagPass" : "brDiagFail") : "brDiagUnknown"}>{structureFilterStatus}</span></p>
+                    <p><b>EMA20 1H:</b> fechamento {fmtPrice(reading.structure1hClose)} · EMA20 {fmtPrice(reading.structure1hEma20)}. Quando o fechamento está abaixo da EMA20, o motor exige confirmação adicional.</p>
+                    <ul className="brDiagList">
+                      <li className={diagnosticClass(reading.structure1hCloseAboveEma9)}>Fechamento 1H acima da EMA9: {diagnosticStatus(reading.structure1hCloseAboveEma9)}.</li>
+                      <li className={diagnosticClass(reading.structure1hLowPreserved)}>Mínima 1H não inferior à mínima anterior: {diagnosticStatus(reading.structure1hLowPreserved)}.</li>
+                      <li className={diagnosticClass(reading.structure1hCloseAscending)}>Fechamento 1H superior ao anterior: {diagnosticStatus(reading.structure1hCloseAscending)}.</li>
+                    </ul>
+                    <p className="brInfoFinal">Reação de curto prazo identificada. DCA permanece bloqueado até a confirmação estrutural 1H.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <small className="brUpdated">Atualizado às {fmtTime(reading.updatedAt)}</small>
         </div>
       </div>
