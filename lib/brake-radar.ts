@@ -89,6 +89,13 @@ export type BrakeRadarReading = {
   structure1hBelowEma20: boolean | null;
   structure1hEma9: number | null;
   structure1hEma20: number | null;
+  structure1hClose: number | null;
+  structure1hPreviousClose: number | null;
+  structure1hPreviousLow: number | null;
+  structure1hCloseAboveEma9: boolean | null;
+  structure1hLowPreserved: boolean | null;
+  structure1hCloseAscending: boolean | null;
+  originalCriteriaMet: number;
   updatedAt: number | null;
   accelerating: boolean;
   /** true quando existe recuperação relevante após uma mínima identificada. */
@@ -348,6 +355,13 @@ function unavailable(reason: string, updatedAt: number | null): BrakeRadarReadin
     structure1hBelowEma20: null,
     structure1hEma9: null,
     structure1hEma20: null,
+    structure1hClose: null,
+    structure1hPreviousClose: null,
+    structure1hPreviousLow: null,
+    structure1hCloseAboveEma9: null,
+    structure1hLowPreserved: null,
+    structure1hCloseAscending: null,
+    originalCriteriaMet: 0,
     updatedAt,
     accelerating: false,
     recovery: false,
@@ -381,32 +395,41 @@ type H1Structure = {
   ema9: number | null;
   ema20: number | null;
   reasons: string[];
+  close: number | null;
+  previousClose: number | null;
+  previousLow: number | null;
+  closeAboveEma9: boolean | null;
+  lowPreserved: boolean | null;
+  closeAscending: boolean | null;
 };
 
 export function assessH1Structure(bars: BrakeKline[], now: number): H1Structure {
   if (!isValidSeries(bars, BRAKE_H1_STRUCTURE_COUNT, BRAKE_H1_INTERVAL_MS)) {
-    return { available: false, approved: false, belowEma20: false, ema9: null, ema20: null, reasons: [] };
+    return { available: false, approved: false, belowEma20: false, ema9: null, ema20: null, reasons: [], close: null, previousClose: null, previousLow: null, closeAboveEma9: null, lowPreserved: null, closeAscending: null };
   }
   const h1 = bars.slice(-BRAKE_H1_STRUCTURE_COUNT);
   const last = h1[h1.length - 1];
   if (last.closeTime > now || now - last.closeTime > BRAKE_H1_INTERVAL_MS + 1) {
-    return { available: false, approved: false, belowEma20: false, ema9: null, ema20: null, reasons: [] };
+    return { available: false, approved: false, belowEma20: false, ema9: null, ema20: null, reasons: [], close: null, previousClose: null, previousLow: null, closeAboveEma9: null, lowPreserved: null, closeAscending: null };
   }
   const closes = h1.map((bar) => bar.close);
   const ema9 = emaLast(closes, 9);
   const ema20 = emaLast(closes, 20);
   if (ema9 === null || ema20 === null) {
-    return { available: false, approved: false, belowEma20: false, ema9, ema20, reasons: [] };
-  }
-  const belowEma20 = last.close < ema20;
-  if (!belowEma20) {
-    return { available: true, approved: true, belowEma20: false, ema9, ema20, reasons: [] };
+    return { available: false, approved: false, belowEma20: false, ema9, ema20, reasons: [], close: last.close, previousClose: h1[h1.length - 2]?.close ?? null, previousLow: h1[h1.length - 2]?.low ?? null, closeAboveEma9: null, lowPreserved: null, closeAscending: null };
   }
   const previous = h1[h1.length - 2];
+  const closeAboveEma9 = last.close > ema9;
+  const lowPreserved = last.low >= previous.low - EPSILON;
+  const closeAscending = last.close > previous.close;
+  const belowEma20 = last.close < ema20;
+  if (!belowEma20) {
+    return { available: true, approved: true, belowEma20: false, ema9, ema20, reasons: [], close: last.close, previousClose: previous.close, previousLow: previous.low, closeAboveEma9, lowPreserved, closeAscending };
+  }
   const reasons: string[] = [];
-  if (last.close <= ema9) reasons.push("fechamento abaixo ou igual à EMA9");
-  if (last.low < previous.low - EPSILON) reasons.push("renovação da mínima horária");
-  if (last.close <= previous.close) reasons.push("fechamento não ascendente");
+  if (!closeAboveEma9) reasons.push("fechamento abaixo ou igual à EMA9");
+  if (!lowPreserved) reasons.push("renovação da mínima horária");
+  if (!closeAscending) reasons.push("fechamento não ascendente");
   return {
     available: true,
     approved: reasons.length === 0,
@@ -414,6 +437,12 @@ export function assessH1Structure(bars: BrakeKline[], now: number): H1Structure 
     ema9,
     ema20,
     reasons,
+    close: last.close,
+    previousClose: previous.close,
+    previousLow: previous.low,
+    closeAboveEma9,
+    lowPreserved,
+    closeAscending,
   };
 }
 
@@ -503,6 +532,13 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
       && (structure.retracementPct ?? -Infinity) >= BRAKE_MIN_RETRACEMENT_PCT
       && lastCloseAboveEma
   );
+  const originalCriteriaMet = [
+    hasDrop,
+    brakeApplicable && (brakePct ?? 0) >= BRAKE_MIN_BRAKE_PCT,
+    (structure.candlesWithoutNewLow ?? 0) >= 4,
+    (structure.retracementPct ?? -Infinity) >= BRAKE_MIN_RETRACEMENT_PCT,
+    lastCloseAboveEma,
+  ].filter(Boolean).length;
   // O filtro 1H é um veto final: somente é relevante quando os cinco
   // critérios originais já autorizariam DCA, preservando os demais estados.
   const structure1h = assessH1Structure(input.h1, now);
@@ -700,6 +736,13 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
     structure1hBelowEma20: structure1h.available ? structure1h.belowEma20 : null,
     structure1hEma9: structure1h.ema9,
     structure1hEma20: structure1h.ema20,
+    structure1hClose: structure1h.close,
+    structure1hPreviousClose: structure1h.previousClose,
+    structure1hPreviousLow: structure1h.previousLow,
+    structure1hCloseAboveEma9: structure1h.closeAboveEma9,
+    structure1hLowPreserved: structure1h.lowPreserved,
+    structure1hCloseAscending: structure1h.closeAscending,
+    originalCriteriaMet,
     updatedAt: fetchedAt,
     accelerating,
     recovery,

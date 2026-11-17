@@ -6,7 +6,7 @@
   --radar-bg: #0b1512;
   --radar-border: #293b34;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   padding: 0 0 14px;
   background: linear-gradient(135deg, var(--radar-bg) 0%, #0b1512 72%);
   border: 1px solid var(--radar-border);
@@ -77,6 +77,66 @@
   letter-spacing: .12em;
   white-space: nowrap;
 }
+.brBadgeRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 100%;
+}
+.brStructureInfo { position: relative; z-index: 20; }
+.brInfoButton {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #718078;
+  border-radius: 50%;
+  background: #0a110f;
+  color: #dbe5e0;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.brInfoButton:hover,
+.brInfoButton:focus-visible { border-color: #dbe5e0; color: #fff; }
+.brInfoPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: min(360px, calc(100vw - 28px));
+  max-height: min(520px, calc(100vh - 28px));
+  overflow: auto;
+  padding: 15px 16px 14px;
+  border: 1px solid #52645b;
+  border-radius: 10px;
+  background: #dff3ff;
+  box-shadow: 0 12px 32px #000b;
+  color: #163447;
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: left;
+}
+.brInfoPanel strong { display: block; padding-right: 18px; color: #102a3a; font-size: 12px; }
+.brInfoPanel p { margin: 9px 0 0; }
+.brInfoClose {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  border: 0;
+  background: transparent;
+  color: #28566d;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.brDiagList { display: grid; gap: 6px; margin: 10px 0 0; padding-left: 17px; }
+.brDiagPass { color: #10b981; }
+.brDiagFail { color: #ef4444; }
+.brDiagUnknown { color: #527487; }
+.brInfoFinal { color: #8a5a00; font-weight: 700; }
 .brBadge::before {
   content: "";
   width: 6px;
