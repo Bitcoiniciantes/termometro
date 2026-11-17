@@ -636,7 +636,9 @@ test("Integração: wrapper preserva Caça-Fundos e adiciona Caça-Topos", async
   assert.match(wrapper, /<BtcTopRadar/);
   assert.match(wrapper, /useState<RadarTab>\("fundos"\)/);
   assert.match(wrapper, /fetchBrakeKlines/);
-  assert.match(wrapper, /snapshot=\{snapshot\} now=\{now\}/);
+  assert.match(wrapper, /snapshot=\{snapshot\}/);
+  assert.match(wrapper, /now=\{now\}/);
+  assert.match(wrapper, /dailyChangePct=\{dailyChangePct\}/);
 
   const top = await readFile(new URL("../app/BtcTopRadar.tsx", import.meta.url), "utf8");
   assert.match(top, /MOVIMENTO RECENTE \(3H\)/);
@@ -646,9 +648,10 @@ test("Integração: wrapper preserva Caça-Fundos e adiciona Caça-Topos", async
   assert.match(top, /Máxima monitorada/);
   assert.match(top, /Alta até o topo/);
   assert.match(top, /peakAgeText\(reading\)/);
-  assert.doesNotMatch(top, /Fechamento 15m \(base do recuo\)/);
-  assert.match(top, /Spot ao vivo \(informativo\)/);
+  assert.match(top, /BTC\/USDT ao vivo/);
+  assert.match(top, /Fechamento 15m · base dos cálculos/);
   assert.match(top, /referencePrice = reading\.lastClose15m/);
+  assert.match(top, /brLivePrice/);
   assert.match(top, /EMA9 15m/);
   assert.match(top, /DIAGNÓSTICO TÉCNICO/);
   assert.match(top, /Confirmação estrutural 1H/);

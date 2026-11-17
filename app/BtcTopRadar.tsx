@@ -6,7 +6,7 @@
 // Não executa ordens, não calcula quantidade de venda e não afirma reversão
 // definitiva da tendência.
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   analyzeTopRadar,
   TOP_MAX_CONFIRM_AGE_HOURS,
@@ -85,12 +85,12 @@ function preservedTone(value: number | null): string {
   return "brMuted";
 }
 
-function changeTone(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "brMuted";
-  if (value > 0) return "brPositive";
-  if (value < 0) return "brNegative";
-  return "brMuted";
+function dailyChangeTone(value: number | null): string {
+  if (value === null || !Number.isFinite(value) || value === 0) return "neutral";
+  return value > 0 ? "up" : "down";
 }
+
+type LiveMove = "up" | "down" | "neutral";
 
 function barWidth(reading: TopRadarReading): number {
   if (reading.drawdownPct === null) return 0;
@@ -136,7 +136,23 @@ export function BtcTopRadar({
   const validLivePrice = livePrice !== null && Number.isFinite(livePrice) && livePrice > 0
     ? livePrice
     : null;
-  // O preço principal é sempre a mesma referência dos cálculos de recuo.
+  // Cor dinâmica da cotação ao vivo: compara apenas cotações válidas consecutivas.
+  const previousLivePrice = useRef<number | null>(null);
+  const [liveMove, setLiveMove] = useState<LiveMove>("neutral");
+  useEffect(() => {
+    if (validLivePrice === null) {
+      setLiveMove("neutral");
+      return;
+    }
+    const previous = previousLivePrice.current;
+    if (previous !== null && validLivePrice !== previous) {
+      setLiveMove(validLivePrice > previous ? "up" : validLivePrice < previous ? "down" : "neutral");
+    } else if (previous === null) {
+      setLiveMove("neutral");
+    }
+    previousLivePrice.current = validLivePrice;
+  }, [validLivePrice]);
+  // Base dos cálculos de recuo/exaustão: sempre o fechamento do último candle de 15m.
   const referencePrice = reading.lastClose15m;
   const bar = barWidth(reading);
   const barMark = (TOP_MIN_DRAWDOWN_PCT / TOP_MAX_WATCH_DRAWDOWN_PCT) * 100;
@@ -220,19 +236,25 @@ export function BtcTopRadar({
           <span>EMA9 15m: <b>{fmtPrice(reading.ema9_15m)}</b></span>
           <span>EMA9 1H: <b>{fmtPrice(reading.ema9_1h)}</b></span>
         </div>
-        <div className="brCurrentPrice" aria-label="Preço de fechamento do último candle de 15 minutos do Bitcoin">
+        <div className="brCurrentPrice" aria-label="Cotação BTC/USDT ao vivo e fechamento de 15 minutos (base dos cálculos)">
           <div className="brQuoteLine">
-            <span className="brQuoteAsset">BTC · fechamento 15m:</span>
-            <b>{fmtCurrentPrice(referencePrice)}</b>
-          </div>
-          {validLivePrice !== null && (
-            <div className="brSpotReference">
-              <span>Spot ao vivo (informativo): ${fmtCurrentPrice(validLivePrice)}</span>
-              {dailyChangePct !== null && Number.isFinite(dailyChangePct) && (
-                <small className={changeTone(dailyChangePct)}> {fmtDailyChange(dailyChangePct)} em 24h</small>
+            <span className="brQuoteAsset">BTC/USDT ao vivo</span>
+            <div className="brLiveValues">
+              {validLivePrice !== null ? (
+                <>
+                  <b className={`brLivePrice ${liveMove}`}>${fmtCurrentPrice(validLivePrice)}</b>
+                  {dailyChangePct !== null && Number.isFinite(dailyChangePct) && (
+                    <span className={`brDailyChange ${dailyChangeTone(dailyChangePct)}`}>{fmtDailyChange(dailyChangePct)} em 24h</span>
+                  )}
+                </>
+              ) : (
+                <b className="brLivePrice neutral brLiveUnavailable">Indisponível</b>
               )}
             </div>
-          )}
+          </div>
+          <div className="brSpotReference brCalcBase">
+            <span>Fechamento 15m · base dos cálculos: ${fmtCurrentPrice(referencePrice)}</span>
+          </div>
         </div>
       </div>
 

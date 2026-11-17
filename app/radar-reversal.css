@@ -365,7 +365,14 @@
   font-weight: 800;
   letter-spacing: .04em;
 }
-.topRadar .brQuoteLine > b {
+.topRadar .brLiveValues {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+.topRadar .brLivePrice {
   color: #dbe5e0;
   font-size: clamp(24px, 3.3vw, 34px);
   font-weight: 900;
@@ -373,6 +380,24 @@
   line-height: 1.05;
   white-space: nowrap;
 }
+.topRadar .brLivePrice.up { color: #10b981; }
+.topRadar .brLivePrice.down { color: #ef4444; }
+.topRadar .brLivePrice.neutral { color: #dbe5e0; }
+.topRadar .brLiveUnavailable {
+  font-size: clamp(16px, 2vw, 20px);
+  letter-spacing: -.02em;
+  color: #8a9892;
+}
+.topRadar .brDailyChange {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.topRadar .brDailyChange.up { color: #10b981; }
+.topRadar .brDailyChange.down { color: #ef4444; }
+.topRadar .brDailyChange.neutral { color: #8a9892; }
 .topRadar .brSpotReference {
   max-width: 100%;
   color: var(--muted);
@@ -397,6 +422,9 @@
   .topRadar .brQuoteLine {
     align-items: flex-start;
     text-align: left;
+  }
+  .topRadar .brLiveValues {
+    justify-content: flex-start;
   }
   .topRadar .brSpotReference {
     text-align: left;

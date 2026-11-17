@@ -247,33 +247,57 @@
   flex: none;
   flex-direction: column;
   align-items: flex-end;
+  gap: 4px;
   min-width: 0;
+  max-width: 100%;
   color: #8a9892;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
-.brLiveQuote span {
+.brLiveQuote .brQuoteAsset {
   font-size: 8px;
   font-weight: 800;
   letter-spacing: .12em;
+  color: var(--muted);
 }
-.brLiveQuote b {
-  color: #8a9892;
+.brLiveQuoteValues {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.brLivePrice {
   font-size: clamp(30px, 3vw, 36px);
   font-weight: 900;
   letter-spacing: -.045em;
   line-height: .95;
   white-space: nowrap;
 }
-.brLiveQuoteValues {
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: 12px;
+.brLivePrice.up { color: #10b981; }
+.brLivePrice.down { color: #ef4444; }
+.brLivePrice.neutral { color: #dbe5e0; }
+.brLiveUnavailable {
+  font-size: clamp(18px, 2.2vw, 22px);
+  letter-spacing: -.02em;
+  color: #8a9892;
 }
-.brLiveQuote .brLiveChange.up { color: #10b981; }
-.brLiveQuote .brLiveChange.down { color: #ef4444; }
-.brLiveQuote .brLiveChange.neutral { color: #8a9892; }
-.brLiveQuote > .brLiveQuoteValues > b:first-child { color: #dbe5e0; }
+.brLiveChange {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.brLiveChange.up { color: #10b981; }
+.brLiveChange.down { color: #ef4444; }
+.brLiveChange.neutral { color: #8a9892; }
+.brCalcBase {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.brCalcBase span { font-size: inherit; font-weight: 600; letter-spacing: 0; }
 
 .brAction {
   margin: 12px 18px 0;
@@ -343,8 +367,8 @@
   .brStructure { align-items: flex-start; flex-wrap: wrap; margin: 10px 14px 0; gap: 10px; }
   .brContext { gap: 6px 14px; }
   .brContextAux { margin: 0 14px; gap: 6px 14px; }
-  .brLiveQuote { width: 100%; align-items: flex-start; padding-top: 2px; }
-  .brLiveQuote b { font-size: clamp(30px, 9vw, 36px); }
+  .brLiveQuote { width: 100%; align-items: flex-start; padding-top: 2px; text-align: left; }
+  .brLivePrice { font-size: clamp(30px, 9vw, 36px); }
   .brLiveQuoteValues { justify-content: flex-start; flex-wrap: wrap; gap: 4px 12px; }
   .brAction { margin: 10px 14px 0; }
   .brNote { margin: 9px 14px 0; }

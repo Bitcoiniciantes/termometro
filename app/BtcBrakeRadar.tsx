@@ -19,8 +19,10 @@ import {
 const REFRESH_MS = 60_000;
 
 type Props = {
-  /** Cotação spot informativa (compatibilidade com uso isolado). */
+  /** Cotação spot ao vivo (informativa; não entra nos cálculos). */
   currentPrice?: number;
+  /** Variação percentual em 24h já disponível no contexto. */
+  dailyChangePct?: number | null;
   /** Snapshot compartilhado com o Radar de Reversão. */
   snapshot?: BrakeKlinesSnapshot | null;
   /** Relógio compartilhado com o wrapper de abas. */
@@ -44,8 +46,8 @@ function fmtPrice(value: number | null): string {
   return `$${value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
 }
 
-function fmtLivePrice(value: number | undefined): string {
-  if (value === undefined || !Number.isFinite(value) || value <= 0) return "—";
+function fmtLivePrice(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) return "—";
   return value.toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -54,7 +56,11 @@ function fmtLivePrice(value: number | undefined): string {
 
 function fmt24hChange(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+  const rounded = Math.round(value * 100) / 100;
+  return `${rounded > 0 ? "+" : ""}${rounded.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`;
 }
 
 function fmtTime(value: number | null): string {
@@ -138,21 +144,24 @@ function preservedTone(reading: BrakeRadarReading): string {
   return "brNegative";
 }
 
-export function BtcBrakeRadar({ currentPrice, snapshot: externalSnapshot, now: externalNow }: Props) {
+export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: externalSnapshot, now: externalNow }: Props) {
   const [internalSnapshot, setInternalSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [internalNow, setInternalNow] = useState(0);
   const shared = externalSnapshot !== undefined;
   const snapshot = shared ? (externalSnapshot ?? null) : internalSnapshot;
   const now = externalNow ?? internalNow;
   const previousPrice = useRef<number | null>(null);
-  const [priceTone, setPriceTone] = useState<"up" | "down" | "neutral">("neutral");
+  const [liveMove, setLiveMove] = useState<"up" | "down" | "neutral">("neutral");
 
   useEffect(() => {
-    if (currentPrice === undefined || !Number.isFinite(currentPrice) || currentPrice <= 0) return;
-    if (previousPrice.current !== null) {
-      setPriceTone(currentPrice > previousPrice.current ? "up" : currentPrice < previousPrice.current ? "down" : "neutral");
+    const valid = currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0 ? currentPrice : null;
+    if (valid === null) return;
+    if (previousPrice.current !== null && valid !== previousPrice.current) {
+      setLiveMove(valid > previousPrice.current ? "up" : valid < previousPrice.current ? "down" : "neutral");
+    } else if (previousPrice.current === null) {
+      setLiveMove("neutral");
     }
-    previousPrice.current = currentPrice;
+    previousPrice.current = valid;
   }, [currentPrice]);
 
   useEffect(() => {
@@ -211,13 +220,19 @@ export function BtcBrakeRadar({ currentPrice, snapshot: externalSnapshot, now: e
   const preservedTrack = reading.preservedMinutes === null
     ? 0
     : Math.max(0, Math.min(100, (reading.preservedMinutes / (BRAKE_PRESERVED_REFERENCE_MIN * 2)) * 100));
-  const change24h = useMemo(() => {
+  const computedChange24h = useMemo(() => {
     const reference = snapshot?.h1.at(-25)?.close;
     const price = currentPrice ?? snapshot?.h1.at(-1)?.close;
     if (!reference || !price || !Number.isFinite(reference) || !Number.isFinite(price)) return null;
     return (price / reference - 1) * 100;
   }, [currentPrice, snapshot]);
-  const change24hTone = change24h === null || change24h === 0 ? "neutral" : change24h > 0 ? "up" : "down";
+  const change24h = dailyChangePct !== undefined ? dailyChangePct : computedChange24h;
+  const change24hTone = change24h === null || !Number.isFinite(change24h) || change24h === 0
+    ? "neutral"
+    : change24h > 0
+      ? "up"
+      : "down";
+  const validLivePrice = currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0 ? currentPrice : null;
 
   return (
     <article
@@ -289,11 +304,22 @@ export function BtcBrakeRadar({ currentPrice, snapshot: externalSnapshot, now: e
           <span>Nível 20%: <b>{fmtPrice(reading.targetDcaPrice)}</b></span>
           <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
         </div>
-        <div className={`brLiveQuote ${priceTone}`} aria-label={`Cotação atual BTC/USDT: ${fmtLivePrice(currentPrice)}`}>
-          <span>BTC/USDT</span>
+        <div className="brLiveQuote" aria-label="Cotação BTC/USDT ao vivo e fechamento de 15 minutos (base dos cálculos)">
+          <span className="brQuoteAsset">BTC/USDT ao vivo</span>
           <div className="brLiveQuoteValues">
-            <b>{fmtLivePrice(currentPrice)}</b>
-            <b className={`brLiveChange ${change24hTone}`} aria-label={`Variação em 24 horas: ${fmt24hChange(change24h)}`}>{fmt24hChange(change24h)}</b>
+            {validLivePrice !== null ? (
+              <>
+                <b className={`brLivePrice ${liveMove}`}>${fmtLivePrice(validLivePrice)}</b>
+                {change24h !== null && Number.isFinite(change24h) && (
+                  <b className={`brLiveChange ${change24hTone}`} aria-label={`Variação em 24 horas: ${fmt24hChange(change24h)}`}>{fmt24hChange(change24h)} em 24h</b>
+                )}
+              </>
+            ) : (
+              <b className="brLivePrice neutral brLiveUnavailable">Indisponível</b>
+            )}
+          </div>
+          <div className="brSpotReference brCalcBase">
+            <span>Fechamento 15m · base dos cálculos: ${fmtLivePrice(reading.lastClose15m)}</span>
           </div>
         </div>
       </div>

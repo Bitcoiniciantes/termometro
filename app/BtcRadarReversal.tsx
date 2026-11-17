@@ -115,7 +115,12 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
         aria-labelledby="rr-tab-fundos"
         hidden={tab !== "fundos"}
       >
-        <BtcBrakeRadar snapshot={snapshot} now={now} currentPrice={currentPrice} />
+        <BtcBrakeRadar
+          snapshot={snapshot}
+          now={now}
+          currentPrice={currentPrice}
+          dailyChangePct={dailyChangePct}
+        />
       </div>
 
       <div
