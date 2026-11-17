@@ -685,14 +685,22 @@ test("consistência entre estado, badge, diagnóstico e decisão final", () => {
   }
 });
 
-test("integração: card renderizado abaixo do NEXUS na home", async () => {
+test("integração: radar de reversão preserva Caça-Fundos abaixo do NEXUS na home", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /import \{ BtcBrakeRadar \} from "\.\/BtcBrakeRadar"/);
+  assert.match(page, /import \{ BtcRadarReversal \} from "\.\/BtcRadarReversal"/);
+  assert.match(page, /import "\.\/radar-reversal\.css"/);
   const nexus = page.indexOf("<ConfluencePanel");
-  const radar = page.indexOf("<BtcBrakeRadar currentPrice={allLivePrices.BTC} />");
+  const radar = page.indexOf("<BtcRadarReversal currentPrice={allLivePrices.BTC} />");
   const alertPanel = page.indexOf('<article className="card alertPanelCard"');
-  assert.ok(nexus >= 0 && radar > nexus && alertPanel > radar, "ordem NEXUS → Radar → AlertPanel");
-  assert.match(page, /<BtcBrakeRadar currentPrice=\{allLivePrices\.BTC\} \/>/);
+  assert.ok(nexus >= 0 && radar > nexus && alertPanel > radar, "ordem NEXUS → Radar de Reversão → AlertPanel");
+
+  const wrapper = await readFile(new URL("../app/BtcRadarReversal.tsx", import.meta.url), "utf8");
+  assert.match(wrapper, /BITCOIN — RADAR DE REVERSÃO/);
+  assert.match(wrapper, /CAÇA-FUNDOS/);
+  assert.match(wrapper, /CAÇA-TOPOS/);
+  assert.match(wrapper, /<BtcBrakeRadar/);
+  assert.match(wrapper, /<BtcTopRadar/);
+  assert.match(wrapper, /fetchBrakeKlines/);
 
   const component = await readFile(new URL("../app/BtcBrakeRadar.tsx", import.meta.url), "utf8");
   assert.match(component, /BITCOIN — RADAR DE FREIO DA QUEDA/);
@@ -710,6 +718,7 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.doesNotMatch(component, /INATIVO/);
   assert.match(component, /brBarAreaEmpty/);
   assert.match(component, /brPreserveTrack/);
+  assert.match(component, /externalSnapshot/);
 
   const css = await readFile(new URL("../app/brake-radar.css", import.meta.url), "utf8");
   assert.match(css, /tone-cyan/);
@@ -721,4 +730,3 @@ test("integração: card renderizado abaixo do NEXUS na home", async () => {
   assert.match(css, /brBarAreaEmpty/);
   assert.match(css, /brLiveQuoteValues/);
 });
-

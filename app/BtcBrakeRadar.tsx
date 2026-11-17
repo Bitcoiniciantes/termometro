@@ -18,6 +18,15 @@ import {
 
 const REFRESH_MS = 60_000;
 
+type Props = {
+  /** Cotação spot informativa (compatibilidade com uso isolado). */
+  currentPrice?: number;
+  /** Snapshot compartilhado com o Radar de Reversão. */
+  snapshot?: BrakeKlinesSnapshot | null;
+  /** Relógio compartilhado com o wrapper de abas. */
+  now?: number;
+};
+
 function fmtPct(value: number | null, signed = false): string {
   if (value === null || !Number.isFinite(value)) return "—";
   // Arredonda antes de decidir o sinal: −0,04% deve aparecer como 0,0%, não −0,0%.
@@ -129,9 +138,12 @@ function preservedTone(reading: BrakeRadarReading): string {
   return "brNegative";
 }
 
-export function BtcBrakeRadar({ currentPrice }: { currentPrice?: number }) {
-  const [snapshot, setSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
-  const [now, setNow] = useState(0);
+export function BtcBrakeRadar({ currentPrice, snapshot: externalSnapshot, now: externalNow }: Props) {
+  const [internalSnapshot, setInternalSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
+  const [internalNow, setInternalNow] = useState(0);
+  const shared = externalSnapshot !== undefined;
+  const snapshot = shared ? (externalSnapshot ?? null) : internalSnapshot;
+  const now = externalNow ?? internalNow;
   const previousPrice = useRef<number | null>(null);
   const [priceTone, setPriceTone] = useState<"up" | "down" | "neutral">("neutral");
 
@@ -144,12 +156,14 @@ export function BtcBrakeRadar({ currentPrice }: { currentPrice?: number }) {
   }, [currentPrice]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    setNow(Date.now());
+    if (shared) return;
+    const timer = window.setInterval(() => setInternalNow(Date.now()), 1000);
+    setInternalNow(Date.now());
     return () => window.clearInterval(timer);
-  }, []);
+  }, [shared]);
 
   useEffect(() => {
+    if (shared) return;
     let active = true;
     let running = false;
     const controller = new AbortController();
@@ -159,7 +173,7 @@ export function BtcBrakeRadar({ currentPrice }: { currentPrice?: number }) {
       running = true;
       try {
         const next = await fetchBrakeKlines(controller.signal);
-        if (active) setSnapshot(next);
+        if (active) setInternalSnapshot(next);
       } catch (error) {
         // Mantém a última leitura válida. Se ela envelhecer > 2 min, o próprio
         // analisador classifica DADOS INDISPONÍVEIS e bloqueia qualquer sinal.
@@ -178,7 +192,7 @@ export function BtcBrakeRadar({ currentPrice }: { currentPrice?: number }) {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, []);
+  }, [shared]);
 
   const reading = useMemo(
     () => analyzeBrakeRadar({
