@@ -236,15 +236,14 @@ export function BtcTopRadar({
           <span>EMA9 15m: <b>{fmtPrice(reading.ema9_15m)}</b></span>
           <span>EMA9 1H: <b>{fmtPrice(reading.ema9_1h)}</b></span>
         </div>
-        <div className="brCurrentPrice" aria-label="Cotação BTC/USDT ao vivo e fechamento de 15 minutos (base dos cálculos)">
+        <div className="brCurrentPrice" aria-label="Cotação ao vivo e fechamento de 15 minutos (base dos cálculos)">
           <div className="brQuoteLine">
-            <span className="brQuoteAsset">BTC/USDT ao vivo</span>
             <div className="brLiveValues">
               {validLivePrice !== null ? (
                 <>
                   <b className={`brLivePrice ${liveMove}`}>${fmtCurrentPrice(validLivePrice)}</b>
                   {dailyChangePct !== null && Number.isFinite(dailyChangePct) && (
-                    <span className={`brDailyChange ${dailyChangeTone(dailyChangePct)}`}>{fmtDailyChange(dailyChangePct)} em 24h</span>
+                    <span className={`brDailyChange ${dailyChangeTone(dailyChangePct)}`}>{fmtDailyChange(dailyChangePct)}</span>
                   )}
                 </>
               ) : (

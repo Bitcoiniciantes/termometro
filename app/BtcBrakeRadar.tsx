@@ -304,14 +304,13 @@ export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: external
           <span>Nível 20%: <b>{fmtPrice(reading.targetDcaPrice)}</b></span>
           <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
         </div>
-        <div className="brLiveQuote" aria-label="Cotação BTC/USDT ao vivo e fechamento de 15 minutos (base dos cálculos)">
-          <span className="brQuoteAsset">BTC/USDT ao vivo</span>
+        <div className="brLiveQuote" aria-label="Cotação ao vivo e fechamento de 15 minutos (base dos cálculos)">
           <div className="brLiveQuoteValues">
             {validLivePrice !== null ? (
               <>
                 <b className={`brLivePrice ${liveMove}`}>${fmtLivePrice(validLivePrice)}</b>
                 {change24h !== null && Number.isFinite(change24h) && (
-                  <b className={`brLiveChange ${change24hTone}`} aria-label={`Variação em 24 horas: ${fmt24hChange(change24h)}`}>{fmt24hChange(change24h)} em 24h</b>
+                  <b className={`brLiveChange ${change24hTone}`} aria-label={`Variação em 24 horas: ${fmt24hChange(change24h)}`}>{fmt24hChange(change24h)}</b>
                 )}
               </>
             ) : (
