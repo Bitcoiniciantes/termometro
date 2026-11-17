@@ -1180,14 +1180,15 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   .analysisDesk .analysisColumn{display:contents}
   .analysisDesk .analysisColumn>*{min-width:0;max-width:100%;width:100%;margin-top:0;grid-column:auto;grid-row:auto}
   .analysisDesk .workspaceMain{order:1;padding:0;border:0;background:transparent}
-  .analysisDesk .mobileChartPeriods{order:2}
-  .analysisDesk .chart{order:3}
-  .analysisDesk .chartRadar{order:4}
-  .analysisDesk .nexus{order:5}
-  .analysisDesk .heroThermo{order:6}
-  .analysisDesk .extremeCard{order:7}
-  .analysisDesk .levels{order:8}
-  .analysisDesk .aiAnalysis{order:9}
+  .analysisDesk .brakeRadar{order:2}
+  .analysisDesk .mobileChartPeriods{order:3}
+  .analysisDesk .chart{order:4}
+  .analysisDesk .chartRadar{order:5}
+  .analysisDesk .nexus{order:6}
+  .analysisDesk .heroThermo{order:7}
+  .analysisDesk .extremeCard{order:8}
+  .analysisDesk .levels{order:9}
+  .analysisDesk .aiAnalysis{order:10}
   .analysisDesk .rsiGeneral{order:10}
   .analysisDesk .alertPanelCard{order:11}
   .analysisDesk .fearGreedCard{order:12}
