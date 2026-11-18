@@ -695,7 +695,10 @@ test("integração: radar de reversão preserva Caça-Fundos abaixo do NEXUS na 
   assert.ok(nexus >= 0 && radar > nexus && alertPanel > radar, "ordem NEXUS → Radar de Reversão → AlertPanel");
 
   const wrapper = await readFile(new URL("../app/BtcRadarReversal.tsx", import.meta.url), "utf8");
-  assert.match(wrapper, /BITCOIN — RADAR DE REVERSÃO/);
+  assert.match(wrapper, /RADAR DE REVERSÃO/);
+  assert.match(wrapper, /BRAKE_ASSETS/);
+  assert.match(wrapper, /selectedSymbol/);
+  assert.match(wrapper, /Promise\.allSettled/);
   assert.match(wrapper, /CAÇA-FUNDOS/);
   assert.match(wrapper, /CAÇA-TOPOS/);
   assert.match(wrapper, /<BtcBrakeRadar/);
@@ -703,7 +706,8 @@ test("integração: radar de reversão preserva Caça-Fundos abaixo do NEXUS na 
   assert.match(wrapper, /fetchBrakeKlines/);
 
   const component = await readFile(new URL("../app/BtcBrakeRadar.tsx", import.meta.url), "utf8");
-  assert.match(component, /BITCOIN — RADAR DE FREIO DA QUEDA/);
+  assert.match(component, /RADAR DE FREIO DA QUEDA/);
+  assert.match(component, /asset\.name/);
   assert.match(component, /brLiveQuote/);
   assert.match(component, /fmt24hChange/);
   assert.match(component, /brLiveChange/);

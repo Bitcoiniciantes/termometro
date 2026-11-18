@@ -12,6 +12,7 @@ import {
   fetchBrakeKlines,
   formatPreservedMinutes,
   BRAKE_PRESERVED_REFERENCE_MIN,
+  type BrakeAssetSymbol,
   type BrakeKlinesSnapshot,
   type BrakeRadarReading,
 } from "../lib/brake-radar";
@@ -19,6 +20,7 @@ import {
 const REFRESH_MS = 60_000;
 
 type Props = {
+  asset?: { symbol: BrakeAssetSymbol; name: string; ticker: string };
   /** Cotação spot ao vivo (informativa; não entra nos cálculos). */
   currentPrice?: number;
   /** Variação percentual em 24h já disponível no contexto. */
@@ -43,7 +45,7 @@ function fmtPct(value: number | null, signed = false): string {
 
 function fmtPrice(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return `$${value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+  return `US$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fmtLivePrice(value: number | null | undefined): string {
@@ -152,7 +154,7 @@ function diagnosticClass(value: boolean | null): string {
   return value === null ? "brDiagUnknown" : value ? "brDiagPass" : "brDiagFail";
 }
 
-export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: externalSnapshot, now: externalNow }: Props) {
+export function BtcBrakeRadar({ asset = { symbol: "BTCUSDT", name: "Bitcoin", ticker: "BTC" }, currentPrice, dailyChangePct, snapshot: externalSnapshot, now: externalNow }: Props) {
   const [internalSnapshot, setInternalSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [internalNow, setInternalNow] = useState(0);
   const shared = externalSnapshot !== undefined;
@@ -162,6 +164,11 @@ export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: external
   const [liveMove, setLiveMove] = useState<"up" | "down" | "neutral">("neutral");
   const [isStructureInfoOpen, setStructureInfoOpen] = useState(false);
   const structureInfoRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    previousPrice.current = null;
+    setLiveMove("neutral");
+  }, [asset.symbol]);
 
   useEffect(() => {
     if (!isStructureInfoOpen) return;
@@ -274,12 +281,12 @@ export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: external
     <article
       className={`card brakeRadar tone-${reading.tone}`}
       aria-live="polite"
-      aria-label="Radar de freio da queda do Bitcoin"
+      aria-label={`Radar de freio da queda de ${asset.name}`}
     >
       <div className="brHead">
         <div className="brHeadMain">
-          <h3 className="brTitle">BITCOIN — RADAR DE FREIO DA QUEDA</h3>
-          <span className="brKicker">BTC/USDT</span>
+          <h3 className="brTitle">{asset.name.toUpperCase()} — RADAR DE FREIO DA QUEDA</h3>
+          <span className="brKicker">{asset.ticker}/USDT</span>
           <p className="brState">{reading.label}</p>
         </div>
         <div className="brHeadSide">
@@ -345,7 +352,13 @@ export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: external
             <i style={{ width: `${preservedTrack}%` }} />
             <em title="Referência de 60 minutos" />
           </div>
-          <small className="brMetricSub">{preservedMet ? "meta atingida" : "meta 60 min"}</small>
+          <small className="brMetricSub">
+            {preservedMet
+              ? reading.state === "REACTION"
+                ? "meta temporal atingida"
+                : "meta temporal atingida · sem confirmação"
+              : "meta 60 min"}
+          </small>
         </div>
       </div>
 
@@ -371,15 +384,16 @@ export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: external
 
       <div className="brStructure">
         <div className="brContext">
-          <span>Mínima: <b>{fmtPrice(reading.minimum12h)}</b></span>
-          <span>Nível 20%: <b>{fmtPrice(reading.targetDcaPrice)}</b></span>
+            <span>Mínima: <b>{fmtPrice(reading.minimum12h)}</b></span>
+          <span>Máxima da amplitude: <b>{fmtPrice(reading.maximum12h)}</b></span>
+          <span>Recuperação: <b>{fmtPct(reading.retracementPct)}</b></span>
           <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
         </div>
         <div className="brLiveQuote" aria-label="Cotação ao vivo e fechamento de 15 minutos (base dos cálculos)">
           <div className="brLiveQuoteValues">
             {validLivePrice !== null ? (
               <>
-                <b className={`brLivePrice ${liveMove}`}>${fmtLivePrice(validLivePrice)}</b>
+                <b className={`brLivePrice ${liveMove}`}>US$ {fmtLivePrice(validLivePrice)}</b>
                 {change24h !== null && Number.isFinite(change24h) && (
                   <b className={`brLiveChange ${change24hTone}`} aria-label={`Variação em 24 horas: ${fmt24hChange(change24h)}`}>{fmt24hChange(change24h)}</b>
                 )}
@@ -389,7 +403,7 @@ export function BtcBrakeRadar({ currentPrice, dailyChangePct, snapshot: external
             )}
           </div>
           <div className="brSpotReference brCalcBase">
-            <span>Fechamento 15m · base dos cálculos: ${fmtLivePrice(reading.lastClose15m)}</span>
+            <span>ref. cálculo: US$ {fmtLivePrice(reading.lastClose15m)}</span>
           </div>
         </div>
       </div>

@@ -15,7 +15,7 @@ import {
   TOP_MIN_NO_NEW_HIGH_MINUTES,
   type TopRadarReading,
 } from "../lib/top-radar";
-import { formatPreservedMinutes, type BrakeKlinesSnapshot } from "../lib/brake-radar";
+import { formatPreservedMinutes, type BrakeAssetSymbol, type BrakeKlinesSnapshot } from "../lib/brake-radar";
 
 function fmtPct(value: number | null, signed = false): string {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -30,7 +30,7 @@ function fmtPct(value: number | null, signed = false): string {
 
 function fmtPrice(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return `$${value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+  return `US$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fmtCurrentPrice(value: number | null): string {
@@ -113,11 +113,13 @@ function peakEligibilityTone(reading: TopRadarReading): string {
 }
 
 export function BtcTopRadar({
+  asset = { symbol: "BTCUSDT", name: "Bitcoin", ticker: "BTC" },
   snapshot,
   now,
   livePrice = null,
   dailyChangePct = null,
 }: {
+  asset?: { symbol: BrakeAssetSymbol; name: string; ticker: string };
   snapshot: BrakeKlinesSnapshot | null;
   now: number;
   livePrice?: number | null;
@@ -139,6 +141,10 @@ export function BtcTopRadar({
   // Cor dinâmica da cotação ao vivo: compara apenas cotações válidas consecutivas.
   const previousLivePrice = useRef<number | null>(null);
   const [liveMove, setLiveMove] = useState<LiveMove>("neutral");
+  useEffect(() => {
+    previousLivePrice.current = null;
+    setLiveMove("neutral");
+  }, [asset.symbol]);
   useEffect(() => {
     if (validLivePrice === null) {
       setLiveMove("neutral");
@@ -163,12 +169,12 @@ export function BtcTopRadar({
     <article
       className={`card brakeRadar topRadar tone-${reading.tone}`}
       aria-live="polite"
-      aria-label="Caça-Topos: radar de exaustão de alta do Bitcoin"
+      aria-label={`Caça-Topos: radar de exaustão de alta de ${asset.name}`}
     >
       <div className="brHead">
         <div className="brHeadMain">
-          <h3 className="brTitle">BITCOIN — CAÇA-TOPOS</h3>
-          <span className="brKicker">BTC/USDT · EXAUSTÃO DE ALTA</span>
+          <h3 className="brTitle">{asset.name.toUpperCase()} — CAÇA-TOPOS</h3>
+          <span className="brKicker">{asset.ticker}/USDT · EXAUSTÃO DE ALTA</span>
           <div className="brState">{reading.label}</div>
         </div>
         <div className="brHeadSide">
@@ -241,7 +247,7 @@ export function BtcTopRadar({
             <div className="brLiveValues">
               {validLivePrice !== null ? (
                 <>
-                  <b className={`brLivePrice ${liveMove}`}>${fmtCurrentPrice(validLivePrice)}</b>
+                  <b className={`brLivePrice ${liveMove}`}>US$ {fmtCurrentPrice(validLivePrice)}</b>
                   {dailyChangePct !== null && Number.isFinite(dailyChangePct) && (
                     <span className={`brDailyChange ${dailyChangeTone(dailyChangePct)}`}>{fmtDailyChange(dailyChangePct)}</span>
                   )}
@@ -252,7 +258,7 @@ export function BtcTopRadar({
             </div>
           </div>
           <div className="brSpotReference brCalcBase">
-            <span>Fechamento 15m · base dos cálculos: ${fmtCurrentPrice(referencePrice)}</span>
+            <span>ref. cálculo: US$ {fmtCurrentPrice(referencePrice)}</span>
           </div>
         </div>
       </div>

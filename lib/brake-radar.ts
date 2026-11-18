@@ -50,6 +50,20 @@ export type BrakeKline = {
 
 export type BrakeTone = "gray" | "green" | "amber" | "red" | "cyan";
 
+export const BRAKE_ASSETS = [
+  { symbol: "BTCUSDT", name: "Bitcoin", ticker: "BTC" },
+  { symbol: "ETHUSDT", name: "Ethereum", ticker: "ETH" },
+  { symbol: "SOLUSDT", name: "Solana", ticker: "SOL" },
+  { symbol: "LINKUSDT", name: "Chainlink", ticker: "LINK" },
+  { symbol: "AVAXUSDT", name: "Avalanche", ticker: "AVAX" },
+] as const;
+
+export type BrakeAssetSymbol = (typeof BRAKE_ASSETS)[number]["symbol"];
+
+export function isBrakeAssetSymbol(symbol: string): symbol is BrakeAssetSymbol {
+  return BRAKE_ASSETS.some((asset) => asset.symbol === symbol);
+}
+
 export type BrakeState =
   | "UNAVAILABLE"
   | "NO_DROP"
@@ -596,7 +610,7 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
         bits.push(`recuperou ${pctText(structure.retracementPct ?? 0)} da amplitude recente`);
       }
       if (recentRecovery) bits.push(`retorno recente de ${recentTxt}`);
-      reason = `BTC ${bits.join(" e ") || "apresenta recuperação"}, sem queda relevante de 1,5% nas últimas 12h. Leitura contextual; sem gatilho de DCA.`;
+      reason = `${bits.join(" e ") || "Recuperação observada"}, sem queda relevante de 1,5% nas últimas 12h. Leitura contextual; sem gatilho de DCA.`;
     } else {
       state = "NO_DROP";
       label = "MERCADO LATERAL / SEM QUEDA";
@@ -677,7 +691,7 @@ export function analyzeBrakeRadar(input: BrakeKlineInput): BrakeRadarReading {
     const pullbackClause = moderatePullback
       ? ` O recuo recente de ${recentTxt} é moderado e não caracteriza retomada da queda.`
       : "";
-    reason = `BTC recuperou ${pctText(structure.retracementPct ?? 0)} da amplitude da queda, ${preservedClause}.${pullbackClause} ${missing.length ? `Confirmação exige ${missing.join(", ")}.` : "Aguardando os demais critérios."}`;
+    reason = `Recuperação de ${pctText(structure.retracementPct ?? 0)} da amplitude da queda, ${preservedClause}.${pullbackClause} ${missing.length ? `Confirmação exige ${missing.join(", ")}.` : "Aguardando os demais critérios."}`;
   } else if (brakeApplicable && (brakePct ?? 0) >= BRAKE_MIN_BRAKE_PCT) {
     state = "SLOWING";
     label = "QUEDA DESACELERANDO";
@@ -764,12 +778,13 @@ async function fetchKlines(
   interval: string,
   limit: number,
   minimum: number,
+  symbol: BrakeAssetSymbol,
   signal?: AbortSignal,
 ): Promise<BrakeKline[]> {
   let lastError: unknown = null;
   for (const base of BINANCE_BASES) {
     try {
-      const url = `${base}?symbol=BTCUSDT&interval=${interval}&limit=${limit}`;
+      const url = `${base}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
       const response = await fetch(url, { cache: "no-store", signal });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const now = Date.now();
@@ -791,11 +806,32 @@ export type BrakeKlinesSnapshot = {
 };
 
 /** Candles fechados de 1h e 15m; um extra por série descarta o candle aberto. */
-export async function fetchBrakeKlines(signal?: AbortSignal): Promise<BrakeKlinesSnapshot> {
+export async function fetchBrakeKlines(signal?: AbortSignal, symbol: BrakeAssetSymbol = "BTCUSDT"): Promise<BrakeKlinesSnapshot> {
+  if (!isBrakeAssetSymbol(symbol)) throw new Error("ativo não permitido");
   const [h1, m15] = await Promise.all([
-    fetchKlines("1h", BRAKE_H1_STRUCTURE_COUNT + 1, BRAKE_H1_STRUCTURE_COUNT, signal),
-    fetchKlines("15m", BRAKE_M15_COUNT + 1, BRAKE_M15_COUNT, signal),
+    fetchKlines("1h", BRAKE_H1_STRUCTURE_COUNT + 1, BRAKE_H1_STRUCTURE_COUNT, symbol, signal),
+    fetchKlines("15m", BRAKE_M15_COUNT + 1, BRAKE_M15_COUNT, symbol, signal),
   ]);
   return { h1, m15, fetchedAt: Date.now() };
+}
+
+export type BrakeSpotQuote = { price: number; changePct24h: number };
+
+export async function fetchBrakeSpotQuote(symbol: BrakeAssetSymbol, signal?: AbortSignal): Promise<BrakeSpotQuote> {
+  if (!isBrakeAssetSymbol(symbol)) throw new Error("ativo não permitido");
+  const response = await fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${symbol}`, {
+    cache: "no-store",
+    signal,
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload: unknown = await response.json();
+  if (!payload || typeof payload !== "object") throw new Error("ticker inválido");
+  const ticker = payload as { symbol?: unknown; lastPrice?: unknown; priceChangePercent?: unknown };
+  const price = Number(ticker.lastPrice);
+  const changePct24h = Number(ticker.priceChangePercent);
+  if (ticker.symbol !== symbol || !Number.isFinite(price) || price <= 0 || !Number.isFinite(changePct24h)) {
+    throw new Error("ticker inválido");
+  }
+  return { price, changePct24h };
 }
 

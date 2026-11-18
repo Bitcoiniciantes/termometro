@@ -5,15 +5,19 @@
 .radarReversal {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   min-width: 0;
-}
-
-.rrShell {
   overflow: hidden;
   background: #0b1512;
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+.rrShell {
+  overflow: visible;
+  background: #0b1512;
+  border: 0;
+  border-radius: 0;
 }
 .rrHead {
   display: flex;
@@ -75,17 +79,81 @@
   color: var(--paper);
 }
 .rrTab[aria-selected="true"] {
-  border-color: var(--lime);
+  border: 2px solid #10b981;
   background: #54b85a18;
   color: #7ad881;
   box-shadow: inset 0 -2px 0 var(--lime);
 }
+.rrAssets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.rrAsset {
+  display: flex;
+  flex: 0 0 103px;
+  min-width: 0;
+  min-height: 46px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid #24342d;
+  border-radius: 7px;
+  background: #101b17;
+  color: #94a3b8;
+  cursor: pointer;
+  text-align: left;
+}
+.rrAsset:hover { border-color: #52645b; }
+.rrAsset[aria-pressed="true"] { border-color: #10b981; background: #0d2119; }
+.rrAsset > span { display: flex; align-items: center; gap: 5px; color: #e5eee9; font-size: 13px; font-weight: 900; line-height: 1; }
+.rrAsset i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.rrAsset small { color: currentColor; font-size: 9px; font-weight: 900; letter-spacing: .04em; line-height: 1; }
+.rrAsset.tone-green { color: #10b981; }
+.rrAsset.tone-cyan { color: #38bdf8; }
+.rrAsset.tone-amber { color: #f59e0b; }
+.rrAsset.tone-red { color: #ef4444; }
+.rrAsset.tone-gray { color: #94a3b8; }
 .rrTab:focus-visible {
   outline: 2px solid var(--cyan);
   outline-offset: 2px;
 }
 .rrPanel[hidden] {
   display: none !important;
+}
+
+/* O radar detalhado continua o cabeçalho: apenas o diagnóstico recebe a cor
+   semântica do estado. A moldura externa fica neutra e única. */
+.radarReversal .brakeRadar {
+  padding-bottom: 14px;
+  background: #0b1512;
+  border: 0;
+  border-top: 1px solid #1b2722;
+}
+.radarReversal .brakeRadar .brHead {
+  background: linear-gradient(110deg, var(--radar-bg) 0%, #0b1512 78%);
+}
+.radarReversal .brakeRadar .brMetrics {
+  padding-top: 10px;
+}
+.radarReversal .brakeRadar .brMetric {
+  padding-block: 8px;
+}
+.radarReversal .brakeRadar .brStructure {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin-top: 10px;
+  padding-block: 8px;
+}
+.radarReversal .brakeRadar .brContext {
+  max-width: none;
+}
+.radarReversal .brakeRadar .brBarArea {
+  padding-top: 10px;
 }
 
 /* ── Caça-Topos ─────────────────────────────────────────────────────────── */
@@ -250,6 +318,8 @@
   .rrTabs {
     padding: 0 14px 10px;
   }
+  .rrAssets { padding: 0 14px 10px; }
+  .radarReversal .brakeRadar .brStructure { grid-template-columns: 1fr; }
   .rrTab {
     flex: 1;
     min-width: 0;
@@ -429,4 +499,14 @@
   .topRadar .brSpotReference {
     text-align: left;
   }
+}
+
+/* A cotação é contextual; somente a variação percentual comunica direção. */
+.radarReversal .brakeRadar .brLivePrice,
+.radarReversal .brakeRadar .brLivePrice.up,
+.radarReversal .brakeRadar .brLivePrice.down,
+.radarReversal .topRadar .brLivePrice,
+.radarReversal .topRadar .brLivePrice.up,
+.radarReversal .topRadar .brLivePrice.down {
+  color: #e5e7eb;
 }
