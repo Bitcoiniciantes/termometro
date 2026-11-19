@@ -15,7 +15,7 @@ import {
   TOP_MIN_NO_NEW_HIGH_MINUTES,
   type TopRadarReading,
 } from "../lib/top-radar";
-import { formatPreservedMinutes, type BrakeAssetSymbol, type BrakeKlinesSnapshot } from "../lib/brake-radar";
+import { formatPreservedMinutes, type BrakeKlinesSnapshot } from "../lib/brake-radar";
 
 function fmtPct(value: number | null, signed = false): string {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -119,7 +119,7 @@ export function BtcTopRadar({
   livePrice = null,
   dailyChangePct = null,
 }: {
-  asset?: { symbol: BrakeAssetSymbol; name: string; ticker: string };
+  asset?: { symbol: string; name: string; ticker: string };
   snapshot: BrakeKlinesSnapshot | null;
   now: number;
   livePrice?: number | null;

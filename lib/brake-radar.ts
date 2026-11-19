@@ -58,10 +58,123 @@ export const BRAKE_ASSETS = [
   { symbol: "AVAXUSDT", name: "Avalanche", ticker: "AVAX" },
 ] as const;
 
-export type BrakeAssetSymbol = (typeof BRAKE_ASSETS)[number]["symbol"];
+export type BrakeBaseAssetSymbol = (typeof BRAKE_ASSETS)[number]["symbol"];
 
-export function isBrakeAssetSymbol(symbol: string): symbol is BrakeAssetSymbol {
+/**
+ * Símbolo canônico aceito pelo radar: um dos ativos fixos ou um par Binance
+ * Spot `<TICKER>USDT` admitido pelo usuário. O formato não substitui a
+ * checagem de candles/cotação feita na inclusão.
+ */
+export type BrakeAssetSymbol = string;
+
+/** Chave exclusiva do recurso de ativos adicionais do radar do Termômetro. */
+export const BRAKE_EXTRA_STORAGE_KEY = "termometro-radar-extra-assets-v1";
+/** Teto de ativos adicionais; não afeta a lista principal do Termômetro. */
+export const BRAKE_MAX_EXTRA_ASSETS = 3;
+
+const BRAKE_SYMBOL_PATTERN = /^[A-Z0-9]{2,20}USDT$/;
+
+export function isBaseBrakeAssetSymbol(symbol: string): symbol is BrakeBaseAssetSymbol {
   return BRAKE_ASSETS.some((asset) => asset.symbol === symbol);
+}
+
+/**
+ * Identifica apenas os cinco ativos fixos. A admissão de extras usa
+ * `isValidBrakeRadarSymbol`; esta função permanece como contrato do catálogo.
+ */
+export function isBrakeAssetSymbol(symbol: string): symbol is BrakeBaseAssetSymbol {
+  return isBaseBrakeAssetSymbol(symbol);
+}
+
+/** Formato canônico de par Binance Spot aceito no radar. */
+export function isValidBrakeRadarSymbol(symbol: string): boolean {
+  return BRAKE_SYMBOL_PATTERN.test(symbol);
+}
+
+/** Normaliza a digitação do usuário: sem acentos, espaços, hífen ou minúsculas. */
+export function cleanBrakeTicker(value: string): string {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9.-]/g, "");
+}
+
+/** Entrada livre → símbolo canônico Spot (`XRP` e `XRPUSDT` convergem). */
+export function toBrakeSpotSymbol(ticker: string): string | null {
+  const clean = cleanBrakeTicker(ticker);
+  if (!clean) return null;
+  const symbol = clean.endsWith("USDT") ? clean : `${clean}USDT`;
+  return isValidBrakeRadarSymbol(symbol) ? symbol : null;
+}
+
+export function brakeAssetName(symbol: string): string {
+  const base = BRAKE_ASSETS.find((asset) => asset.symbol === symbol);
+  if (base) return base.name;
+  return symbol.endsWith("USDT") ? symbol.slice(0, -4) : symbol;
+}
+
+export function brakeAssetTicker(symbol: string): string {
+  return symbol.endsWith("USDT") ? symbol.slice(0, -4) : symbol;
+}
+
+export function brakeAssetMeta(symbol: string): {
+  symbol: string;
+  name: string;
+  ticker: string;
+} {
+  return { symbol, name: brakeAssetName(symbol), ticker: brakeAssetTicker(symbol) };
+}
+
+// ── Admissão e persistência dos ativos adicionais ──────────────────────────
+//
+// Funções puras (sem `window`): a UI hidrata o `localStorage`, e estes helpers
+// validam schema, teto, duplicatas e ativos fixos. A elegibilidade operacional
+// (candles fechados 1h/15m + cotação) é confirmada na inclusão pelos mesmos
+// mecanismos de `fetchBrakeKlines`/`fetchBrakeSpotQuote`.
+
+/** Canoniza a lista persistida e descarta tudo que não seja adicional válido. */
+export function normalizeRadarExtraSymbols(
+  input: unknown,
+  limit: number = BRAKE_MAX_EXTRA_ASSETS,
+): string[] {
+  if (!Array.isArray(input)) return [];
+  const max = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : BRAKE_MAX_EXTRA_ASSETS;
+  if (max === 0) return [];
+  const seen = new Set<string>(BRAKE_ASSETS.map((asset) => asset.symbol));
+  const out: string[] = [];
+
+  for (const item of input) {
+    if (typeof item !== "string") continue;
+    const symbol = toBrakeSpotSymbol(item);
+    if (!symbol || !isValidBrakeRadarSymbol(symbol) || seen.has(symbol)) continue;
+    seen.add(symbol);
+    out.push(symbol);
+    if (out.length >= max) break;
+  }
+
+  return out;
+}
+
+/** Lê o JSON persistido sem lançar: storage corrompido devolve lista vazia. */
+export function parseRadarExtraAssets(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    return normalizeRadarExtraSymbols(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+/** Serializa somente identificadores canônicos, já revalidados. */
+export function serializeRadarExtraAssets(symbols: string[]): string {
+  return JSON.stringify(normalizeRadarExtraSymbols(symbols));
+}
+
+/** Duas grafias que resolvem para o mesmo par Spot são a mesma identidade. */
+export function isSameRadarAsset(a: string, b: string): boolean {
+  return a === b || toBrakeSpotSymbol(a) === toBrakeSpotSymbol(b);
 }
 
 export type BrakeState =
@@ -780,8 +893,7 @@ async function fetchKlines(
   minimum: number,
   symbol: BrakeAssetSymbol,
   signal?: AbortSignal,
-): Promise<BrakeKline[]> {
-  let lastError: unknown = null;
+): Promise<BrakeKline[]> {  let lastError: unknown = null;
   for (const base of BINANCE_BASES) {
     try {
       const url = `${base}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
@@ -807,7 +919,7 @@ export type BrakeKlinesSnapshot = {
 
 /** Candles fechados de 1h e 15m; um extra por série descarta o candle aberto. */
 export async function fetchBrakeKlines(signal?: AbortSignal, symbol: BrakeAssetSymbol = "BTCUSDT"): Promise<BrakeKlinesSnapshot> {
-  if (!isBrakeAssetSymbol(symbol)) throw new Error("ativo não permitido");
+  if (!isValidBrakeRadarSymbol(symbol)) throw new Error("ativo não permitido");
   const [h1, m15] = await Promise.all([
     fetchKlines("1h", BRAKE_H1_STRUCTURE_COUNT + 1, BRAKE_H1_STRUCTURE_COUNT, symbol, signal),
     fetchKlines("15m", BRAKE_M15_COUNT + 1, BRAKE_M15_COUNT, symbol, signal),
@@ -818,7 +930,7 @@ export async function fetchBrakeKlines(signal?: AbortSignal, symbol: BrakeAssetS
 export type BrakeSpotQuote = { price: number; changePct24h: number };
 
 export async function fetchBrakeSpotQuote(symbol: BrakeAssetSymbol, signal?: AbortSignal): Promise<BrakeSpotQuote> {
-  if (!isBrakeAssetSymbol(symbol)) throw new Error("ativo não permitido");
+  if (!isValidBrakeRadarSymbol(symbol)) throw new Error("ativo não permitido");
   const response = await fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${symbol}`, {
     cache: "no-store",
     signal,

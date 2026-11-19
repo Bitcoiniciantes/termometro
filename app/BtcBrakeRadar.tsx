@@ -12,7 +12,6 @@ import {
   fetchBrakeKlines,
   formatPreservedMinutes,
   BRAKE_PRESERVED_REFERENCE_MIN,
-  type BrakeAssetSymbol,
   type BrakeKlinesSnapshot,
   type BrakeRadarReading,
 } from "../lib/brake-radar";
@@ -20,7 +19,7 @@ import {
 const REFRESH_MS = 60_000;
 
 type Props = {
-  asset?: { symbol: BrakeAssetSymbol; name: string; ticker: string };
+  asset?: { symbol: string; name: string; ticker: string };
   /** Cotação spot ao vivo (informativa; não entra nos cálculos). */
   currentPrice?: number;
   /** Variação percentual em 24h já disponível no contexto. */

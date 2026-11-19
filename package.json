@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs tests/chart.test.mjs tests/live-price.test.mjs tests/alert-levels.test.mjs tests/brake-radar.test.mjs tests/top-radar.test.mjs",
+    "test": "node --test tests/rendered-html.test.mjs tests/analysis.test.mjs tests/chart.test.mjs tests/live-price.test.mjs tests/alert-levels.test.mjs tests/brake-radar.test.mjs tests/top-radar.test.mjs tests/radar-extra-assets.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "audit:scores": "node scripts/audit-score-distribution.mjs",
     "build:pages": "npm run build"
