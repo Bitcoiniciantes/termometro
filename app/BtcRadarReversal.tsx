@@ -33,6 +33,8 @@ import { RadarComparePanel } from "./RadarComparePanel";
 const REFRESH_MS = 60_000;
 type RadarTab = "fundos" | "topos";
 type RadarQuote = { price: number | null; changePct24h: number | null };
+type RemoteState = "loading" | "ready" | "failed" | "stale";
+type RemoteStatus = { state: RemoteState; updatedAt: number | null };
 type AssetMeta = { symbol: string; name: string; ticker: string; base: boolean };
 
 const fundLabels: Record<string, string> = {
@@ -84,7 +86,11 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
   const [extraSymbols, setExtraSymbols] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<string, BrakeKlinesSnapshot>>({});
+  const snapshotsRef = useRef<Record<string, BrakeKlinesSnapshot>>({});
+  const [snapshotStates, setSnapshotStates] = useState<Record<string, RemoteStatus>>({});
   const [quotes, setQuotes] = useState<Record<string, RadarQuote>>({});
+  const quotesRef = useRef<Record<string, RadarQuote>>({});
+  const [quoteStates, setQuoteStates] = useState<Record<string, RemoteStatus>>({});
   const [now, setNow] = useState(0);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -162,18 +168,40 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
           symbols.map((symbol) => fetchBrakeKlines(controller.signal, symbol)),
         );
         if (!active) return;
-        setSnapshots((previous) => {
-          const allowed = allowedSymbolsRef.current;
-          const next = { ...previous };
+        const allowed = allowedSymbolsRef.current;
+        const priorSnapshots = snapshotsRef.current;
+        const nextSnapshots: Record<string, BrakeKlinesSnapshot> = { ...priorSnapshots };
+        results.forEach((result, index) => {
+          const symbol = symbols[index];
+          if (result.status === "fulfilled" && allowed.has(symbol)) {
+            nextSnapshots[symbol] = result.value;
+          }
+        });
+        for (const key of Object.keys(nextSnapshots)) {
+          if (!allowed.has(key)) delete nextSnapshots[key];
+        }
+        snapshotsRef.current = nextSnapshots;
+        setSnapshots(nextSnapshots);
+        setSnapshotStates((previous) => {
+          const next: Record<string, RemoteStatus> = {};
+          const stamp = Date.now();
+          for (const symbol of allowed) {
+            if (nextSnapshots[symbol]) {
+              next[symbol] = {
+                state: "ready",
+                updatedAt: nextSnapshots[symbol].fetchedAt ?? previous[symbol]?.updatedAt ?? stamp,
+              };
+            }
+          }
           results.forEach((result, index) => {
             const symbol = symbols[index];
-            if (result.status === "fulfilled" && allowed.has(symbol)) {
-              next[symbol] = result.value;
-            }
+            if (!allowed.has(symbol) || result.status !== "rejected") return;
+            const previousValue = priorSnapshots[symbol];
+            next[symbol] = {
+              state: previousValue ? "stale" : "failed",
+              updatedAt: previousValue?.fetchedAt ?? previous[symbol]?.updatedAt ?? null,
+            };
           });
-          for (const key of Object.keys(next)) {
-            if (!allowed.has(key)) delete next[key];
-          }
           return next;
         });
       } finally {
@@ -205,18 +233,36 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
           symbols.map((symbol) => fetchBrakeSpotQuote(symbol, controller.signal)),
         );
         if (!active) return;
-        setQuotes((previous) => {
-          const allowed = allowedSymbolsRef.current;
-          const next = { ...previous };
+        const allowed = allowedSymbolsRef.current;
+        const priorQuotes = quotesRef.current;
+        const nextQuotes: Record<string, RadarQuote> = { ...priorQuotes };
+        results.forEach((result, index) => {
+          const symbol = symbols[index];
+          if (result.status === "fulfilled" && allowed.has(symbol)) {
+            nextQuotes[symbol] = result.value;
+          }
+        });
+        for (const key of Object.keys(nextQuotes)) {
+          if (!allowed.has(key)) delete nextQuotes[key];
+        }
+        quotesRef.current = nextQuotes;
+        setQuotes(nextQuotes);
+        setQuoteStates((previous) => {
+          const next: Record<string, RemoteStatus> = { ...previous };
+          const stamp = Date.now();
           results.forEach((result, index) => {
             const symbol = symbols[index];
-            if (result.status === "fulfilled" && allowed.has(symbol)) {
-              next[symbol] = result.value;
+            if (!allowed.has(symbol)) return;
+            if (result.status === "fulfilled") {
+              next[symbol] = { state: "ready", updatedAt: stamp };
+            } else {
+              const previousValue = priorQuotes[symbol];
+              next[symbol] = {
+                state: previousValue && previousValue.price !== null ? "stale" : "failed",
+                updatedAt: previous[symbol]?.updatedAt ?? null,
+              };
             }
           });
-          for (const key of Object.keys(next)) {
-            if (!allowed.has(key)) delete next[key];
-          }
           return next;
         });
       } finally {
@@ -232,6 +278,21 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
       window.clearInterval(timer);
     };
   }, [symbolsKey]);
+
+  // BTC usa o stream já existente na página; aqui só acompanhamos se ele está
+  // disponível para diferenciar carregamento, leitura válida e valor antigo.
+  useEffect(() => {
+    const valid = currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0;
+    setQuoteStates((previous) => {
+      const prior = previous.BTCUSDT;
+      const nextStatus: RemoteStatus = valid
+        ? { state: "ready", updatedAt: Date.now() }
+        : prior?.updatedAt
+          ? { state: "stale", updatedAt: prior.updatedAt }
+          : { state: "loading", updatedAt: null };
+      return { ...previous, BTCUSDT: nextStatus };
+    });
+  }, [currentPrice]);
 
   const btcDailyChangePct = useMemo(() => {
     const snapshot = snapshots.BTCUSDT;
@@ -412,6 +473,10 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
   const selectedAsset = assets.find((asset) => asset.symbol === selectedSymbol) ?? assets[0];
   const selectedSnapshot = snapshots[selectedSymbol] ?? null;
   const selectedQuote = quoteFor(selectedSymbol) ?? { price: null, changePct24h: null };
+  const selectedQuoteStatus: RemoteStatus = quoteStates[selectedSymbol]
+    ?? { state: selectedQuote.price !== null ? "ready" : "loading", updatedAt: null };
+  const selectedSnapshotStatus: RemoteStatus = snapshotStates[selectedSymbol]
+    ?? { state: selectedSnapshot ? "ready" : "loading", updatedAt: selectedSnapshot?.fetchedAt ?? null };
 
   return (
     <section className="radarReversal" aria-label="Radar de Reversão">
@@ -598,6 +663,9 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
             now={now}
             currentPrice={selectedQuote.price ?? undefined}
             dailyChangePct={selectedQuote.changePct24h}
+            quoteState={selectedQuoteStatus.state}
+            quoteUpdatedAt={selectedQuoteStatus.updatedAt}
+            chartState={selectedSnapshotStatus.state}
           />
         ) : (
           <BtcTopRadar
@@ -606,6 +674,9 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
             now={now}
             livePrice={selectedQuote.price}
             dailyChangePct={selectedQuote.changePct24h}
+            quoteState={selectedQuoteStatus.state}
+            quoteUpdatedAt={selectedQuoteStatus.updatedAt}
+            chartState={selectedSnapshotStatus.state}
           />
         )}
       </div>

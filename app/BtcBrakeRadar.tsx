@@ -1,5 +1,5 @@
 "use client";
-// app/BtcBrakeRadar.tsx — RADAR DE FREIO DA QUEDA (BTCUSDT).
+// app/BtcBrakeRadar.tsx — RADAR DE FREIO DA QUEDA.
 //
 // Card independente do ativo selecionado no Termômetro. Lê somente candles
 // públicos e fechados da Binance spot (1h + 15m), a cada 60s, e delega toda a
@@ -9,14 +9,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   analyzeBrakeRadar,
+  fetchBrakeDailyReference,
   fetchBrakeKlines,
   formatPreservedMinutes,
+  readBrakeDailyReferenceStorage,
+  writeBrakeDailyReferenceStorage,
   BRAKE_PRESERVED_REFERENCE_MIN,
+  type BrakeDailyReference,
   type BrakeKlinesSnapshot,
   type BrakeRadarReading,
 } from "../lib/brake-radar";
+import { RadarMiniChart } from "./RadarMiniChart";
 
 const REFRESH_MS = 60_000;
+
+type RemoteState = "loading" | "ready" | "failed" | "stale";
 
 type Props = {
   asset?: { symbol: string; name: string; ticker: string };
@@ -24,6 +31,11 @@ type Props = {
   currentPrice?: number;
   /** Variação percentual em 24h já disponível no contexto. */
   dailyChangePct?: number | null;
+  /** Estado da cotação spot para as mensagens de carregamento/falha. */
+  quoteState?: RemoteState;
+  quoteUpdatedAt?: number | null;
+  /** Estado do snapshot de candles para o minigráfico. */
+  chartState?: RemoteState;
   /** Snapshot compartilhado com o Radar de Reversão. */
   snapshot?: BrakeKlinesSnapshot | null;
   /** Relógio compartilhado com o wrapper de abas. */
@@ -44,11 +56,18 @@ function fmtPct(value: number | null, signed = false): string {
 
 function fmtPrice(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return `US$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Mínimo de duas casas; ativos de preço baixo ganham casas extras para não
+  // perder a ordem de grandeza (ex.: 0,00421). Nunca arredonda 9,24 para 9.
+  const magnitude = Math.floor(Math.log10(Math.abs(value) || 1));
+  const digits = Math.max(2, Math.min(8, 2 - magnitude));
+  return `$${value.toLocaleString("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
 }
 
-function fmtLivePrice(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) return "—";
+function fmtCurrentPrice(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
   return value.toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -71,6 +90,11 @@ function fmtTime(value: number | null): string {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function fmtRefDate(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "";
+  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 type BarView = {
@@ -145,6 +169,13 @@ function preservedTone(reading: BrakeRadarReading): string {
   return "brNegative";
 }
 
+function changeTone(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "brMuted";
+  if (value > 0) return "brPositive";
+  if (value < 0) return "brNegative";
+  return "brMuted";
+}
+
 function diagnosticStatus(value: boolean | null): string {
   return value === null ? "Dados insuficientes" : value ? "Atendida" : "Bloqueou";
 }
@@ -153,21 +184,37 @@ function diagnosticClass(value: boolean | null): string {
   return value === null ? "brDiagUnknown" : value ? "brDiagPass" : "brDiagFail";
 }
 
-export function BtcBrakeRadar({ asset = { symbol: "BTCUSDT", name: "Bitcoin", ticker: "BTC" }, currentPrice, dailyChangePct, snapshot: externalSnapshot, now: externalNow }: Props) {
+export function BtcBrakeRadar({
+  asset = { symbol: "BTCUSDT", name: "Bitcoin", ticker: "BTC" },
+  currentPrice,
+  dailyChangePct,
+  quoteState = "loading",
+  quoteUpdatedAt = null,
+  chartState = "loading",
+  snapshot: externalSnapshot,
+  now: externalNow,
+}: Props) {
   const [internalSnapshot, setInternalSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [internalNow, setInternalNow] = useState(0);
   const shared = externalSnapshot !== undefined;
   const snapshot = shared ? (externalSnapshot ?? null) : internalSnapshot;
   const now = externalNow ?? internalNow;
-  const previousPrice = useRef<number | null>(null);
-  const [liveMove, setLiveMove] = useState<"up" | "down" | "neutral">("neutral");
   const [isStructureInfoOpen, setStructureInfoOpen] = useState(false);
   const structureInfoRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    previousPrice.current = null;
-    setLiveMove("neutral");
-  }, [asset.symbol]);
+  const validLivePrice = currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0
+    ? currentPrice
+    : null;
+  const validDailyChange = dailyChangePct !== undefined && dailyChangePct !== null && Number.isFinite(dailyChangePct)
+    ? dailyChangePct
+    : null;
+  const quoteView = quoteState === "loading" && validLivePrice === null
+    ? "loading"
+    : quoteState === "failed" && validLivePrice === null
+      ? "failed"
+      : quoteState === "stale" && validLivePrice !== null
+        ? "stale"
+        : "ready";
 
   useEffect(() => {
     if (!isStructureInfoOpen) return;
@@ -186,17 +233,6 @@ export function BtcBrakeRadar({ asset = { symbol: "BTCUSDT", name: "Bitcoin", ti
       document.removeEventListener("mousedown", closeOnOutsideClick);
     };
   }, [isStructureInfoOpen]);
-
-  useEffect(() => {
-    const valid = currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0 ? currentPrice : null;
-    if (valid === null) return;
-    if (previousPrice.current !== null && valid !== previousPrice.current) {
-      setLiveMove(valid > previousPrice.current ? "up" : valid < previousPrice.current ? "down" : "neutral");
-    } else if (previousPrice.current === null) {
-      setLiveMove("neutral");
-    }
-    previousPrice.current = valid;
-  }, [currentPrice]);
 
   useEffect(() => {
     if (shared) return;
@@ -237,6 +273,68 @@ export function BtcBrakeRadar({ asset = { symbol: "BTCUSDT", name: "Bitcoin", ti
     };
   }, [shared]);
 
+  // ── Referência de 30 dias (apenas exibição) ──────────────────────────────
+  const [dailyRef, setDailyRef] = useState<BrakeDailyReference | null>(null);
+  const [dailyRefStatus, setDailyRefStatus] = useState<"loading" | "ready" | "failed">("loading");
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const timers: number[] = [];
+    const wait = (ms: number) => new Promise<void>((resolve) => {
+      const id = window.setTimeout(resolve, ms);
+      timers.push(id);
+    });
+
+    const stored = readBrakeDailyReferenceStorage(asset.symbol);
+    let hasValue = !!stored;
+    if (stored) {
+      setDailyRef(stored);
+      setDailyRefStatus("ready");
+    } else {
+      setDailyRef(null);
+      setDailyRefStatus("loading");
+    }
+
+    const BACKOFF_MS = [3000, 10_000, 30_000];
+
+    const run = async () => {
+      // Escalona a busca inicial para não competir com as requisições principais da abertura.
+      await wait(2000);
+      if (!active) return;
+      let failures = 0;
+      while (active) {
+        try {
+          const next = await fetchBrakeDailyReference(asset.symbol, controller.signal);
+          if (!active) return;
+          hasValue = true;
+          setDailyRef(next);
+          setDailyRefStatus("ready");
+          writeBrakeDailyReferenceStorage(asset.symbol, next);
+          failures = 0;
+          await wait(10 * 60_000);
+        } catch (error) {
+          if (!active || (error as Error)?.name === "AbortError") return;
+          if (failures < BACKOFF_MS.length) {
+            await wait(BACKOFF_MS[failures]);
+            failures += 1;
+          } else {
+            if (!hasValue) setDailyRefStatus("failed");
+            failures = 0;
+            await wait(10 * 60_000);
+          }
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      active = false;
+      controller.abort();
+      timers.forEach((id) => window.clearTimeout(id));
+    };
+  }, [asset.symbol]);
+
   const reading = useMemo(
     () => analyzeBrakeRadar({
       h1: snapshot?.h1 ?? [],
@@ -248,25 +346,44 @@ export function BtcBrakeRadar({ asset = { symbol: "BTCUSDT", name: "Bitcoin", ti
   );
 
   const bar = barView(reading);
+  const referencePrice = reading.lastClose15m;
   const preservedText = formatPreservedMinutes(reading.preservedMinutes);
   const preservedMet = reading.preservedMinutes !== null
     && reading.preservedMinutes >= BRAKE_PRESERVED_REFERENCE_MIN;
   const preservedTrack = reading.preservedMinutes === null
     ? 0
     : Math.max(0, Math.min(100, (reading.preservedMinutes / (BRAKE_PRESERVED_REFERENCE_MIN * 2)) * 100));
-  const computedChange24h = useMemo(() => {
-    const reference = snapshot?.h1.at(-25)?.close;
-    const price = currentPrice ?? snapshot?.h1.at(-1)?.close;
-    if (!reference || !price || !Number.isFinite(reference) || !Number.isFinite(price)) return null;
-    return (price / reference - 1) * 100;
-  }, [currentPrice, snapshot]);
-  const change24h = dailyChangePct !== undefined ? dailyChangePct : computedChange24h;
-  const change24hTone = change24h === null || !Number.isFinite(change24h) || change24h === 0
-    ? "neutral"
-    : change24h > 0
-      ? "up"
-      : "down";
-  const validLivePrice = currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0 ? currentPrice : null;
+
+  // Mínima 30d (somente exibição): menor low entre candles 1d fechados (30d)
+  // e candles 15M carregados (24h), para não excluir o fundo de hoje.
+  const dailyMin = dailyRef?.minLow ?? null;
+  const dailyMinAt = dailyRef?.minLowAt ?? null;
+  let m15MinLow: number | null = null;
+  let m15MinLowAt: number | null = null;
+  for (const candle of (snapshot?.m15 ?? []).slice(-96)) {
+    const low = Number(candle.low);
+    if (!Number.isFinite(low) || low <= 0) continue;
+    if (m15MinLow === null || low < m15MinLow) {
+      m15MinLow = low;
+      m15MinLowAt = Number(candle.openTime);
+    }
+  }
+  let minimum30d: number | null = null;
+  let minimum30dAt: number | null = null;
+  if (dailyRef) {
+    if (dailyMin !== null && (m15MinLow === null || dailyMin <= m15MinLow)) {
+      minimum30d = dailyMin;
+      minimum30dAt = dailyMinAt;
+    } else if (m15MinLow !== null) {
+      minimum30d = m15MinLow;
+      minimum30dAt = m15MinLowAt;
+    }
+  }
+  const distanceBase = validLivePrice ?? reading.lastClose15m ?? null;
+  const minimum30dDistancePct = minimum30d !== null && distanceBase !== null && distanceBase > 0
+    ? ((minimum30d / distanceBase) - 1) * 100
+    : null;
+
   const showStructureInfo = reading.badge.startsWith("DCA BLOQUEADO — ESTRUTURA 1H")
     || reading.badge.startsWith("DCA BLOQUEADO — DADOS 1H");
   const structureFilterStatus = !reading.structure1hAvailable
@@ -286,7 +403,37 @@ export function BtcBrakeRadar({ asset = { symbol: "BTCUSDT", name: "Bitcoin", ti
         <div className="brHeadMain">
           <h3 className="brTitle">{asset.name.toUpperCase()} — RADAR DE FREIO DA QUEDA</h3>
           <span className="brKicker">{asset.ticker}/USDT</span>
-          <p className="brState">{reading.label}</p>
+          <div className="brState">{reading.label}</div>
+        </div>
+        <div
+          className={`brCurrentPrice brHeadQuote brLiveQuote brHeadQuote-${quoteView === "ready" || quoteView === "stale" ? changeTone(validDailyChange) : "brMuted"}`}
+          aria-label={`Cotação spot de ${asset.symbol}`}
+        >
+          <div className="brQuoteLine brLiveQuoteValues">
+            {quoteView === "loading" ? (
+              <b className="brQuoteValue brQuoteLoading">Atualizando<span className="brLoadingDots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></b>
+            ) : quoteView === "failed" ? (
+              <b className="brQuoteValue brQuoteUnavailable">Sem conexão</b>
+            ) : validLivePrice !== null ? (
+              <>
+                <b className={`brQuoteValue brLivePrice ${changeTone(validDailyChange)}`}>
+                  ${fmtCurrentPrice(validLivePrice)}
+                </b>
+                {validDailyChange !== null && (
+                  <small className={`brDailyChange brLiveChange ${changeTone(validDailyChange)}`}>
+                    {fmt24hChange(validDailyChange)}
+                    <span className="brChangeWindow">24H</span>
+                  </small>
+                )}
+              </>
+            ) : null}
+          </div>
+          {quoteView === "loading" ? <small className="brQuoteRef">buscando Binance spot</small>
+            : quoteView === "failed" ? <small className="brQuoteRef">nova tentativa em 60s</small>
+              : quoteView === "stale" ? <small className="brQuoteRef">desatualizada · última às {fmtTime(quoteUpdatedAt)}</small>
+                : referencePrice !== null && Number.isFinite(referencePrice) && (
+            <small className="brQuoteRef">ref. cálculo (fech. 15M): {fmtCurrentPrice(referencePrice)}</small>
+          )}
         </div>
         <div className="brHeadSide">
           <div className="brBadgeRow">
@@ -347,15 +494,15 @@ export function BtcBrakeRadar({ asset = { symbol: "BTCUSDT", name: "Bitcoin", ti
         <div className="brMetric">
           <span>FUNDO PRESERVADO</span>
           <b className={preservedTone(reading)}>{preservedText}</b>
-          <div className="brPreserveTrack" aria-hidden="true">
+          <div className={`brPreserveTrack${preservedMet ? " brPreserveTrackMet" : ""}`} aria-hidden="true">
             <i style={{ width: `${preservedTrack}%` }} />
             <em title="Referência de 60 minutos" />
           </div>
           <small className="brMetricSub">
             {preservedMet
               ? reading.state === "REACTION"
-                ? "meta temporal atingida"
-                : "meta temporal atingida · sem confirmação"
+                ? "meta atingida"
+                : "meta atingida · sem confirmação"
               : "meta 60 min"}
           </small>
         </div>
@@ -381,35 +528,57 @@ export function BtcBrakeRadar({ asset = { symbol: "BTCUSDT", name: "Bitcoin", ti
         )}
       </div>
 
-      <div className="brStructure">
-        <div className="brContext">
-            <span>Mínima: <b>{fmtPrice(reading.minimum12h)}</b></span>
-          <span>Máxima da amplitude: <b>{fmtPrice(reading.maximum12h)}</b></span>
-          <span>Recuperação: <b>{fmtPct(reading.retracementPct)}</b></span>
-          <span>EMA9: <b>{fmtPrice(reading.ema9)}</b></span>
-        </div>
-        <div className="brLiveQuote" aria-label="Cotação ao vivo e fechamento de 15 minutos (base dos cálculos)">
-          <div className="brLiveQuoteValues">
-            {validLivePrice !== null ? (
-              <>
-                <b className={`brLivePrice ${liveMove}`}>US$ {fmtLivePrice(validLivePrice)}</b>
-                {change24h !== null && Number.isFinite(change24h) && (
-                  <b className={`brLiveChange ${change24hTone}`} aria-label={`Variação em 24 horas: ${fmt24hChange(change24h)}`}>{fmt24hChange(change24h)}</b>
+      <div className="brContext brFundContext">
+        <div className="brFundLeft">
+          <div className="brContextRefs">
+            <div className="brContextRef brRefMinima">
+              <span>
+                Mín. 30d
+                {minimum30dDistancePct !== null ? (
+                  <small className="brRefLabelPct"> ({fmtPct(minimum30dDistancePct, true)}):</small>
+                ) : (
+                  ":"
                 )}
-              </>
-            ) : (
-              <b className="brLivePrice neutral brLiveUnavailable">Indisponível</b>
-            )}
+              </span>
+              <b
+                className={`${minimum30d !== null ? "brNegative" : "brMuted"} brRefValueWithDate${minimum30d === null && dailyRefStatus !== "failed" ? " brRefPending" : ""}`}
+                title={minimum30dAt !== null ? `Fundo em ${fmtRefDate(minimum30dAt)}` : undefined}
+              >
+                {minimum30d !== null ? fmtPrice(minimum30d) : (dailyRefStatus === "failed" ? "—" : "···")}
+                <small className={`brRefDate${minimum30dAt !== null && minimum30d !== null ? "" : " brRefDateHidden"}`} aria-hidden={!(minimum30dAt !== null && minimum30d !== null)}>
+                  {minimum30dAt !== null && minimum30d !== null ? fmtRefDate(minimum30dAt) : "00/00"}
+                </small>
+              </b>
+            </div>
+            <div className="brContextRef">
+              <span>Máxima da amplitude:</span>
+              <b className="brRefValueWithDate">{fmtPrice(reading.maximum12h)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+            </div>
+            <div className="brContextRef">
+              <span>Recuperação:</span>
+              <b className="brRefValueWithDate">{fmtPct(reading.retracementPct)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+            </div>
+            <div className="brContextRef">
+              <span>EMA9:</span>
+              <b className="brRefValueWithDate">{fmtPrice(reading.ema9)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+            </div>
           </div>
-          <div className="brSpotReference brCalcBase">
-            <span>ref. cálculo: US$ {fmtLivePrice(reading.lastClose15m)}</span>
-          </div>
+        </div>
+        <div className="brFundChart">
+          <RadarMiniChart
+            candles={snapshot?.m15 ?? []}
+            symbol={asset.symbol}
+            minimum={reading.minimum12h}
+            ema9={reading.ema9}
+            state={chartState}
+          />
         </div>
       </div>
+
       <div className="brAction">
         <span className="brActionLabel">AÇÃO</span>
         <b>{reading.action}</b>
-        <p>{reading.reason}</p>
+        <p>{reading.reason.startsWith("recuperou") ? `${asset.ticker} ${reading.reason}` : reading.reason}</p>
       </div>
 
       <p className="brNote">
@@ -420,4 +589,3 @@ export function BtcBrakeRadar({ asset = { symbol: "BTCUSDT", name: "Bitcoin", ti
 }
 
 export default BtcBrakeRadar;
-

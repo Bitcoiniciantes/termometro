@@ -1,12 +1,12 @@
 "use client";
-// app/BtcTopRadar.tsx — CAÇA-TOPOS (BTCUSDT).
+// app/BtcTopRadar.tsx — CAÇA-TOPOS.
 //
 // Card do Radar de Exaustão de Alta. Recebe o mesmo snapshot fechado de 1h e
 // 15m usado pelo Caça-Fundos; toda a matemática fica em lib/top-radar.ts.
 // Não executa ordens, não calcula quantidade de venda e não afirma reversão
 // definitiva da tendência.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   analyzeTopRadar,
   TOP_MAX_CONFIRM_AGE_HOURS,
@@ -15,7 +15,17 @@ import {
   TOP_MIN_NO_NEW_HIGH_MINUTES,
   type TopRadarReading,
 } from "../lib/top-radar";
-import { formatPreservedMinutes, type BrakeKlinesSnapshot } from "../lib/brake-radar";
+import {
+  fetchBrakeDailyReference,
+  formatPreservedMinutes,
+  readBrakeDailyReferenceStorage,
+  writeBrakeDailyReferenceStorage,
+  type BrakeDailyReference,
+  type BrakeKlinesSnapshot,
+} from "../lib/brake-radar";
+import { RadarMiniChart } from "./RadarMiniChart";
+
+type RemoteState = "loading" | "ready" | "failed" | "stale";
 
 function fmtPct(value: number | null, signed = false): string {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -30,7 +40,14 @@ function fmtPct(value: number | null, signed = false): string {
 
 function fmtPrice(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return `US$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Mínimo de duas casas; preços baixos preservam mais casas para manter a
+  // precisão da referência. Nunca arredonda 9,24 para 9.
+  const magnitude = Math.floor(Math.log10(Math.abs(value) || 1));
+  const digits = Math.max(2, Math.min(8, 2 - magnitude));
+  return `$${value.toLocaleString("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
 }
 
 function fmtCurrentPrice(value: number | null): string {
@@ -59,6 +76,11 @@ function fmtTime(value: number | null): string {
   });
 }
 
+function fmtRefDate(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "";
+  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
 function clampPct(value: number | null): number {
   if (value === null || !Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(100, value));
@@ -85,12 +107,12 @@ function preservedTone(value: number | null): string {
   return "brMuted";
 }
 
-function dailyChangeTone(value: number | null): string {
-  if (value === null || !Number.isFinite(value) || value === 0) return "neutral";
-  return value > 0 ? "up" : "down";
+function changeTone(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "brMuted";
+  if (value > 0) return "brPositive";
+  if (value < 0) return "brNegative";
+  return "brMuted";
 }
-
-type LiveMove = "up" | "down" | "neutral";
 
 function barWidth(reading: TopRadarReading): number {
   if (reading.drawdownPct === null) return 0;
@@ -118,12 +140,18 @@ export function BtcTopRadar({
   now,
   livePrice = null,
   dailyChangePct = null,
+  quoteState = "loading",
+  quoteUpdatedAt = null,
+  chartState = "loading",
 }: {
   asset?: { symbol: string; name: string; ticker: string };
   snapshot: BrakeKlinesSnapshot | null;
   now: number;
   livePrice?: number | null;
   dailyChangePct?: number | null;
+  quoteState?: RemoteState;
+  quoteUpdatedAt?: number | null;
+  chartState?: RemoteState;
 }) {
   const reading = useMemo(
     () => analyzeTopRadar({
@@ -138,28 +166,114 @@ export function BtcTopRadar({
   const validLivePrice = livePrice !== null && Number.isFinite(livePrice) && livePrice > 0
     ? livePrice
     : null;
-  // Cor dinâmica da cotação ao vivo: compara apenas cotações válidas consecutivas.
-  const previousLivePrice = useRef<number | null>(null);
-  const [liveMove, setLiveMove] = useState<LiveMove>("neutral");
+  const validDailyChange = dailyChangePct !== null && Number.isFinite(dailyChangePct)
+    ? dailyChangePct
+    : null;
+  const dailyChangeLabel = fmtDailyChange(dailyChangePct);
+  const quoteView = quoteState === "loading" && validLivePrice === null
+    ? "loading"
+    : quoteState === "failed" && validLivePrice === null
+      ? "failed"
+      : quoteState === "stale" && validLivePrice !== null
+        ? "stale"
+        : "ready";
+
+  // ── Referência de 30 dias (apenas exibição) ──────────────────────────────
+  const [dailyRef, setDailyRef] = useState<BrakeDailyReference | null>(null);
+  const [dailyRefStatus, setDailyRefStatus] = useState<"loading" | "ready" | "failed">("loading");
+
   useEffect(() => {
-    previousLivePrice.current = null;
-    setLiveMove("neutral");
+    let active = true;
+    const controller = new AbortController();
+    const timers: number[] = [];
+    const wait = (ms: number) => new Promise<void>((resolve) => {
+      const id = window.setTimeout(resolve, ms);
+      timers.push(id);
+    });
+
+    const stored = readBrakeDailyReferenceStorage(asset.symbol);
+    let hasValue = !!stored;
+    if (stored) {
+      setDailyRef(stored);
+      setDailyRefStatus("ready");
+    } else {
+      setDailyRef(null);
+      setDailyRefStatus("loading");
+    }
+
+    const BACKOFF_MS = [3000, 10_000, 30_000];
+
+    const run = async () => {
+      // Escalona a busca inicial para não competir com as requisições principais da abertura.
+      await wait(2000);
+      if (!active) return;
+      let failures = 0;
+      while (active) {
+        try {
+          const next = await fetchBrakeDailyReference(asset.symbol, controller.signal);
+          if (!active) return;
+          hasValue = true;
+          setDailyRef(next);
+          setDailyRefStatus("ready");
+          writeBrakeDailyReferenceStorage(asset.symbol, next);
+          failures = 0;
+          await wait(10 * 60_000);
+        } catch (error) {
+          if (!active || (error as Error)?.name === "AbortError") return;
+          if (failures < BACKOFF_MS.length) {
+            await wait(BACKOFF_MS[failures]);
+            failures += 1;
+          } else {
+            if (!hasValue) setDailyRefStatus("failed");
+            failures = 0;
+            await wait(10 * 60_000);
+          }
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      active = false;
+      controller.abort();
+      timers.forEach((id) => window.clearTimeout(id));
+    };
   }, [asset.symbol]);
-  useEffect(() => {
-    if (validLivePrice === null) {
-      setLiveMove("neutral");
-      return;
-    }
-    const previous = previousLivePrice.current;
-    if (previous !== null && validLivePrice !== previous) {
-      setLiveMove(validLivePrice > previous ? "up" : validLivePrice < previous ? "down" : "neutral");
-    } else if (previous === null) {
-      setLiveMove("neutral");
-    }
-    previousLivePrice.current = validLivePrice;
-  }, [validLivePrice]);
-  // Base dos cálculos de recuo/exaustão: sempre o fechamento do último candle de 15m.
+
+  // Referência fechada de 15m usada apenas nos cálculos de recuo; a cotação
+  // exibida acima é o spot atual e não altera nenhum critério.
   const referencePrice = reading.lastClose15m;
+
+  // Máxima 30d (somente exibição): maior high entre candles 1d fechados (30d)
+  // e candles 15M carregados (24h), para não excluir o topo de hoje.
+  const dailyMax = dailyRef?.maxHigh ?? null;
+  const dailyMaxAt = dailyRef?.maxHighAt ?? null;
+  let m15MaxHigh: number | null = null;
+  let m15MaxHighAt: number | null = null;
+  for (const candle of (snapshot?.m15 ?? []).slice(-96)) {
+    const high = Number(candle.high);
+    if (!Number.isFinite(high) || high <= 0) continue;
+    if (m15MaxHigh === null || high > m15MaxHigh) {
+      m15MaxHigh = high;
+      m15MaxHighAt = Number(candle.openTime);
+    }
+  }
+  let maximum30d: number | null = null;
+  let maximum30dAt: number | null = null;
+  if (dailyRef) {
+    if (dailyMax !== null && (m15MaxHigh === null || dailyMax >= m15MaxHigh)) {
+      maximum30d = dailyMax;
+      maximum30dAt = dailyMaxAt;
+    } else if (m15MaxHigh !== null) {
+      maximum30d = m15MaxHigh;
+      maximum30dAt = m15MaxHighAt;
+    }
+  }
+  const distanceBase = validLivePrice ?? reading.lastClose15m ?? null;
+  const maximum30dDistancePct = maximum30d !== null && distanceBase !== null && distanceBase > 0
+    ? ((maximum30d / distanceBase) - 1) * 100
+    : null;
+
   const bar = barWidth(reading);
   const barMark = (TOP_MIN_DRAWDOWN_PCT / TOP_MAX_WATCH_DRAWDOWN_PCT) * 100;
   const hasDrawdown = reading.drawdownPct !== null;
@@ -176,6 +290,36 @@ export function BtcTopRadar({
           <h3 className="brTitle">{asset.name.toUpperCase()} — CAÇA-TOPOS</h3>
           <span className="brKicker">{asset.ticker}/USDT · EXAUSTÃO DE ALTA</span>
           <div className="brState">{reading.label}</div>
+        </div>
+        <div
+          className={`brCurrentPrice brHeadQuote brLiveQuote brHeadQuote-${quoteView === "ready" || quoteView === "stale" ? changeTone(validDailyChange) : "brMuted"}`}
+          aria-label={`Cotação spot de ${asset.symbol}`}
+        >
+          <div className="brQuoteLine brLiveQuoteValues">
+            {quoteView === "loading" ? (
+              <b className="brQuoteValue brQuoteLoading">Atualizando<span className="brLoadingDots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></b>
+            ) : quoteView === "failed" ? (
+              <b className="brQuoteValue brQuoteUnavailable">Sem conexão</b>
+            ) : validLivePrice !== null ? (
+              <>
+                <b className={`brQuoteValue brLivePrice ${changeTone(validDailyChange)}`}>
+                  ${fmtCurrentPrice(validLivePrice)}
+                </b>
+                {validDailyChange !== null && (
+                  <small className={`brDailyChange brLiveChange ${changeTone(validDailyChange)}`}>
+                    {dailyChangeLabel}
+                    <span className="brChangeWindow">24H</span>
+                  </small>
+                )}
+              </>
+            ) : null}
+          </div>
+          {quoteView === "loading" ? <small className="brQuoteRef">buscando Binance spot</small>
+            : quoteView === "failed" ? <small className="brQuoteRef">nova tentativa em 60s</small>
+              : quoteView === "stale" ? <small className="brQuoteRef">desatualizada · última às {fmtTime(quoteUpdatedAt)}</small>
+                : referencePrice !== null && Number.isFinite(referencePrice) && (
+            <small className="brQuoteRef">ref. cálculo (fech. 15M): {fmtCurrentPrice(referencePrice)}</small>
+          )}
         </div>
         <div className="brHeadSide">
           <span className="brBadge">{reading.badge}</span>
@@ -233,40 +377,69 @@ export function BtcTopRadar({
         )}
       </div>
 
-      <div className="brContext">
-        <div className="brContextRefs">
-          <span>Mínima de origem: <b>{fmtPrice(reading.originLow)}</b></span>
-          <span>Máxima monitorada: <b>{fmtPrice(reading.maximum)}</b></span>
-          <span>Alta até o topo: <b>{fmtPct(reading.riseToPeakPct, true)}</b></span>
-          <span>Janela do topo: <b className={peakEligibilityTone(reading)}>{peakEligibilityText(reading)}</b></span>
-          <span>EMA9 15m: <b>{fmtPrice(reading.ema9_15m)}</b></span>
-          <span>EMA9 1H: <b>{fmtPrice(reading.ema9_1h)}</b></span>
-        </div>
-        <div className="brCurrentPrice" aria-label="Cotação ao vivo e fechamento de 15 minutos (base dos cálculos)">
-          <div className="brQuoteLine">
-            <div className="brLiveValues">
-              {validLivePrice !== null ? (
-                <>
-                  <b className={`brLivePrice ${liveMove}`}>US$ {fmtCurrentPrice(validLivePrice)}</b>
-                  {dailyChangePct !== null && Number.isFinite(dailyChangePct) && (
-                    <span className={`brDailyChange ${dailyChangeTone(dailyChangePct)}`}>{fmtDailyChange(dailyChangePct)}</span>
-                  )}
-                </>
-              ) : (
-                <b className="brLivePrice neutral brLiveUnavailable">Indisponível</b>
-              )}
+      <div className="brContext brFundContext">
+        <div className="brFundLeft">
+          <div className="brContextRefs">
+            <div className="brContextRef brRefMaxima30d">
+              <span>
+                Máx. 30d
+                {maximum30dDistancePct !== null ? (
+                  <small className="brRefLabelPct"> ({fmtPct(maximum30dDistancePct, true)}):</small>
+                ) : (
+                  ":"
+                )}
+              </span>
+              <b
+                className={`${maximum30d !== null ? "brNegative" : "brMuted"} brRefValueWithDate${maximum30d === null && dailyRefStatus !== "failed" ? " brRefPending" : ""}`}
+                title={maximum30dAt !== null ? `Topo em ${fmtRefDate(maximum30dAt)}` : undefined}
+              >
+                {maximum30d !== null ? fmtPrice(maximum30d) : (dailyRefStatus === "failed" ? "—" : "···")}
+                <small className={`brRefDate${maximum30dAt !== null && maximum30d !== null ? "" : " brRefDateHidden"}`} aria-hidden={!(maximum30dAt !== null && maximum30d !== null)}>
+                  {maximum30dAt !== null && maximum30d !== null ? fmtRefDate(maximum30dAt) : "00/00"}
+                </small>
+              </b>
+            </div>
+            <div className="brContextRef">
+              <span>Mínima de origem:</span>
+              <b className="brRefValueWithDate">{fmtPrice(reading.originLow)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+            </div>
+            <div className="brContextRef">
+              <span>Máxima monitorada:</span>
+              <b className="brRefValueWithDate">{fmtPrice(reading.maximum)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+            </div>
+            <div className="brContextRef">
+              <span>Alta até o topo:</span>
+              <b className="brRefValueWithDate">{fmtPct(reading.riseToPeakPct, true)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+            </div>
+            <div className="brContextRef">
+              <span>EMA9 15m:</span>
+              <b className="brRefValueWithDate">{fmtPrice(reading.ema9_15m)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+            </div>
+            <div className="brContextRef">
+              <span>EMA9 1H:</span>
+              <b className="brRefValueWithDate">{fmtPrice(reading.ema9_1h)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+            </div>
+            <div className="brContextRef">
+              <span>Janela do topo:</span>
+              <b className={`brRefValueWithDate ${peakEligibilityTone(reading)}`}>{peakEligibilityText(reading)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
             </div>
           </div>
-          <div className="brSpotReference brCalcBase">
-            <span>ref. cálculo: US$ {fmtCurrentPrice(referencePrice)}</span>
-          </div>
+        </div>
+        <div className="brFundChart">
+          <RadarMiniChart
+            candles={snapshot?.m15 ?? []}
+            symbol={asset.symbol}
+            maximum={reading.maximum}
+            ema9={reading.ema9_15m}
+            state={chartState}
+          />
         </div>
       </div>
 
       <div className="brAction">
         <span className="brActionLabel">AÇÃO</span>
         <b>{reading.action}</b>
-        <p>{reading.reason}</p>
+        <p>{reading.reason.startsWith("recuperou") ? `${asset.ticker} ${reading.reason}` : reading.reason}</p>
       </div>
 
       <details className="trDiag">
