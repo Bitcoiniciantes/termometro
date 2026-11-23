@@ -691,7 +691,7 @@ test("integração: radar de reversão preserva Caça-Fundos abaixo do NEXUS na 
   assert.match(page, /import "\.\/radar-reversal\.css"/);
   const nexus = page.indexOf("<ConfluencePanel");
   const radar = page.indexOf("<BtcRadarReversal currentPrice={allLivePrices.BTC} />");
-  const alertPanel = page.indexOf('<article className="card alertPanelCard"');
+  const alertPanel = page.indexOf('className="card alertPanelCard"');
   assert.ok(nexus >= 0 && radar > nexus && alertPanel > radar, "ordem NEXUS → Radar de Reversão → AlertPanel");
 
   const wrapper = await readFile(new URL("../app/BtcRadarReversal.tsx", import.meta.url), "utf8");

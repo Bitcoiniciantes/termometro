@@ -257,6 +257,34 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .chartTitle{height:auto;min-height:86px;display:flex;align-items:center;gap:18px}.chartTitle>div:first-child{flex:0 0 auto}.nuplBar{flex:1 1 auto;max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.nuplTrack{position:relative;height:28px;display:flex;margin:0;border:1px solid #2a3830;border-top:none;overflow:visible}.nuplSeg{height:100%;opacity:.5;transition:opacity .2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 1px}.nuplSeg.active{opacity:1}.nuplSegLabel{font-size:8px;font-weight:900;color:#000!important;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1;-webkit-font-smoothing:antialiased;text-shadow:none}.nuplSegLine{width:80%;height:2.5px;border-radius:1px;flex-shrink:0}.nuplMarker{position:absolute;top:-4px;bottom:-4px;width:2.5px;background:var(--nupl-marker,#fff);transform:translateX(-1.25px);z-index:2;border-radius:1px}.nuplMarker::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:10px;height:10px;background:var(--nupl-marker,#fff);border-radius:50%;box-shadow:0 0 4px rgba(0,0,0,.5)}.nuplMarkerLabel{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:8px;font-weight:900;color:#000!important;white-space:nowrap;font-family:var(--font-geist-mono),monospace;background:var(--nupl-marker,#fff);padding:1px 4px;border-radius:2px;text-shadow:none}@media(max-width:700px){.chartTitle{flex-direction:column;align-items:stretch;gap:8px;padding:8px 0}.nuplBar{max-width:100%;margin:0}.nuplTrack{height:28px}.nuplSegLabel{font-size:7px}.nuplMarkerLabel{font-size:7px}}
 
 
+/* Menu de navegação dos cards */
+.cardsNav{position:relative;display:flex;align-items:center}
+.cardsNavButton{display:inline-flex;align-items:center;gap:6px;padding:10px 15px;border:0;border-radius:999px;background:transparent;color:var(--lime);font-size:10px;font-weight:800;letter-spacing:.045em;white-space:nowrap;cursor:pointer;transition:color .2s ease,background .2s ease,transform .2s ease,box-shadow .2s ease}
+.cardsNavButton>span{font-size:11px;line-height:1;opacity:.8;transition:transform .2s ease,color .2s ease}
+.cardsNavButton:hover,.cardsNavButton:focus-visible{color:#f2f6f3;background:#1b2823;outline:none;transform:translateY(-1px)}
+.cardsNavButton:focus-visible{box-shadow:0 0 0 2px var(--cyan)}
+.cardsNavButton.open{color:#ff9c2a;background:#f7931a18;box-shadow:inset 0 0 0 1px #f7931a55}
+.cardsNavButton.open>span{transform:rotate(180deg);color:#f7931a;opacity:1}
+.cardsMenu{position:fixed;z-index:80;display:flex;flex-direction:column;gap:2px;padding:7px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #33423c;border-radius:14px;background:#0d1613f7;backdrop-filter:blur(18px);box-shadow:0 18px 48px #000000b8,inset 0 1px 0 #ffffff0a;animation:cardsMenuIn .18s ease both;scrollbar-width:thin;scrollbar-color:#3a4a42 transparent}
+@keyframes cardsMenuIn{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+.cardsMenuTitle{padding:7px 10px 5px;color:#718079;font-size:8px;font-weight:900;letter-spacing:.16em}
+.cardsMenuItem{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:1px solid transparent;border-radius:9px;background:transparent;color:#c4cec9;font-size:11px;font-weight:700;text-align:left;cursor:pointer;transition:color .16s ease,background .16s ease,border-color .16s ease}
+.cardsMenuItem:hover,.cardsMenuItem:focus-visible{background:#17231e;color:#f2f6f3;border-color:#2b3934;outline:none}
+.cardsMenuItem:focus-visible{box-shadow:0 0 0 1px var(--cyan)}
+.cardsMenuItem.active{color:#ff9c2a;background:#f7931a12;border-color:#f7931a3d}
+.cardsMenuItem.active .cardsMenuIndex{color:#f7931a}
+.cardsMenuIndex{flex:0 0 auto;width:20px;color:#5f6c66;font-family:var(--font-geist-mono),monospace;font-size:9px;font-weight:900}
+.cardsMenuItem i{margin-left:auto;font-style:normal;font-size:11px;color:#5f6c66;transition:transform .16s ease,color .16s ease}
+.cardsMenuItem:hover i,.cardsMenuItem:focus-visible i,.cardsMenuItem.active i{transform:translate(2px,2px);color:#f7931a}
+.cardNavAnchor{display:contents}
+#radar-compra-venda,#grafico,#nexus,#radar-reversao,#alertas,#regras,#termometro,#rsi-geral,#analista-digital,#plano-tecnico,#fng-root,.radarReversal{scroll-margin-top:88px}
+.cardNavHighlight{animation:cardNavHighlight 2.4s ease}
+.cardNavHighlight:focus{outline:none}
+@keyframes cardNavHighlight{0%,100%{box-shadow:none}12%,58%{box-shadow:0 0 0 1px #f7931a,0 0 0 5px #f7931a22,0 0 30px #f7931a3d}}
+@media(max-width:850px){.cardsNavButton{padding:9px 13px}.cardsMenu{max-width:calc(100vw - 24px)}#radar-compra-venda,#grafico,#nexus,#radar-reversao,#alertas,#regras,#termometro,#rsi-geral,#analista-digital,#plano-tecnico,#fng-root,.radarReversal{scroll-margin-top:92px}}
+@media(max-width:480px){.cardsNavButton{padding:8px 11px;font-size:9px}}
+@media(prefers-reduced-motion:reduce){.cardsMenu{animation:none}.cardNavHighlight{animation:none;box-shadow:0 0 0 2px #f7931a}}
+
 /* Gráfico OHLC real */
 .realPriceChart {
   height: 360px;
@@ -1081,7 +1109,7 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
   filter: brightness(1.15);
 }
 
-#grafico{scroll-margin-top:34px}
+#analista-digital{scroll-margin-top:88px}
 .mobilePeriodComparison{min-height:43px}
 .desktopPeriodComparison{min-height:34px}
 .chartRadar{margin:0;padding:0;border:0;background:transparent}.chartRadar .quickAssetList{display:flex;flex-wrap:wrap;gap:8px}.chartRadar .quickAsset{display:inline-flex;align-items:center;gap:10px;padding:8px 14px;border:1px solid #52615a;border-radius:999px;background:#17211d;color:#dfe8e2;font:900 11px/1 var(--font-geist-mono),monospace;letter-spacing:.04em;cursor:pointer;transition:.15s}.chartRadar .quickAsset b{color:#fff}.chartRadar .quickAsset em{font-style:normal}.chartRadar .quickAsset.up em{color:#70efaa}.chartRadar .quickAsset.down em{color:#ff8991}.chartRadar .quickAsset.flat em{color:#aeb9b4}.chartRadar .quickAsset:hover{border-color:#72cf7b;background:#24392b}.chartRadar .quickAsset.selected{border-color:#54b85a;background:#54b85a;color:#07100c;box-shadow:0 0 12px #54b85a55}.chartRadar .quickAsset.selected b,.chartRadar .quickAsset.selected em{color:#07100c}@media(max-width:520px){.chartRadar .quickAssetList{gap:6px}.chartRadar .quickAsset{gap:7px;padding:7px 10px;font-size:10px}}

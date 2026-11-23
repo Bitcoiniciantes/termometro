@@ -26,7 +26,7 @@ export default function ConfluencePanel({
 
   if (loading) {
     return (
-      <article className="card nexus nexusEmpty">
+      <article id="nexus" className="card nexus nexusEmpty">
         <div className="cardTitle"><div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{"Cruzando métricas, RSI e fluxo"}</b></div></div>
         <p>{"Processando candles concluídos."}</p>
       </article>
@@ -35,7 +35,7 @@ export default function ConfluencePanel({
 
   if (!data) {
     return (
-      <article className="card nexus nexusEmpty">
+      <article id="nexus" className="card nexus nexusEmpty">
         <div className="cardTitle"><div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{"Fluxo agressor indisponível"}</b></div></div>
         <p>{"Este ativo não fornece a separação entre compras e vendas a mercado. Nenhuma estimativa foi criada."}</p>
       </article>
@@ -68,7 +68,7 @@ export default function ConfluencePanel({
         };
 
   return (
-    <article className={["card", "nexus", tone].join(" ")}>
+    <article id="nexus" className={["card", "nexus", tone].join(" ")}>
       <div className="cardTitle">
         <div><span className="nexusIdentity">NEXUS • <strong>{asset} • {period}</strong></span><b>{title}</b></div>
         <span className="nexusScore">{signed(data.score)}</span>
