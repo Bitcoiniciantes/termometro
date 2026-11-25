@@ -277,11 +277,11 @@ header nav .externalNav:hover,header nav .externalNav:focus-visible{color:#06100
 .cardsMenuItem i{margin-left:auto;font-style:normal;font-size:11px;color:#5f6c66;transition:transform .16s ease,color .16s ease}
 .cardsMenuItem:hover i,.cardsMenuItem:focus-visible i,.cardsMenuItem.active i{transform:translate(2px,2px);color:#f7931a}
 .cardNavAnchor{display:contents}
-#radar-compra-venda,#grafico,#nexus,#radar-reversao,#alertas,#regras,#termometro,#rsi-geral,#analista-digital,#plano-tecnico,#fng-root,.radarReversal{scroll-margin-top:88px}
+#radar-compra-venda,#grafico,#nexus,#radar-reversao,#rsi-projetado,#alertas,#regras,#termometro,#rsi-geral,#analista-digital,#plano-tecnico,#fng-root,.radarReversal{scroll-margin-top:88px}
 .cardNavHighlight{animation:cardNavHighlight 2.4s ease}
 .cardNavHighlight:focus{outline:none}
 @keyframes cardNavHighlight{0%,100%{box-shadow:none}12%,58%{box-shadow:0 0 0 1px #f7931a,0 0 0 5px #f7931a22,0 0 30px #f7931a3d}}
-@media(max-width:850px){.cardsNavButton{padding:9px 13px}.cardsMenu{max-width:calc(100vw - 24px)}#radar-compra-venda,#grafico,#nexus,#radar-reversao,#alertas,#regras,#termometro,#rsi-geral,#analista-digital,#plano-tecnico,#fng-root,.radarReversal{scroll-margin-top:92px}}
+@media(max-width:850px){.cardsNavButton{padding:9px 13px}.cardsMenu{max-width:calc(100vw - 24px)}#radar-compra-venda,#grafico,#nexus,#radar-reversao,#rsi-projetado,#alertas,#regras,#termometro,#rsi-geral,#analista-digital,#plano-tecnico,#fng-root,.radarReversal{scroll-margin-top:92px}}
 @media(max-width:480px){.cardsNavButton{padding:8px 11px;font-size:9px}}
 @media(prefers-reduced-motion:reduce){.cardsMenu{animation:none}.cardNavHighlight{animation:none;box-shadow:0 0 0 2px #f7931a}}
 

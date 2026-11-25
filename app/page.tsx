@@ -7,6 +7,7 @@ import NuplBar from "./NuplBar";
 import StockTickerBar from "./StockTickerBar";
 import ConfluencePanel from "./ConfluencePanel";
 import { BtcRadarReversal } from "./BtcRadarReversal";
+import RsiProjetadoCard from "./RsiProjetadoCard";
 import "./brake-radar.css";
 import "./radar-reversal.css";
 import FearGreedCard from "./FearGreedCard";
@@ -34,6 +35,7 @@ const cardNavItems = [
   { id: "nexus", label: "NEXUS" },
   { id: "fng-root", label: "Fear & Greed Index" },
   { id: "radar-reversao", label: "Radar de Reversão" },
+  { id: "rsi-projetado", label: "RSI Projetado" },
   { id: "alertas", label: "Alertas de Preço" },
   { id: "regras", label: "Raio-X da Nota" },
 ] as const;
@@ -189,6 +191,9 @@ function Termometro(){
     <FearGreedCard />
   </div>
 </section>
+  <section className="rsiProjetadoSection">
+    <RsiProjetadoCard />
+  </section>
   <footer><span><b>T°</b> TERMÔMETRO</span><p>Motor determinístico • Interpretação opcional assistida por IA - NÃO É RECOMENDAÇÃO DE INVESTIMENTO.</p><span data-goatcounter-total aria-label="Total de acessos">· visitas: —</span><small>PILOTO v0.2</small></footer>
   <GlobalAlertRenderer currency={currency}/>
  </main>
