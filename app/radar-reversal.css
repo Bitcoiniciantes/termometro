@@ -60,6 +60,40 @@
   gap: 6px;
   padding: 0 16px 12px;
 }
+/* Grupos de controles (ESTRATÉGIA · MODO): dois botões alinhados por grupo,
+   com rótulo discreto acima, sem sobrepor nem colar. */
+.rrTabGroup { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rrTabGroupLabel { color: #6f8078; font-size: 7px; font-weight: 900; letter-spacing: .14em; line-height: 1; padding-left: 2px; }
+.rrTabGroupBtns { display: flex; gap: 6px; align-items: stretch; }
+.rrModeTab {
+  min-width: 126px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid #31413a;
+  border-radius: 6px;
+  background: #0a110f;
+  color: #9ba8a2;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.rrModeTab:hover {
+  border-color: #5d7a6a;
+  color: var(--paper);
+}
+/* Modo ativo em verde; inativo escuro. */
+.rrModeTab.active {
+  border: 2px solid #10b981;
+  padding: 7px 13px;
+  background: #10291f;
+  color: #7ad881;
+}
+.rrModeTab:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
 .rrTab {
   position: relative;
   min-height: 36px;
@@ -428,13 +462,13 @@
 
 .rrActionPill {
   display: inline-flex;
-  flex: 0 0 103px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 103px;
+  width: 52px;
   height: 46px;
   min-width: 0;
-  padding: 0 5px;
+  padding: 0 3px;
   border: 1px dashed #2f4a3e;
   border-radius: 7px;
   background: #0c1411;
@@ -443,11 +477,17 @@
   transition: border-color .15s ease, background .15s ease, color .15s ease;
 }
 .rrActionPill b {
+  /* Redução de 50% com mínimo de 10px: era 9px → 10px. Una a linha do texto. */
   font-size: 10px;
   font-weight: 900;
   letter-spacing: .08em;
   line-height: 1;
+  white-space: nowrap;
 }
+/* Os dois botões (ATIVO + COMPARAR) ancoram à extrema direita da área interna
+   do radar: margin-left automático alinha à direita respeitando o contêiner.
+   O grupo junta-se na linha seguinte quando não houver espaço suficiente. */
+.rrAddPill { margin-left: auto; }
 .rrActionPill:hover,
 .rrActionPill:focus-visible {
   border-color: #4a6a5a;
@@ -479,8 +519,15 @@
   color: #6f8078;
 }
 .rrComparePill {
+  /* Aumento de ~10% da largura do COMPARE; altura e fonte sem alteração.
+     + ATIVO permanece exatamente como está (largura 52px). */
+  width: 57px;
   border-style: solid;
   border-color: #22302a;
+}
+.rrComparePill b {
+  /* Redução de 10% na fonte do texto COMPARE (entra perto de caber). */
+  font-size: 9px;
 }
 .rrLimitNotice {
   margin: -4px 16px 10px;

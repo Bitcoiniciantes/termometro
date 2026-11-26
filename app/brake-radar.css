@@ -409,7 +409,8 @@
   line-height: 1;
   white-space: nowrap;
 }
-.brDailyChange {
+.brDailyChange,
+.brLiveChange {
   font-size: 11px;
   font-weight: 900;
   letter-spacing: .02em;
@@ -872,3 +873,185 @@
 
 /* Alias histórico da linha de valores da cotação. */
 .brLiveQuoteValues { display: flex; }
+
+/* ── Radar de Reversão — Bar evolution (portado do Preditivo 2.0) ───────── */
+.brOperationalGrid {
+  display: grid;
+  grid-template-columns: 1.25fr .88fr 1.2fr;
+  gap: 10px;
+}
+.brOpCard,
+.brOpStats > div {
+  border: 1px solid #294039;
+  border-radius: 10px;
+  background: #0a110f;
+  padding: 12px;
+}
+.brOpCard > span,
+.brOpStats span {
+  display: block;
+  color: #b8c8c0;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.brMap {
+  position: relative;
+  border-color: #10b981;
+}
+.brMap dl {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0 0;
+}
+.brMap dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.brMap dt {
+  color: #aebbb4;
+  font-size: 10px;
+}
+.brMap dd {
+  margin: 0;
+  color: #e9eee8;
+  font-size: 12px;
+  font-weight: 800;
+}
+/* R:R aparece como texto simples, alinhado à direita, sem card separado. */
+.brMapRr {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+.brMapRrValue {
+  color: #e9eee8;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+/* Sem R:R: as referências do mapa ocupam toda a largura disponível. */
+.brMap dl { margin-right: 0; }
+.brMapHypothetical { opacity: .55; }
+
+.brTrigger {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.brTrigger > b { font-size: 13px; }
+.brTrigger p { margin: 0; color: #8a9892; font-size: 10px; line-height: 1.4; }
+.brCheckList {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #b5c0bb;
+  font-size: 10px;
+}
+.brCheckList .confirmed { color: #59d797; }
+.brCheckList .invalid { color: #ef6b72; }
+.brCheckList .unavailable { color: #8a9892; }
+
+.brFastState {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.brFastState b {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.brFastState-disparado b { color: #f59e0b; }
+.brFastState-armado b { color: #f59e0b; }
+.brFastState-aguardando b { color: #8a9892; }
+.brFastContra {
+  display: inline-flex;
+  padding: 2px 6px;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  color: #f59e0b;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  background: transparent;
+}
+.brFastMeta { color: #8a9892 !important; font-size: 9px; line-height: 1.35; font-weight: 600; }
+.brFastDistance { color: #b5c0bb !important; font-size: 9px; line-height: 1.35; }
+.brFastDisclaimer { color: #d4a04a !important; font-size: 9px; font-weight: 700; }
+
+.brOpStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.brOpStats > div { padding: 10px; }
+.brOpStats b {
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+  line-height: 1;
+}
+.brOpStats small { display: block; margin-top: 4px; color: #c4d0ca; font-size: 9px; line-height: 1.25; }
+
+.brDiagnostics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 10px 0 12px;
+}
+.brDiagnostics span {
+  border: 1px solid #294039;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #8a9892;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.brDiagnostics b {
+  display: block;
+  margin-top: 3px;
+  color: #bcefe0;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.brBadgeSpeculative {
+  color: #f59e0b;
+  border-color: #f59e0b;
+  background: transparent;
+}
+
+/* AÇÃO + VOLUME: linha com as duas colunas conforme o layout do Preditivo. */
+.brActionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, .55fr);
+  gap: 10px;
+  margin: 12px 18px 0;
+}
+.brActionRow .brAction { margin: 0; }
+.brVolumeCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 11px 13px;
+  border: 1px solid #1d2925;
+  border-radius: 6px;
+  background: #0a110f;
+}
+.brVolumeCard span { color: #b8c8c0; font-size: 9px; font-weight: 900; letter-spacing: .06em; }
+.brVolumeCard b { font-size: 20px; }
+.brVolumeCard small { color: #b7c3bd; font-size: 9px; }
+
+.brMetricsTwo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (max-width: 720px) {
+  .brActionRow { grid-template-columns: 1fr; margin: 10px 14px 0; }
+}

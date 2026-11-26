@@ -32,6 +32,7 @@ import { RadarComparePanel } from "./RadarComparePanel";
 
 const REFRESH_MS = 60_000;
 type RadarTab = "fundos" | "topos";
+type RadarMode = "fast" | "conservative";
 type RadarQuote = { price: number | null; changePct24h: number | null };
 type RemoteState = "loading" | "ready" | "failed" | "stale";
 type RemoteStatus = { state: RemoteState; updatedAt: number | null };
@@ -82,6 +83,7 @@ function pillReading(snapshot: BrakeKlinesSnapshot | undefined, now: number, tab
 
 export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
   const [tab, setTab] = useState<RadarTab>("fundos");
+  const [mode, setMode] = useState<RadarMode>("conservative");
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
   const [extraSymbols, setExtraSymbols] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -489,18 +491,32 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
           <span className="rrSource">BINANCE SPOT · 15M + 1H</span>
         </div>
         <div className="rrTabs" role="tablist" aria-label="Radar de reversão">
-          {(["fundos", "topos"] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              role="tab"
-              aria-selected={tab === mode}
-              className="rrTab"
-              onClick={() => setTab(mode)}
-            >
-              {mode === "fundos" ? "CAÇA-FUNDOS" : "CAÇA-TOPOS"}
-            </button>
-          ))}
+          <div className="rrTabGroup" role="tablist" aria-label="Estratégia">
+            <span className="rrTabGroupLabel">ESTRATÉGIA</span>
+            <div className="rrTabGroupBtns">
+              {(["fundos", "topos"] as const).map((tabName) => (
+                <button
+                  key={tabName}
+                  type="button"
+                  role="tab"
+                  id={`rr-tab-${tabName}`}
+                  aria-selected={tab === tabName}
+                  tabIndex={tab === tabName ? 0 : -1}
+                  className="rrTab"
+                  onClick={() => setTab(tabName)}
+                >
+                  {tabName === "fundos" ? "CAÇA-FUNDOS" : "CAÇA-TOPOS"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rrTabGroup" role="group" aria-label="Modo">
+            <span className="rrTabGroupLabel">MODO</span>
+            <div className="rrTabGroupBtns">
+              <button type="button" className={`rrModeTab ${mode === "fast" ? "active" : ""}`} aria-pressed={mode === "fast"} onClick={() => setMode("fast")}>RÁPIDO</button>
+              <button type="button" className={`rrModeTab ${mode === "conservative" ? "active" : ""}`} aria-pressed={mode === "conservative"} onClick={() => setMode("conservative")}>CONSERVADOR</button>
+            </div>
+          </div>
         </div>
 
         <div className="rrAssets" role="group" aria-label="Ativos monitorados">
@@ -569,7 +585,7 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
             aria-label="Comparar ativos"
             title="Comparar dois ativos no modo técnico atual"
           >
-            <b>COMPARAR</b>
+            <b>COMPARE</b>
           </button>
         </div>
 
@@ -666,6 +682,7 @@ export function BtcRadarReversal({ currentPrice }: { currentPrice?: number }) {
             quoteState={selectedQuoteStatus.state}
             quoteUpdatedAt={selectedQuoteStatus.updatedAt}
             chartState={selectedSnapshotStatus.state}
+            mode={mode}
           />
         ) : (
           <BtcTopRadar

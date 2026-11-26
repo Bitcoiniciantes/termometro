@@ -1,14 +1,17 @@
 "use client";
-// app/BtcBrakeRadar.tsx — RADAR DE FREIO DA QUEDA.
+// app/BtcBrakeRadar.tsx — RADAR DE FREIO DA QUEDA (Caça-Fundos).
 //
-// Card independente do ativo selecionado no Termômetro. Lê somente candles
-// públicos e fechados da Binance spot (1h + 15m), a cada 60s, e delega toda a
-// matemática para lib/brake-radar.ts. Não repete CVD, funding, OI, RSI, order
-// book nem qualquer métrica de microestrutura. Não executa ordens.
+// Radar clonado da implementação final do Preditivo 2.0 (app/BtcBrakeRadar.tsx):
+// AQUISIÇÃO DE CANDLES (lib/brake-radar.ts) INVARIÁVEL — candles públicos da
+// Binance spot (1h + 15m), a cada 60s, nenhum endpoint novo nem ordem executada.
+// Diferencial: modo RÁPIDO (Caça-Fundos) com gatilho 5M implementado em
+// lib/brake-radar.ts (calcFastTrigger/calcFastStop/calcFastRR).
+// Não repete CVD, funding, OI, RSI, order book nem métricas de microestrutura.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   analyzeBrakeRadar,
+  emaLast,
   fetchBrakeDailyReference,
   fetchBrakeKlines,
   formatPreservedMinutes,
@@ -23,24 +26,24 @@ import { RadarMiniChart } from "./RadarMiniChart";
 
 const REFRESH_MS = 60_000;
 
-type RemoteState = "loading" | "ready" | "failed" | "stale";
-
 type Props = {
   asset?: { symbol: string; name: string; ticker: string };
   /** Cotação spot ao vivo (informativa; não entra nos cálculos). */
-  currentPrice?: number;
+  currentPrice?: number | null;
   /** Variação percentual em 24h já disponível no contexto. */
   dailyChangePct?: number | null;
   /** Estado da cotação spot para as mensagens de carregamento/falha. */
-  quoteState?: RemoteState;
+  quoteState?: "loading" | "ready" | "failed" | "stale";
   quoteUpdatedAt?: number | null;
   /** Estado do snapshot de candles para o minigráfico. */
-  chartState?: RemoteState;
+  chartState?: "loading" | "ready" | "failed" | "stale";
   /** Snapshot compartilhado com o Radar de Reversão. */
   snapshot?: BrakeKlinesSnapshot | null;
   /** Relógio compartilhado com o wrapper de abas. */
   now?: number;
+  mode?: "fast" | "conservative";
 };
+
 
 function fmtPct(value: number | null, signed = false): string {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -97,6 +100,11 @@ function fmtRefDate(value: number | null): string {
   return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
+function clampPct(value: number | null): number {
+  if (value === null || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, value));
+}
+
 type BarView = {
   label: string;
   value: number;
@@ -106,15 +114,10 @@ type BarView = {
   track: boolean;
 };
 
-function clampPct(value: number | null): number {
-  if (value === null || !Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(100, value));
-}
-
 // A barra única representa a métrica do estado atual: freio durante a queda,
-// retração durante repique/reção. Sem métrica válida, nenhuma barra é desenhada
+// retração durante repique/reação. Sem métrica válida, nenhuma barra é desenhada
 // (e nenhum percentual falso é inventado).
-function barView(reading: BrakeRadarReading): BarView {
+function barView(reading: BrakeRadarReading, brakeMinPct: number): BarView {
   if (reading.barMetric === "recovery") {
     return {
       label: "RECUPERAÇÃO DA AMPLITUDE (%)",
@@ -130,8 +133,8 @@ function barView(reading: BrakeRadarReading): BarView {
       label: "FREIO DA QUEDA (%)",
       value: clampPct(reading.brakePct),
       display: fmtPct(reading.brakePct),
-      mark: 25,
-      markTitle: "Mínimo de 25% para sinal de reação",
+      mark: brakeMinPct,
+      markTitle: `Mínimo de ${brakeMinPct}% para sinal de reação`,
       track: true,
     };
   }
@@ -153,15 +156,6 @@ function returnTone(value: number | null): string {
   return "brMuted";
 }
 
-function recoveryTone(reading: BrakeRadarReading): string {
-  if (!reading.hasDrop) return "brMuted";
-  const value = reading.retracementPct;
-  if (value === null) return "brMuted";
-  if (value >= 20) return "brPositive";
-  if (value >= 15) return "brCaution";
-  return "brMuted";
-}
-
 function preservedTone(reading: BrakeRadarReading): string {
   if (!reading.hasDrop || reading.preservedMinutes === null) return "brMuted";
   if (reading.preservedMinutes >= BRAKE_PRESERVED_REFERENCE_MIN) return "brPositive";
@@ -176,14 +170,6 @@ function changeTone(value: number | null): string {
   return "brMuted";
 }
 
-function diagnosticStatus(value: boolean | null): string {
-  return value === null ? "Dados insuficientes" : value ? "Atendida" : "Bloqueou";
-}
-
-function diagnosticClass(value: boolean | null): string {
-  return value === null ? "brDiagUnknown" : value ? "brDiagPass" : "brDiagFail";
-}
-
 export function BtcBrakeRadar({
   asset = { symbol: "BTCUSDT", name: "Bitcoin", ticker: "BTC" },
   currentPrice,
@@ -193,16 +179,17 @@ export function BtcBrakeRadar({
   chartState = "loading",
   snapshot: externalSnapshot,
   now: externalNow,
+  mode,
 }: Props) {
+  const modeFinal = mode ?? "conservative";
   const [internalSnapshot, setInternalSnapshot] = useState<BrakeKlinesSnapshot | null>(null);
   const [internalNow, setInternalNow] = useState(0);
+  // `undefined` = uso autônomo; `null` = wrapper ainda sem dados.
   const shared = externalSnapshot !== undefined;
-  const snapshot = shared ? (externalSnapshot ?? null) : internalSnapshot;
+  const snapshot = shared ? externalSnapshot : internalSnapshot;
   const now = externalNow ?? internalNow;
-  const [isStructureInfoOpen, setStructureInfoOpen] = useState(false);
-  const structureInfoRef = useRef<HTMLDivElement | null>(null);
 
-  const validLivePrice = currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0
+  const validLivePrice = currentPrice !== null && currentPrice !== undefined && Number.isFinite(currentPrice) && currentPrice > 0
     ? currentPrice
     : null;
   const validDailyChange = dailyChangePct !== undefined && dailyChangePct !== null && Number.isFinite(dailyChangePct)
@@ -215,24 +202,6 @@ export function BtcBrakeRadar({
       : quoteState === "stale" && validLivePrice !== null
         ? "stale"
         : "ready";
-
-  useEffect(() => {
-    if (!isStructureInfoOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setStructureInfoOpen(false);
-    };
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (structureInfoRef.current && !structureInfoRef.current.contains(event.target as Node)) {
-        setStructureInfoOpen(false);
-      }
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    document.addEventListener("mousedown", closeOnOutsideClick);
-    return () => {
-      document.removeEventListener("keydown", closeOnEscape);
-      document.removeEventListener("mousedown", closeOnOutsideClick);
-    };
-  }, [isStructureInfoOpen]);
 
   useEffect(() => {
     if (shared) return;
@@ -335,17 +304,28 @@ export function BtcBrakeRadar({
     };
   }, [asset.symbol]);
 
+  // A: config do modo Rápido (agressivo, somente quando ativo)
+  const RAPIDO = { fundoPreservadoMin: 15, freioMinPct: 10, stopMaxPct: 0.8, stopLookback5m: 12, alvoPrincipal: "alvo50" as const, usarPrecoAoVivoEma9: true, bloquearComContexto1hContrario: false };
   const reading = useMemo(
-    () => analyzeBrakeRadar({
-      h1: snapshot?.h1 ?? [],
-      m15: snapshot?.m15 ?? [],
-      fetchedAt: snapshot?.fetchedAt ?? null,
-      now,
-    }),
-    [snapshot, now],
+    () => analyzeBrakeRadar(
+      {
+        h1: snapshot?.h1 ?? [],
+        m15: snapshot?.m15 ?? [],
+        fetchedAt: snapshot?.fetchedAt ?? null,
+        now,
+      },
+      modeFinal === "fast" ? { brakeMinPct: RAPIDO.freioMinPct, preservedReferenceMin: RAPIDO.fundoPreservadoMin } : undefined,
+    ),
+    [snapshot, now, modeFinal],
   );
+  const assetCode = asset.symbol.replace("USDT", "");
+  const displayReason = reading.reason
+    .replace(/\bBTC\b/g, assetCode)
+    .replace(/Bitcoin/g, asset.name);
 
-  const bar = barView(reading);
+  const bar = barView(reading, modeFinal === "fast" ? RAPIDO.freioMinPct : 25);
+  // Referência fechada de 15m usada somente nos cálculos; a cotação exibida é
+  // o spot atual do próprio ativo.
   const referencePrice = reading.lastClose15m;
   const preservedText = formatPreservedMinutes(reading.preservedMinutes);
   const preservedMet = reading.preservedMinutes !== null
@@ -353,19 +333,18 @@ export function BtcBrakeRadar({
   const preservedTrack = reading.preservedMinutes === null
     ? 0
     : Math.max(0, Math.min(100, (reading.preservedMinutes / (BRAKE_PRESERVED_REFERENCE_MIN * 2)) * 100));
-
   // Mínima 30d (somente exibição): menor low entre candles 1d fechados (30d)
   // e candles 15M carregados (24h), para não excluir o fundo de hoje.
   const dailyMin = dailyRef?.minLow ?? null;
   const dailyMinAt = dailyRef?.minLowAt ?? null;
   let m15MinLow: number | null = null;
   let m15MinLowAt: number | null = null;
-  for (const candle of (snapshot?.m15 ?? []).slice(-96)) {
-    const low = Number(candle.low);
+  for (const barCandidate of (snapshot?.m15 ?? []).slice(-96)) {
+    const low = Number(barCandidate.low);
     if (!Number.isFinite(low) || low <= 0) continue;
     if (m15MinLow === null || low < m15MinLow) {
       m15MinLow = low;
-      m15MinLowAt = Number(candle.openTime);
+      m15MinLowAt = Number(barCandidate.openTime);
     }
   }
   let minimum30d: number | null = null;
@@ -384,31 +363,140 @@ export function BtcBrakeRadar({
     ? ((minimum30d / distanceBase) - 1) * 100
     : null;
 
-  const showStructureInfo = reading.badge.startsWith("DCA BLOQUEADO — ESTRUTURA 1H")
-    || reading.badge.startsWith("DCA BLOQUEADO — DADOS 1H");
-  const structureFilterStatus = !reading.structure1hAvailable
-    ? "Indisponível"
-    : reading.structure1hApproved ? "Aprovado" : "Bloqueado";
-  const criteriaText = reading.updatedAt === null
-    ? "Dados insuficientes"
-    : `${reading.originalCriteriaMet}/5 atendidos`;
+  const entry = validLivePrice ?? reading.lastClose15m;
+  const stop = reading.minimum12h !== null ? reading.minimum12h * 0.998 : null;
+  const amplitude = reading.maximum12h !== null && reading.minimum12h !== null ? reading.maximum12h - reading.minimum12h : null;
+  const target50 = reading.minimum12h !== null && amplitude !== null ? reading.minimum12h + amplitude * .5 : null;
+  const target100 = reading.maximum12h;
+  // Abaixo da mínima/stop não existe setup operacional: os níveis anteriores
+  // continuam apenas como referência histórica até uma nova mínima válida.
+  const setupInvalidated = entry !== null && ((reading.minimum12h !== null && entry < reading.minimum12h) || (stop !== null && entry <= stop));
+  const risk = !setupInvalidated && entry !== null && stop !== null && entry > stop ? (entry - stop) / entry * 100 : null;
+  const liveRecovery = entry !== null && reading.minimum12h !== null && amplitude !== null && amplitude > 0 ? (entry - reading.minimum12h) / amplitude * 100 : null;
+  const closedRecovery = reading.retracementPct;
+  const emaDistance = entry !== null && reading.ema9 !== null ? (entry / reading.ema9 - 1) * 100 : null;
+  const closedBars = snapshot?.m15 ?? [];
+  const last15 = closedBars.at(-1) ?? null;
+  const closedEmaDistance = reading.lastClose15m !== null && reading.ema9 !== null ? (reading.lastClose15m / reading.ema9 - 1) * 100 : null;
+  const fmtHHMM = (value: number | null | undefined) => {
+    if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+    return new Date(value).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  };
+  const fmtHHMMRange = (closeTime: number | null | undefined, intervalMs: number) => {
+    if (closeTime === null || closeTime === undefined || !Number.isFinite(closeTime)) return "—";
+    const end = closeTime + 1;
+    const start = end - intervalMs;
+    return `${fmtHHMM(start)}–${fmtHHMM(end)}`;
+  };
+  type CheckState = "confirmed" | "waiting" | "invalid" | "unavailable";
+  const context1h: CheckState = reading.previousReturnPct === null || reading.recentReturnPct === null
+    ? "unavailable"
+    : reading.recentReturnPct < 0 || reading.accelerating
+      ? "invalid"
+      : reading.previousReturnPct < 0 && reading.recentReturnPct >= 0 && reading.brakeApplicable && (reading.brakePct ?? 0) >= 25
+        ? "confirmed"
+        : "waiting";
+  const conservativeChecks: { label: string; state: CheckState }[] = [
+    { label: "Fundo preservado por 60 min", state: reading.preservedMinutes === null ? "unavailable" : setupInvalidated ? "invalid" : preservedMet ? "confirmed" : "waiting" },
+    { label: `Fechamento 15M (${fmtHHMM(last15?.closeTime ?? null)}) acima da EMA9`, state: reading.lastClose15m === null || reading.ema9 === null ? "unavailable" : setupInvalidated || reading.lastClose15m < reading.ema9 ? "invalid" : reading.lastClose15m > reading.ema9 ? "confirmed" : "waiting" },
+    { label: "Freio da queda (mín. 25%)", state: !reading.brakeApplicable || reading.brakePct === null ? "unavailable" : (reading.brakePct >= 25 ? "confirmed" : "waiting") },
+    { label: "Contexto 1H favorável", state: context1h },
+  ];
+  const conservativeConfirmed = !setupInvalidated && conservativeChecks.every((check) => check.state === "confirmed");
+  const direction = setupInvalidated ? "MÍNIMA ROMPIDA"
+    : reading.state === "UNSTABLE" || reading.state === "ACCELERATING" ? "QUEDA EM ANDAMENTO"
+      : reading.recovery && reading.recentReturnPct !== null && reading.recentReturnPct > 0 ? "RECUPERAÇÃO GANHANDO FORÇA"
+        : reading.recovery ? "RECUPERAÇÃO EM OBSERVAÇÃO" : "QUEDA EM ANDAMENTO";
+  const quality = setupInvalidated ? "FUNDO ROMPIDO"
+    : conservativeConfirmed ? "REVERSÃO CONFIRMADA"
+      : reading.state === "UNSTABLE" || reading.state === "ACCELERATING" || !reading.brakeApplicable ? "SEM ESTABILIZAÇÃO"
+        : preservedMet ? "FUNDO PRESERVADO" : "TESTANDO O FUNDO";
+  const recoveryClass = (value: number | null) => value === null ? "brMuted" : value < 0 ? "brNegative" : value > 0 ? "brPositive" : "brCaution";
+  const recentVolume = closedBars.slice(-12).reduce((sum, barCandidate) => sum + barCandidate.volume, 0);
+  const olderBars = closedBars.slice(-96, -12);
+  const avgVolume3h = olderBars.length ? olderBars.reduce((sum, barCandidate) => sum + barCandidate.volume, 0) / (olderBars.length / 12) : null;
+  const volumeRatio = avgVolume3h && avgVolume3h > 0 ? recentVolume / avgVolume3h : null;
+  const volumeStabilizing = quality !== "SEM ESTABILIZAÇÃO" && quality !== "FUNDO ROMPIDO";
+  const volumeTone = volumeRatio === null ? "brMuted" : (volumeStabilizing && volumeRatio >= 1 ? "brPositive" : "brMuted");
+  const volumeHeadline = volumeRatio === null ? "—" : `${volumeRatio >= 1 ? "▲" : "▼"} ${volumeRatio.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`;
+  const volumeDetail = volumeRatio === null ? "" : `a média 24h · volume na queda · ${volumeStabilizing ? "estabilização em observação" : "sem estabilização"}`;
+
+  // ── Modo Rápido — gatilho 5M ─────────────────────────────────────────────
+  const m5 = snapshot?.m5 ?? [];
+  const ema5 = emaLast(m5.map((barCandidate) => barCandidate.close), 9);
+  const last5 = m5.at(-1) ?? null;
+  const prior5 = m5.at(-2) ?? null;
+  const fastCriteria = last5 && prior5 && ema5 !== null ? [last5.close > ema5, last5.close > prior5.high] as const : null;
+  const fastTriggerCount = fastCriteria ? fastCriteria.filter(Boolean).length : 0;
+  const fastTriggerState = fastCriteria ? (fastTriggerCount === 2 ? "DISPARADO" : fastTriggerCount === 1 ? "ARMADO" : "AGUARDANDO") : "INDISPONÍVEL";
+  const fastAgainstTrend = Boolean(fastTriggerCount === 2 && (context1h === "invalid" || quality === "SEM ESTABILIZAÇÃO"));
+  const fastDistanceEma5 = last5 && ema5 !== null ? (last5.close / ema5 - 1) * 100 : null;
+  const fastDistancePrevHigh = last5 && prior5 ? (last5.close / prior5.high - 1) * 100 : null;
+  const last12m5Low = m5.slice(-RAPIDO.stopLookback5m).reduce<number | null>((min, barCandidate) => {
+    const low = Number(barCandidate.low);
+    if (!Number.isFinite(low) || low <= 0) return min;
+    return min === null || low < min ? low : min;
+  }, null);
+  const fastStopPct = entry !== null ? entry * (1 - RAPIDO.stopMaxPct / 100) : null;
+  const fastStop = entry !== null ? Math.max(last12m5Low ?? -Infinity, fastStopPct ?? -Infinity) : null;
+  const fastStopValid = fastStop !== null && Number.isFinite(fastStop) && fastStop > 0 && entry !== null && fastStop < entry;
+  const fastStopFinal = fastStopValid ? fastStop : null;
+  const fastTargetPrincipal = RAPIDO.alvoPrincipal === "alvo50" ? target50 : target100;
+  const fastTarget2 = target100;
+  const fastSetupInvalidated = entry !== null && ((reading.minimum12h !== null && entry < reading.minimum12h) || (fastStopFinal !== null && entry <= fastStopFinal));
+  const fastRisk = !fastSetupInvalidated && entry !== null && fastStopFinal !== null && entry > fastStopFinal ? (entry - fastStopFinal) / entry * 100 : null;
+  const fastRR = !fastSetupInvalidated && fastRisk !== null && fastRisk > 0 && fastTargetPrincipal !== null && entry !== null ? (fastTargetPrincipal - entry) / (entry * fastRisk / 100) : null;
+  const fastPreservedMet = reading.preservedMinutes !== null && reading.preservedMinutes >= RAPIDO.fundoPreservadoMin;
+  const fastPreservedTrack = reading.preservedMinutes === null ? 0 : Math.max(0, Math.min(100, (reading.preservedMinutes / (RAPIDO.fundoPreservadoMin * 2)) * 100));
+  const fastPreservedMark = 50; // 15 min em escala 0..30 min
+  const preservedRefMin = modeFinal === "fast" ? RAPIDO.fundoPreservadoMin : BRAKE_PRESERVED_REFERENCE_MIN;
+  const freioReason = !reading.brakeApplicable
+    ? (!reading.hasDrop
+      ? "n/d: sem queda relevante"
+      : reading.preservedMinutes !== null && reading.preservedMinutes < preservedRefMin
+        ? `n/d: exige fundo preservado ≥ ${preservedRefMin} min`
+        : "n/d: freio não aplicável neste contexto")
+    : reading.brakePct === null
+      ? "n/d: dados insuficientes"
+      : null;
+  // O diagnóstico de preço (reading) não autoriza operação. Esta decisão única
+  // abastece selo, AÇÃO e o estado do setup/DCA em ambos os modos.
+  const operationalBlocked = reading.state === "UNAVAILABLE"
+    || setupInvalidated
+    || fastSetupInvalidated
+    || reading.state === "ACCELERATING"
+    || reading.state === "UNSTABLE";
+  const operationalStatus = operationalBlocked
+    ? "ENTRADA BLOQUEADA"
+    : modeFinal === "fast"
+      ? fastTriggerCount === 2 ? "ENTRADA LIBERADA" : "AGUARDAR CONFIRMAÇÃO"
+      : conservativeConfirmed ? "ENTRADA LIBERADA" : "AGUARDAR CONFIRMAÇÃO";
+  const entryAuthorized = operationalStatus === "ENTRADA LIBERADA";
+  const operationalReason = operationalBlocked
+    ? (setupInvalidated || fastSetupInvalidated ? "Setup invalidado: aguardar nova referência." : displayReason)
+    : modeFinal === "fast"
+      ? `Gatilho 5M ${fastTriggerCount}/2 ${fastTriggerState}${fastAgainstTrend ? "; contexto 1H contrário permanece como alerta." : "."}`
+      : `${conservativeChecks.filter((check) => check.state === "confirmed").length}/4 confirmações; ${conservativeConfirmed ? "todos os filtros obrigatórios foram atendidos." : "filtros obrigatórios ainda incompletos."}`;
+  const technicalLabel = reading.recovery && !entryAuthorized
+    ? "RECUPERAÇÃO EM OBSERVAÇÃO"
+    : entryAuthorized ? "REAÇÃO CONFIRMADA"
+      : reading.label;
+
+  const fmtRR = (value: number | null) => value !== null && Number.isFinite(value) ? `1 : ${value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : "—";
 
   return (
     <article
       className={`card brakeRadar tone-${reading.tone}`}
       aria-live="polite"
-      aria-label={`Radar de freio da queda de ${asset.name}`}
+      aria-label={`Radar de freio da queda do ${asset.name}`}
     >
       <div className="brHead">
         <div className="brHeadMain">
           <h3 className="brTitle">{asset.name.toUpperCase()} — RADAR DE FREIO DA QUEDA</h3>
           <span className="brKicker">{asset.ticker}/USDT</span>
-          <div className="brState">{reading.label}</div>
+          <div className="brState">{technicalLabel}</div>
         </div>
-        <div
-          className={`brCurrentPrice brHeadQuote brLiveQuote brHeadQuote-${quoteView === "ready" || quoteView === "stale" ? changeTone(validDailyChange) : "brMuted"}`}
-          aria-label={`Cotação spot de ${asset.symbol}`}
-        >
+        <div className={`brLiveQuote brHeadQuote brLiveQuote-${quoteView === "ready" || quoteView === "stale" ? changeTone(validDailyChange) : "brMuted"}`} aria-label={`Cotação spot de ${asset.symbol}`}>
           <div className="brQuoteLine brLiveQuoteValues">
             {quoteView === "loading" ? (
               <b className="brQuoteValue brQuoteLoading">Atualizando<span className="brLoadingDots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></b>
@@ -416,11 +504,11 @@ export function BtcBrakeRadar({
               <b className="brQuoteValue brQuoteUnavailable">Sem conexão</b>
             ) : validLivePrice !== null ? (
               <>
-                <b className={`brQuoteValue brLivePrice ${changeTone(validDailyChange)}`}>
+                <b className={`brQuoteValue ${changeTone(validDailyChange)}`}>
                   ${fmtCurrentPrice(validLivePrice)}
                 </b>
                 {validDailyChange !== null && (
-                  <small className={`brDailyChange brLiveChange ${changeTone(validDailyChange)}`}>
+                  <small className={`brLiveChange ${changeTone(validDailyChange)}`}>
                     {fmt24hChange(validDailyChange)}
                     <span className="brChangeWindow">24H</span>
                   </small>
@@ -432,86 +520,126 @@ export function BtcBrakeRadar({
             : quoteView === "failed" ? <small className="brQuoteRef">nova tentativa em 60s</small>
               : quoteView === "stale" ? <small className="brQuoteRef">desatualizada · última às {fmtTime(quoteUpdatedAt)}</small>
                 : referencePrice !== null && Number.isFinite(referencePrice) && (
-            <small className="brQuoteRef">ref. cálculo (fech. 15M): {fmtCurrentPrice(referencePrice)}</small>
+              <small className="brQuoteRef">Preço ao vivo (tick) · ref. 15M: {fmtCurrentPrice(referencePrice)}</small>
           )}
         </div>
         <div className="brHeadSide">
-          <div className="brBadgeRow">
-            <span className="brBadge">{reading.badge}</span>
-            {showStructureInfo && (
-              <div
-                className="brStructureInfo"
-                ref={structureInfoRef}
-                onMouseEnter={() => setStructureInfoOpen(true)}
-                onMouseLeave={() => setStructureInfoOpen(false)}
-              >
-                <button
-                  type="button"
-                  className="brInfoButton"
-                  aria-label="Explicar bloqueio estrutural 1H"
-                  aria-expanded={isStructureInfoOpen}
-                  aria-controls="br-structure-info-panel"
-                  onFocus={() => setStructureInfoOpen(true)}
-                  onClick={() => setStructureInfoOpen((open) => !open)}
-                >ⓘ</button>
-                {isStructureInfoOpen && (
-                  <div className="brInfoPanel" id="br-structure-info-panel" role="dialog" aria-label="Diagnóstico do bloqueio estrutural 1H">
-                    <button type="button" className="brInfoClose" aria-label="Fechar explicação" onClick={() => setStructureInfoOpen(false)}>×</button>
-                    <strong>Por que o DCA está bloqueado?</strong>
-                    <p><b>Critérios originais:</b> {criteriaText}. São cinco critérios de curto prazo; o filtro 1H é um veto adicional.</p>
-                    <p><b>Filtro 1H:</b> <span className={reading.structure1hAvailable ? (reading.structure1hApproved ? "brDiagPass" : "brDiagFail") : "brDiagUnknown"}>{structureFilterStatus}</span></p>
-                    <p><b>EMA20 1H:</b> fechamento {fmtPrice(reading.structure1hClose)} · EMA20 {fmtPrice(reading.structure1hEma20)}. Quando o fechamento está abaixo da EMA20, o motor exige confirmação adicional.</p>
-                    <ul className="brDiagList">
-                      <li className={diagnosticClass(reading.structure1hCloseAboveEma9)}>Fechamento 1H acima da EMA9: {diagnosticStatus(reading.structure1hCloseAboveEma9)}.</li>
-                      <li className={diagnosticClass(reading.structure1hLowPreserved)}>Mínima 1H não inferior à mínima anterior: {diagnosticStatus(reading.structure1hLowPreserved)}.</li>
-                      <li className={diagnosticClass(reading.structure1hCloseAscending)}>Fechamento 1H superior ao anterior: {diagnosticStatus(reading.structure1hCloseAscending)}.</li>
-                    </ul>
-                    <p className="brInfoFinal">Reação de curto prazo identificada. DCA permanece bloqueado até a confirmação estrutural 1H.</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <small className="brUpdated">Atualizado às {fmtTime(reading.updatedAt)}</small>
+          <span className={`brBadge${entryAuthorized ? " brBadgeSpeculative" : ""}`}>{operationalStatus}</span>
+          <small className="brUpdated">Snapshot 15M atualizado às {fmtTime(reading.updatedAt)}</small>
         </div>
       </div>
 
-      <div className="brMetrics">
+      <section className="brEvolution" aria-label="Evolução do radar">
+        <div className="brOperationalGrid">
+          <div className={`brOpCard brMap${entryAuthorized ? "" : " brMapHypothetical"}`}>
+            <span>{entryAuthorized ? "SETUP ATIVO" : "CENÁRIO HIPOTÉTICO — não ativo"} · MAPA DO SETUP</span>
+            {modeFinal === "fast" ? (
+              <>
+                <dl>
+                  <div><dt>Entrada de referência</dt><dd>{fastSetupInvalidated ? "INVÁLIDA" : fmtPrice(entry)}</dd></div>
+                  <div><dt>Stop técnico</dt><dd className="brNegative">{fmtPrice(fastStopFinal)}</dd></div>
+                  <div><dt>Custo do erro</dt><dd>{fmtPct(fastRisk)}</dd></div>
+                  <div><dt>Alvo principal (50%)</dt><dd className={fastSetupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(fastTargetPrincipal)}</dd></div>
+                  <div><dt>Alvo 2 (topo amplitude)</dt><dd className={fastSetupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(fastTarget2)}</dd></div>
+                  <div className="brMapRr"><dt>R:R</dt><dd className="brMapRrValue">{fmtRR(fastRR)}</dd></div>
+                </dl>
+                {fastRisk !== null && fastRisk < 0.5 && <small className="brFastMeta brCaution">Stop curto: sensível a pavios</small>}
+              </>
+            ) : (
+              <dl>
+                <div><dt>Entrada de referência</dt><dd>{setupInvalidated ? "INVÁLIDA" : fmtPrice(entry)}</dd></div>
+                <div><dt>Stop técnico</dt><dd className="brNegative">{fmtPrice(stop)}</dd></div>
+                <div><dt>Custo do erro</dt><dd>{fmtPct(risk)}</dd></div>
+                <div><dt>Alvo 50% (histórico)</dt><dd className={setupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(target50)}</dd></div>
+                <div><dt>Alvo principal (histórico)</dt><dd className={setupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(target100)}</dd></div>
+                <div className="brMapRr"><dt>R:R</dt><dd className="brMapRrValue">{risk !== null && target100 !== null && entry !== null && risk > 0 ? fmtRR((target100 - entry) / (entry * risk / 100)) : "—"}</dd></div>
+              </dl>
+            )}
+          </div>
+          <div className="brOpCard brTrigger">
+            <span>{modeFinal === "fast" ? "GATILHO RÁPIDO (5M)" : `${conservativeChecks.filter((check) => check.state === "confirmed").length}/4 confirmações`}</span>
+            {modeFinal === "fast" ? (
+              fastCriteria ? (
+                <>
+                  <div className={`brFastState brFastState-${fastTriggerState.toLowerCase()}`}>
+                    <b>{fastTriggerCount}/2 {fastTriggerState}</b>
+                    {fastAgainstTrend && <span className="brFastContra">DISPARADO · CONTRA TENDÊNCIA</span>}
+                  </div>
+                  <small className="brFastMeta">Sinal de curto prazo. Não substitui o veredito 15M/1H.</small>
+                  <small className="brFastMeta">Candle 5M fechado: {fmtHHMMRange(last5?.closeTime ?? null, 5 * 60_000)}</small>
+                  <small className="brFastDistance">Fech. 5M vs EMA9 5M: {fmtPct(fastDistanceEma5, true)} · vs máxima anterior: {fmtPct(fastDistancePrevHigh, true)}</small>
+                  <ul className="brCheckList">
+                    <li className={fastCriteria[0] ? "confirmed" : "waiting"}>{fastCriteria[0] ? "✓" : "○"} Fech. 5M acima da EMA9</li>
+                    <li className={fastCriteria[1] ? "confirmed" : "waiting"}>{fastCriteria[1] ? "✓" : "○"} Fech. 5M acima da máxima anterior</li>
+                  </ul>
+                  {fastAgainstTrend && <b className="brCaution">Risco alto: 1H contrário</b>}
+                  {fastTriggerCount === 2 && <small className="brFastDisclaimer">Indicador técnico, não é recomendação</small>}
+                </>
+              ) : (
+                <>
+                  <b className={setupInvalidated ? "brNegative" : "brMuted"}>{setupInvalidated ? "SETUP INVALIDADO" : "GATILHO 5M INDISPONÍVEL"}</b>
+                  <p>Provisório (15M) · última tentativa: {fmtTime(snapshot?.fetchedAt ?? null)}</p>
+                </>
+              )
+            ) : (
+              <ul className="brCheckList">{conservativeChecks.map((check, index) => <li key={check.label} className={check.state}>{check.state === "confirmed" ? "✓" : check.state === "invalid" ? "✕" : check.state === "unavailable" ? "—" : "○"} {check.label}{index === 0 && `: ${reading.preservedMinutes ?? "—"} / 60 min`}{index === 1 && `: ${fmtPct(closedEmaDistance, true)} (precisa ≥ 0%)`}{index === 2 && `: ${reading.brakePct === null ? `n/d — ${(freioReason ?? "n/d: motivo indisponível").replace(/^n\/d:\s*/i, "")}` : fmtPct(reading.brakePct)}`}</li>)}</ul>
+            )}
+          </div>
+          <div className="brOpStats">
+            <div title="(preço atual − mínima da amplitude) ÷ amplitude"><span>RECUPERAÇÃO AO VIVO ⓘ</span><b className={recoveryClass(liveRecovery)}>{fmtPct(liveRecovery)}</b><small>da amplitude topo→mínima · inclui o candle em formação</small></div>
+            <div title="(fechamento 15M − mínima da amplitude) ÷ amplitude"><span>RECUPERAÇÃO FECHADA (15M) ⓘ</span><b className={recoveryClass(closedRecovery)}>{fmtPct(closedRecovery)}</b><small>da amplitude topo→mínima, não é ganho de preço</small></div>
+            <div title="(preço atual ÷ EMA9 15M − 1) × 100"><span>PREÇO VS. EMA9 (15M) · AO VIVO ⓘ</span><b className={emaDistance !== null && emaDistance < 0 ? "brNegative" : "brPositive"}>{fmtPct(emaDistance, true)}</b></div>
+            <div title="Desaceleração entre dois blocos fechados de 3h"><span>FREIO DA QUEDA ⓘ</span><b className={reading.brakeApplicable ? (reading.brakePct ?? 0) >= (modeFinal === "fast" ? RAPIDO.freioMinPct : 25) ? "brPositive" : "brCaution" : "brMuted"}>{reading.brakeApplicable ? fmtPct(reading.brakePct) : "n/d"}</b><small>{reading.brakeApplicable ? `limite ${modeFinal === "fast" ? RAPIDO.freioMinPct : 25}% (${modeFinal === "fast" ? "Rápido" : "Conservador"})` : (freioReason ?? "motivo indisponível")}</small></div>
+          </div>
+        </div>
+        <div className="brDiagnostics"><span>DIREÇÃO <b>{direction}</b></span><span>QUALIDADE <b>{quality}</b></span><span>CONTEXTO 1H <b>{context1h === "confirmed" ? "Favorável" : context1h === "invalid" ? "Contrário" : context1h === "unavailable" ? "Indisponível" : "Neutro"}</b></span></div>
+      </section>
+
+      <div className="brMetrics brMetricsTwo">
         <div className="brMetric">
-          <span>MOVIMENTO RECENTE (3H)</span>
+          <span title="RECUPERAÇÃO DA QUEDA — retorno entre os 3h mais recentes">MOVIMENTO RECENTE (3H) ⓘ</span>
           <b className={returnTone(reading.recentReturnPct)}>{fmtPct(reading.recentReturnPct, true)}</b>
           <small className="brMetricSub">
-            Anterior: <span className={returnTone(reading.previousReturnPct)}>{fmtPct(reading.previousReturnPct, true)}</span>
+            Anterior: <span className={returnTone(reading.previousReturnPct)}>{fmtPct(reading.previousReturnPct, true)} (3h)</span>
           </small>
         </div>
         <div className="brMetric">
-          <span>RECUPERAÇÃO DA QUEDA</span>
-          <b className={recoveryTone(reading)}>{fmtPct(reading.retracementPct)}</b>
-          <small className="brMetricSub">
-            {reading.hasDrop ? "amplitude topo → mínima" : "contexto · sem DCA"}
-          </small>
+          <span title="Tempo desde a mínima sem nova mínima por fechamento">FUNDO PRESERVADO ⓘ</span>
+          {modeFinal === "fast" ? (
+            <>
+              <b className={fastPreservedMet ? "brPositive" : preservedTone(reading)}>{preservedText}</b>
+              <div className={`brPreserveTrack${fastPreservedMet ? " brPreserveTrackMet" : ""}`} aria-hidden="true">
+                <i style={{ width: `${fastPreservedTrack}%` }} />
+                <em style={{ left: `${fastPreservedMark}%` }} title={`Referência de ${RAPIDO.fundoPreservadoMin} minutos`} />
+              </div>
+              <small className="brMetricSub">{fastPreservedMet ? `meta ${RAPIDO.fundoPreservadoMin} min atingida` : `meta ${RAPIDO.fundoPreservadoMin} min`}</small>
+            </>
+          ) : (
+            <>
+              <b className={preservedTone(reading)}>{preservedText}</b>
+              <div className={`brPreserveTrack${preservedMet ? " brPreserveTrackMet" : ""}`} aria-hidden="true">
+                <i style={{ width: `${preservedTrack}%` }} />
+                <em title="Referência de 60 minutos" />
+              </div>
+              <small className="brMetricSub">{preservedMet ? "meta atingida" : "meta 60 min"}</small>
+            </>
+          )}
         </div>
-        <div className="brMetric">
-          <span>FUNDO PRESERVADO</span>
-          <b className={preservedTone(reading)}>{preservedText}</b>
-          <div className={`brPreserveTrack${preservedMet ? " brPreserveTrackMet" : ""}`} aria-hidden="true">
-            <i style={{ width: `${preservedTrack}%` }} />
-            <em title="Referência de 60 minutos" />
-          </div>
-          <small className="brMetricSub">
-            {preservedMet
-              ? reading.state === "REACTION"
-                ? "meta atingida"
-                : "meta atingida · sem confirmação"
-              : "meta 60 min"}
-          </small>
+      </div>
+
+      <div className="brActionRow">
+        <div className="brAction">
+          <span className="brActionLabel">AÇÃO — {modeFinal === "fast" ? "MODO RÁPIDO" : "MODO CONSERVADOR"}</span>
+          <b>{operationalStatus}</b>
+          <p>{operationalReason} Movimento {fmtPct(reading.recentReturnPct, true)} (3h), {fmtPct(reading.dropPct, true)} (topo→mínima).</p>
         </div>
+        <div className="brVolumeCard" title="Volume dos últimos 12 candles de 15M comparado à média dos 24h anteriores"><span>VOLUME (3H VS MÉDIA 24H) ⓘ</span><b className={volumeTone}>{volumeHeadline}</b><small>{volumeDetail || "—"}</small></div>
       </div>
 
       <div className={`brBarArea${bar.track ? "" : " brBarAreaEmpty"}`}>
         <div className="brBarHead">
           <span>{bar.label}</span>
-          {bar.display ? <b>{bar.display}</b> : null}
+          {bar.display ? <b>{bar.display}{reading.barMetric === "recovery" ? " · recuperação (ref. 20%)" : reading.barMetric === "brake" ? ` · freio (mín. ${modeFinal === "fast" ? RAPIDO.freioMinPct : 25}% ${modeFinal === "fast" ? "Rápido" : "Conservador"})` : ""}</b> : null}
         </div>
         {bar.track && (
           <div
@@ -551,16 +679,16 @@ export function BtcBrakeRadar({
               </b>
             </div>
             <div className="brContextRef">
-              <span>Máxima da amplitude:</span>
-              <b className="brRefValueWithDate">{fmtPrice(reading.maximum12h)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+              <span>Máx. da amplitude:</span>
+              <b>{fmtPrice(reading.maximum12h)}</b>
             </div>
             <div className="brContextRef">
-              <span>Recuperação:</span>
-              <b className="brRefValueWithDate">{fmtPct(reading.retracementPct)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+              <span>Mín. da queda:</span>
+              <b>{fmtPrice(reading.minimum12h)}</b>
             </div>
             <div className="brContextRef">
               <span>EMA9:</span>
-              <b className="brRefValueWithDate">{fmtPrice(reading.ema9)}<small className="brRefDate brRefDateHidden" aria-hidden="true">00/00</small></b>
+              <b>{fmtPrice(reading.ema9)}</b>
             </div>
           </div>
         </div>
@@ -575,14 +703,9 @@ export function BtcBrakeRadar({
         </div>
       </div>
 
-      <div className="brAction">
-        <span className="brActionLabel">AÇÃO</span>
-        <b>{reading.action}</b>
-        <p>{reading.reason.startsWith("recuperou") ? `${asset.ticker} ${reading.reason}` : reading.reason}</p>
-      </div>
 
       <p className="brNote">
-        Nível 20% é referência de recuperação, não ordem nem gatilho de compra. Somente candles fechados · Binance spot · atualização a cada 60s · não é recomendação.
+        Nível 20% é referência de recuperação da amplitude, não ordem nem gatilho de compra. Somente candles fechados · Binance spot · atualização a cada 60s · não é recomendação.
       </p>
     </article>
   );
