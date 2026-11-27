@@ -897,6 +897,7 @@
 }
 .brMap {
   position: relative;
+  background: #061312;
   border-color: #10b981;
 }
 .brMap dl {
@@ -910,14 +911,20 @@
   gap: 8px;
 }
 .brMap dt {
-  color: #aebbb4;
+  color: #c2d0c8;
   font-size: 10px;
 }
 .brMap dd {
   margin: 0;
-  color: #e9eee8;
+  color: #F2FEEC;
   font-size: 12px;
   font-weight: 800;
+}
+.brMap dd.brNegative {
+  color: #FF4B4B;
+}
+.brMap dd.brPositive {
+  color: #00F08A;
 }
 /* R:R aparece como texto simples, alinhado à direita, sem card separado. */
 .brMapRr {
@@ -926,7 +933,7 @@
   padding-top: 4px;
 }
 .brMapRrValue {
-  color: #e9eee8;
+  color: #F2FEEC;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0;
@@ -934,7 +941,7 @@
 }
 /* Sem R:R: as referências do mapa ocupam toda a largura disponível. */
 .brMap dl { margin-right: 0; }
-.brMapHypothetical { opacity: .55; }
+.brMapHypothetical { opacity: 1; }
 
 .brTrigger {
   display: flex;

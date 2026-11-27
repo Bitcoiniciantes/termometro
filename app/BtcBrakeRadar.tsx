@@ -541,7 +541,7 @@ export function BtcBrakeRadar({
                   <div><dt>Custo do erro</dt><dd>{fmtPct(fastRisk)}</dd></div>
                   <div><dt>Alvo principal (50%)</dt><dd className={fastSetupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(fastTargetPrincipal)}</dd></div>
                   <div><dt>Alvo 2 (topo amplitude)</dt><dd className={fastSetupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(fastTarget2)}</dd></div>
-                  <div className="brMapRr"><dt>R:R</dt><dd className="brMapRrValue">{fmtRR(fastRR)}</dd></div>
+                  <div className="brMapRr"><dt>Risco Retorno</dt><dd className="brMapRrValue">{fmtRR(fastRR)}</dd></div>
                 </dl>
                 {fastRisk !== null && fastRisk < 0.5 && <small className="brFastMeta brCaution">Stop curto: sensível a pavios</small>}
               </>
@@ -552,7 +552,7 @@ export function BtcBrakeRadar({
                 <div><dt>Custo do erro</dt><dd>{fmtPct(risk)}</dd></div>
                 <div><dt>Alvo 50% (histórico)</dt><dd className={setupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(target50)}</dd></div>
                 <div><dt>Alvo principal (histórico)</dt><dd className={setupInvalidated ? "brMuted" : "brPositive"}>{fmtPrice(target100)}</dd></div>
-                <div className="brMapRr"><dt>R:R</dt><dd className="brMapRrValue">{risk !== null && target100 !== null && entry !== null && risk > 0 ? fmtRR((target100 - entry) / (entry * risk / 100)) : "—"}</dd></div>
+                <div className="brMapRr"><dt>Risco Retorno</dt><dd className="brMapRrValue">{risk !== null && target100 !== null && entry !== null && risk > 0 ? fmtRR((target100 - entry) / (entry * risk / 100)) : "—"}</dd></div>
               </dl>
             )}
           </div>
