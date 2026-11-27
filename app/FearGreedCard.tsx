@@ -39,8 +39,8 @@ export default function FearGreedCard() {
       <div className="fngHistoryItem"><span>MÊS PASSADO</span><b className="fngBadge" id="fng-h-month-badge">—</b><em id="fng-h-month-sent">—</em></div>
     </div>
     <div className="fngTips" aria-label="Dicas de leitura do índice">
-      <div className="fngTip"><i className="fngTipBullet fngTipFear" aria-hidden="true" /><p><strong>Medo extremo:</strong><span>Comprar e realizar DCA continuamente</span></p></div>
-      <div className="fngTip"><i className="fngTipBullet fngTipGreed" aria-hidden="true" /><p><strong>Extrema ganância:</strong><span>Realizar o lucro e fazer caixa</span></p></div>
+      <div className="fngTip"><i className="fngTipBullet fngTipFear" aria-hidden="true" /><p><strong>Medo extremo:</strong><span>Acumular gradualmente via DCA.</span></p></div>
+      <div className="fngTip"><i className="fngTipBullet fngTipGreed" aria-hidden="true" /><p><strong>Extrema ganância:</strong><span>Realizar lucros parciais e reforçar o caixa</span></p></div>
     </div>
     <div className="fngFooter"><span className="fng-dot" id="fng-dot" /><span id="fng-updated">alternative.me · Atualizado: 08 de nov. de 2026</span></div>
   </article>;
