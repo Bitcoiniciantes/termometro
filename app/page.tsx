@@ -31,7 +31,6 @@ const cardNavItems = [
   { id: "radar-compra-venda", label: "Radar Compra × Venda" },
   { id: "rsi-geral", label: "RSI Geral Pro" },
   { id: "analista-digital", label: "Analista Digital" },
-  { id: "plano-tecnico", label: "Plano Técnico" },
   { id: "nexus", label: "NEXUS" },
   { id: "fng-root", label: "Fear & Greed Index" },
   { id: "radar-reversao", label: "Radar de Reversão" },
@@ -114,11 +113,6 @@ function Termometro(){
  const currency=staticAssets[ticker]?.currency??"USDT";
  const displayName=displayAsset(ticker);
  const fmt=(value:number|undefined)=>value?`${currency} ${value.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—";
- const pct=(value:number)=>currentPrice&&value?`${value>=currentPrice?"+":""}${((value/currentPrice-1)*100).toFixed(2)}%`:"—"; const entryDistance=currentPrice&&entry?(entry/currentPrice-1)*100:0,supportDistance=currentPrice&&support?(support/currentPrice-1)*100:0;
- const showPlan=!!analysis&&score>=20&&entryDistance<=15;
- const planStatus=!analysis?"SEM DADOS":score<=-20?"PRESSÃO DE VENDA":score<20?"AGUARDAR":entryDistance>15?"GATILHO DISTANTE":entryDistance>5?"EM OBSERVAÇÃO":"PRÓXIMO DO GATILHO";
- const planTone=score<=-20?"sell":score<20||entryDistance>15?"wait":"ready";
- const planMessage=!analysis?"Aguardando dados suficientes.":score<=-20?"Plano de compra suspenso: pressão vendedora predominante.":score<20?"Leitura neutra. Nenhuma entrada válida neste momento.":entryDistance>15?`Rompimento a ${entryDistance.toFixed(2)}% do preço atual; cenário ainda distante.`:entryDistance>5?`Ativo a ${entryDistance.toFixed(2)}% do gatilho; mantenha em observação.`:"Gatilho próximo; aguarde confirmação do fechamento.";
  const patternTitle=analysis&&signals[1]?.score>0?signals[1].summary:"Sem padrão confirmado";
  const label=scoreLabel(score);
  const scoreExplanation=score>=20?"Convergência positiva, com risco controlado.":score<=-20?"Pressão vendedora predominante; evite antecipar reversão.":`${score>=10?"Sinais mistos com viés positivo.":score<=-10?"Sinais mistos com viés negativo.":"Sinais equilibrados."} ${scoreDistanceLabel(score)}`;
@@ -187,7 +181,6 @@ function Termometro(){
         signals: signals.map(({ title, summary, score: signalScore, group, context }) => ({ title, summary, score: signalScore, group, context })),
       }}
     />
-    <article id="plano-tecnico" className="card levels"><Title kicker="PLANO TÉCNICO" title="Cenário condicional"/><div className={`planStatus ${planTone}`}><span>STATUS DO CENÁRIO</span><b>{planStatus}</b><p>{planMessage}</p></div>{showPlan?<><div className="level target"><span>ALVO PROJETADO</span><b>{fmt(target)}</b><small>{pct(target)}</small></div><div className="level entry"><span>ROMPIMENTO / ENTRADA CONDICIONAL</span><b>{fmt(entry)}</b><small>{entryDistance.toFixed(2)}% do preço atual</small></div><div className="level stop"><span>INVALIDAÇÃO / STOP APÓS ENTRADA</span><b>{fmt(stop)}</b><small>{pct(stop)}</small></div><div className="risk"><span>RISCO : RETORNO</span><b>{entry&&stop?"1 : 2,5":"—"}</b></div></>:<><div className="level currentLevel"><span>PREÇO ATUAL</span><b>{fmt(currentPrice)}</b><small>referência</small></div><div className={`level ${score<=-20?"stop":"entry"}`}><span>{score<=-20?"SUPORTE DE REFERÊNCIA":"RESISTÊNCIA DE REFERÊNCIA"}</span><b>{fmt(score<=-20?support:resistance)}</b><small>{score<=-20?pct(support):pct(resistance)}</small></div><div className="distanceNote"><span>{score<=-20?"DISTÂNCIA ATÉ O SUPORTE":"DISTÂNCIA ATÉ O ROMPIMENTO"}</span><b>{score<=-20?`${supportDistance.toFixed(2)}%`:`${entryDistance.toFixed(2)}%`}</b></div></>}<p className="disclaimer">Níveis usam candles concluídos, estrutura e ATR. Conteúdo educacional, não é recomendação.</p></article>
     <FearGreedCard />
   </div>
 </section>
